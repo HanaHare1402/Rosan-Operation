@@ -157,6 +157,18 @@ async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger:
   }
 }
 
+// Tính lại phân bổ đơn (sau khi sửa nhân sự / kênh / team) theo từng đợt cho tới khi hết giờ.
+async function drainRecompute(sb: ReturnType<typeof adminClient>, until: number) {
+  let total = 0;
+  while (Date.now() < until - 5000) {
+    const { data, error } = await sb.rpc("recompute_batch", { p_limit: 5000 });
+    if (error || !data?.[0]) break; // chưa chạy SQL 20261025040000_recompute_batches.sql
+    total += Number(data[0].done) || 0;
+    if (!Number(data[0].remaining)) break;
+  }
+  return total;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Chỉ nhận POST" }, 405);
@@ -229,7 +241,8 @@ Deno.serve(async (req) => {
         const { data } = await sb.rpc("purge_old_orders");
         purged = typeof data === "number" ? data : null;
       }
-      return json({ ok: true, results, purged });
+      const recomputed = await drainRecompute(sb, deadline + 20_000);
+      return json({ ok: true, results, purged, recomputed });
     }
 
     if (body.action === "refresh") {
