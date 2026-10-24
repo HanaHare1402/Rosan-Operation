@@ -187,16 +187,16 @@
     },
     staff: {
       label: "Nhân sự", table: "staff", write: () => isAdmin || isQL,
-      hint: "Khai báo marketer trên POS thuộc team nào. Đơn có tên marketer trùng (không phân biệt hoa thường) với “Tên trên POS” được tính cho người này, rồi theo team và dự án của team. Đơn không có marketer thì xét người được gán, rồi page phụ trách.",
+      hint: "Khai báo marketer trên POS thuộc team nào. Đơn được tính cho nhân sự khi mã marketer, tên marketer, hoặc mã nhân sự ở đầu tên camp (VD LONGLT) trùng một mã nhận diện (không phân biệt hoa thường); rồi theo team và dự án của team. Cách nhanh nhất: vào tab Chưa khai báo, mã marketer được điền sẵn.",
       fields: [
         { k: "name", label: "Họ tên", req: true },
-        { k: "pos_names", label: "Tên trên POS (marketer / người được gán), cách nhau dấu phẩy", type: "tags" },
+        { k: "pos_names", label: "Mã nhận diện trên POS: mã marketer, mã NV đầu tên camp (VD LONGLT), tên người được gán; cách nhau dấu phẩy", type: "tags" },
         { k: "team_id", label: "Team", type: "select", options: teamPairs, blank: "Chưa thuộc team" },
         { k: "project_id", label: "Dự án (khi chưa thuộc team)", type: "select", options: () => myProjects().map((p) => [p.id, p.name]), blank: "–" },
         { k: "pages", label: "Page phụ trách (ID hoặc tên page), cách nhau dấu phẩy", type: "tags" },
         { k: "active", label: "Trạng thái", type: "bool" },
       ],
-      cell: { pos_names: (r) => (r.pos_names || []).map((x) => `<span class="pill p-mute">${esc(x)}</span>`).join(" ") || '<span class="muted">–</span>', pages: (r) => esc((r.pages || []).join(", ")) || '<span class="muted">–</span>', team_id: (r) => esc(teamLabel(byId(C.teams, r.team_id)) || "–"), project_id: (r) => esc(projName(r.project_id) || "") },
+      cell: { pos_names: (r) => (r.pos_names || []).map((x) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(x) ? `<span class="pill p-mute mono" title="${esc(x)}">mã ${esc(x.slice(0, 8))}…</span>` : `<span class="pill p-mute">${esc(x)}</span>`).join(" ") || '<span class="muted">–</span>', pages: (r) => esc((r.pages || []).join(", ")) || '<span class="muted">–</span>', team_id: (r) => esc(teamLabel(byId(C.teams, r.team_id)) || "–"), project_id: (r) => esc(projName(r.project_id) || "") },
     },
     markets: {
       label: "Thị trường", table: "markets", write: () => isAdmin,
@@ -286,7 +286,7 @@
   async function refreshUnmappedCount() {
     const { data } = await sb.rpc("admin_unmapped");
     unmapped = data || [];
-    const n = unmapped.filter((u) => u.kind === "marketer" || u.kind === "source").length;
+    const n = unmapped.filter((u) => u.kind === "marketer" || u.kind === "utm" || u.kind === "source").length;
     $("#unmappedCnt").textContent = n; $("#unmappedCnt").hidden = !n;
   }
   async function loadUnmapped() {
@@ -294,14 +294,15 @@
     if (error) { $("#unmapped").innerHTML = `<p class="neg">${esc(error.message)}</p>`; return; }
     await refreshUnmappedCount();
     const part = (kind) => unmapped.filter((u) => u.kind === kind);
-    const mk = part("marketer"), src = part("source"), nn = part("no_name"), ns = part("no_source");
+    const mk = part("marketer").concat(part("utm")), src = part("source"), nn = part("no_name"), ns = part("no_source");
     const chOpts = opts(C.channels.map((c) => [c.id, c.name]), "", "Chọn kênh");
     $("#unmapped").innerHTML = `
-      <h2 style="margin-top:4px">Marketer / người được gán chưa khai báo <span class="muted" style="font-weight:400">(${mk.length})</span></h2>
-      <div class="tw"><table><thead><tr><th class="l">Tên trên POS</th><th>Số đơn</th><th class="l">Đơn gần nhất</th><th class="l">Gán vào nhân sự có sẵn</th><th></th></tr></thead><tbody>
-      ${mk.map((u) => `<tr><td class="l"><b>${esc(u.value)}</b></td><td>${nf.format(u.orders)}</td><td class="l muted">${when(u.last_at)}</td>
-        <td class="l"><select class="mapStaff" data-v="${esc(u.value)}">${opts(C.staff.map((s) => [s.id, s.name + (s.team_id ? " · " + (byId(C.teams, s.team_id)?.name || "") : "")]), "", "Chọn nhân sự…")}</select></td>
-        <td class="actions"><button class="lnk" data-newstaff="${esc(u.value)}">Khai báo nhân sự mới</button></td></tr>`).join("") || '<tr><td colspan="5" class="l muted">Không còn marketer nào chưa khai báo.</td></tr>'}
+      <h2 style="margin-top:4px">Marketer chưa khai báo <span class="muted" style="font-weight:400">(${mk.length})</span></h2>
+      <p class="hint">Gán theo mã marketer trên POS nên đổi tên, thêm emoji trên POS vẫn khớp. Đơn không có marketer thì xét mã nhân sự ở đầu tên camp (VD <code>LONGLT</code> trong “LONGLT - BÚT ĐÁNH DẤU - …”).</p>
+      <div class="tw"><table><thead><tr><th class="l">Marketer trên POS</th><th>Số đơn</th><th class="l">Đơn gần nhất</th><th class="l">Gán vào nhân sự có sẵn</th><th></th></tr></thead><tbody>
+      ${mk.map((u) => `<tr><td class="l"><b>${esc(u.value)}</b><div class="muted mono" style="font-size:11.5px">${u.kind === "utm" ? "mã trong tên camp" : "mã " + esc(String(u.key).slice(0, 8)) + "…"}</div></td><td>${nf.format(u.orders)}</td><td class="l muted">${when(u.last_at)}</td>
+        <td class="l"><select class="mapStaff" data-k="${esc(u.key)}" data-v="${esc(u.value)}">${opts(C.staff.map((s) => [s.id, s.name + (s.team_id ? " · " + (byId(C.teams, s.team_id)?.name || "") : "")]), "", "Chọn nhân sự…")}</select></td>
+        <td class="actions"><button class="lnk" data-newstaff="${esc(u.key)}" data-name="${esc(u.value)}">Khai báo nhân sự mới</button></td></tr>`).join("") || '<tr><td colspan="5" class="l muted">Không còn marketer nào chưa khai báo.</td></tr>'}
       </tbody></table></div>
       <h2 style="margin-top:20px">Nguồn đơn chưa thuộc kênh nào <span class="muted" style="font-weight:400">(${src.length})</span></h2>
       <div class="tw"><table><thead><tr><th class="l">Nguồn đơn trên POS</th><th>Số đơn</th><th class="l">Gán vào kênh</th></tr></thead><tbody>
@@ -313,7 +314,7 @@
   $("#unmapped").addEventListener("change", async (e) => {
     const ms = e.target.closest(".mapStaff"); if (ms && ms.value) {
       const s = byId(C.staff, ms.value), name = ms.dataset.v;
-      const { data, error } = await sb.from("staff").update({ pos_names: [...new Set([...(s.pos_names || []), name])] }).eq("id", s.id).select("id");
+      const { data, error } = await sb.from("staff").update({ pos_names: [...new Set([...(s.pos_names || []), ms.dataset.k])] }).eq("id", s.id).select("id");
       say($("#unmappedMsg"), error ? "Chưa gán được: " + esc(error.message) : !data.length ? "Không có quyền sửa nhân sự này." : `Đã gán “${esc(name)}” cho ${esc(s.name)}.`, error || !data.length ? "neg" : "pos");
       await reloadCatalog(); loadUnmapped(); return;
     }
@@ -328,7 +329,9 @@
     const n = e.target.closest("[data-newstaff]"), p = e.target.closest("[data-newpage]");
     if (!n && !p) return;
     curCat = "staff"; editing = null;
-    prefill = n ? { name: n.dataset.newstaff, pos_names: [n.dataset.newstaff], active: true } : { name: "", pages: [p.dataset.newpage], active: true };
+    // Bỏ emoji, ký hiệu khỏi tên POS để làm họ tên gợi ý.
+    const clean = (x) => String(x || "").replace(/[^\p{L}\p{N}\s.'-]/gu, "").replace(/\s+/g, " ").trim();
+    prefill = n ? { name: clean(n.dataset.name), pos_names: [n.dataset.newstaff], active: true } : { name: "", pages: [p.dataset.newpage], active: true };
     go("danhmuc"); $("#catForm") && $("#catForm").scrollIntoView({ block: "center" });
   });
   $("#reloadUnmapped").onclick = loadUnmapped;
