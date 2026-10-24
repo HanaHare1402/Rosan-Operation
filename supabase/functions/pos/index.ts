@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
         if (Date.now() > deadline) { results.push({ shop: s.name, status: "skipped", error: "Hết thời gian, lần sau làm tiếp" }); continue; }
         results.push(await syncShop(sb, s, trigger, deadline));
       }
-      // Lịch 15 phút dọn đơn cũ hơn mốc (nếu admin bật) và nhật ký cũ.
+      // Lịch tự động dọn đơn cũ hơn mốc (nếu admin bật) và nhật ký cũ.
       let purged: number | null = null;
       if (trigger === "cron" || body.purge) {
         const { data } = await sb.rpc("purge_old_orders");
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
     if (body.action === "refresh") {
       if (!role) return json({ error: "Tài khoản chưa được cấp quyền" }, 403);
       const fresh = new Date(Date.now() - REFRESH_MIN_GAP_MS).toISOString();
-      // Chỉ shop đã kéo xong lần đầu; shop đang kéo dở lịch sử để lịch 15 phút làm tiếp.
+      // Chỉ shop đã kéo xong lần đầu; shop đang kéo dở lịch sử để lịch tự động làm tiếp.
       const { data: shops, error } = await sb.from("pos_shops").select("*")
         .eq("active", true).not("api_key_secret_id", "is", null)
         .is("sync_window_start", null).not("last_synced_at", "is", null).lt("last_synced_at", fresh);
