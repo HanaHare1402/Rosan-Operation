@@ -48,7 +48,7 @@ const num = (v: unknown) => (v == null || v === "" || isNaN(Number(v)) ? null : 
 function mapOrder(shopId: string, o: any) {
   const items = Array.isArray(o.items) ? o.items.map((i: any) => ({
     name: i.variation_info?.name ?? i.product_name ?? i.name ?? null,
-    code: i.variation_info?.display_id ?? i.product_display_id ?? i.display_id ?? null,
+    code: i.variation_info?.product_display_id || i.variation_info?.display_id || i.product_display_id || null,
     product_id: i.product_id ?? null,
     variation_id: i.variation_id ?? null,
     quantity: num(i.quantity),
