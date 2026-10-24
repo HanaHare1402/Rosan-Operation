@@ -1,0 +1,8 @@
+# Chỉ phần cấu hình Edge Functions cần cho `supabase functions deploy`.
+# Hai function tự kiểm tra người gọi (JWT người dùng hoặc mã bí mật của lịch đồng bộ),
+# nên tắt kiểm tra JWT mặc định để pg_cron gọi được function pos.
+[functions.admin-users]
+verify_jwt = false
+
+[functions.pos]
+verify_jwt = false

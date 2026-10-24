@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Đăng nhập · Team Vương</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="authwrap">
+  <div class="authcard">
+    <div class="brand" style="margin:0 0 14px">Team Vương · Phil</div>
+
+    <div id="unconfigured" hidden>
+      <h1>Chưa nối Supabase</h1>
+      <p class="notice">Mở file <code>config.js</code> trong repo, điền <code>SUPABASE_URL</code> và <code>SUPABASE_ANON_KEY</code> lấy ở Supabase → Project Settings → API, rồi đẩy lên lại. Hướng dẫn đầy đủ trong README.</p>
+    </div>
+
+    <div id="loginBox" hidden>
+      <h1>Đăng nhập</h1>
+      <p class="sub">Tài khoản do admin cấp.</p>
+      <form id="loginForm" novalidate>
+        <label>Email<input id="email" type="email" autocomplete="username" required></label>
+        <label>Mật khẩu<input id="password" type="password" autocomplete="current-password" required></label>
+        <button class="btn" type="submit" id="loginBtn">Đăng nhập</button>
+        <div class="msg" id="loginMsg" role="status"></div>
+        <button class="lnk" type="button" id="forgot" style="align-self:flex-start">Quên mật khẩu?</button>
+      </form>
+    </div>
+
+    <div id="recoverBox" hidden>
+      <h1>Đặt mật khẩu mới</h1>
+      <form id="recoverForm" novalidate>
+        <label>Mật khẩu mới (từ 8 ký tự)<input id="newPw" type="password" autocomplete="new-password" minlength="8" required></label>
+        <button class="btn" type="submit">Lưu mật khẩu</button>
+        <div class="msg" id="recoverMsg" role="status"></div>
+      </form>
+    </div>
+
+    <div id="pendingBox" hidden>
+      <h1>Chờ cấp quyền</h1>
+      <p class="sub">Tài khoản <b id="pendingEmail"></b> đã đăng nhập nhưng chưa được admin cấp vai trò. Nhờ admin vào trang Quản trị để cấp quyền, rồi tải lại trang này.</p>
+      <div class="formrow"><button class="btn" type="button" onclick="location.reload()">Tải lại</button><button class="btn ghost" type="button" id="logout">Đăng xuất</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script>
+(async function () {
+  const $ = (s) => document.querySelector(s);
+  const show = (id) => ["unconfigured", "loginBox", "recoverBox", "pendingBox"].forEach((x) => ($("#" + x).hidden = x !== id));
+  const say = (el, text, cls) => { el.className = "msg " + (cls || ""); el.textContent = text; };
+  if (!Auth.configured || !Auth.sb) { show("unconfigured"); return; }
+  const sb = Auth.sb;
+  const next = new URLSearchParams(location.search).get("next") || "index.html";
+  const safeNext = /^[\w.-]+\.html(#[\w-]*)?$/.test(next) ? next : "index.html";
+
+  async function routeIn() {
+    let p = null;
+    try { p = await Auth.loadProfile(); }
+    catch (e) { show("loginBox"); say($("#loginMsg"), "Đăng nhập được nhưng không đọc được hồ sơ tài khoản: " + e.message + ". Kiểm tra đã chạy file migration trên Supabase chưa.", "neg"); return; }
+    if (!p) { show("loginBox"); return; }
+    if (!p.role) { $("#pendingEmail").textContent = p.email; show("pendingBox"); return; }
+    location.replace(safeNext);
+  }
+
+  let recovering = /type=recovery/.test(location.hash);
+  sb.auth.onAuthStateChange((ev) => { if (ev === "PASSWORD_RECOVERY") { recovering = true; show("recoverBox"); } });
+  if (recovering) show("recoverBox"); else await routeIn();
+
+  $("#loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("#email").value.trim(), password = $("#password").value;
+    if (!email || !password) { say($("#loginMsg"), "Nhập email và mật khẩu.", "neg"); return; }
+    $("#loginBtn").disabled = true; say($("#loginMsg"), "Đang đăng nhập…", "muted");
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    $("#loginBtn").disabled = false;
+    if (error) { say($("#loginMsg"), error.message === "Invalid login credentials" ? "Sai email hoặc mật khẩu." : error.message, "neg"); return; }
+    say($("#loginMsg"), "", ""); await routeIn();
+  });
+
+  $("#forgot").addEventListener("click", async () => {
+    const email = $("#email").value.trim();
+    if (!email) { say($("#loginMsg"), "Nhập email ở ô trên rồi bấm lại “Quên mật khẩu”.", "neg"); $("#email").focus(); return; }
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    say($("#loginMsg"), error ? error.message : "Đã gửi link đặt lại mật khẩu vào email (nếu email có tài khoản).", error ? "neg" : "pos");
+  });
+
+  $("#recoverForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const pw = $("#newPw").value;
+    if (pw.length < 8) { say($("#recoverMsg"), "Mật khẩu từ 8 ký tự.", "neg"); return; }
+    const { error } = await sb.auth.updateUser({ password: pw });
+    if (error) { say($("#recoverMsg"), error.message, "neg"); return; }
+    history.replaceState(null, "", location.pathname);
+    say($("#recoverMsg"), "Đã đổi mật khẩu.", "pos"); recovering = false; setTimeout(routeIn, 600);
+  });
+
+  $("#logout").addEventListener("click", () => Auth.signOut());
+})();
+</script>
+</body>
+</html>
