@@ -128,9 +128,13 @@
           <div class="form">
             <label>Trang tính<select id="cmSheet"></select></label>
             <label>Dòng tiêu đề<input id="cmHeader" type="number" min="1" step="1"></label>
-            <label>Cột mã sản phẩm (mã trên POS)<select id="cmCode"></select></label>
+            <label>Cột mã sản phẩm<select id="cmCode"></select></label>
+            <label>Cột tên tiếng Anh (khớp tên trên POS)<select id="cmNameEn"></select></label>
             <label>Cột tên sản phẩm<select id="cmName"></select></label>
-            <label>Cột ngày nhập<select id="cmDate"></select></label>
+            <label>Cột ngày nhập / về hàng<select id="cmDate"></select></label>
+            <label>Ngày dự phòng khi ô trên trống<select id="cmDate2"></select></label>
+            <label>Cột trạng thái<select id="cmStatus"></select></label>
+            <label>Chỉ lấy dòng có trạng thái chứa<input id="cmStatusVal" type="text" placeholder="VD: đã về"></label>
             <label>Cột số lượng<select id="cmQty"></select></label>
             <label>Cột đơn giá nhập / 1 sản phẩm<select id="cmCost"></select></label>
             <label>Hoặc cột thành tiền (chia cho số lượng)<select id="cmTotal"></select></label>
@@ -140,13 +144,13 @@
           </div>
           <p class="hint" style="margin:10px 0 6px" id="cmSummary"></p>
           <div class="tw"><table id="cmPreview"></table></div>
-          <div class="formrow"><button class="btn" type="button" id="cmImport">Tải lên</button><label style="display:flex;gap:6px;align-items:center;font-size:12.5px"><input type="checkbox" id="cmReplace"> Xoá toàn bộ dữ liệu nhập hàng cũ trước khi tải</label><span class="fmsg" id="cmMsg"></span></div>
+          <div class="formrow"><button class="btn" type="button" id="cmImport">Tải lên</button><label style="display:flex;gap:6px;align-items:center;font-size:12.5px"><input type="checkbox" id="cmReplace" checked> Thay toàn bộ dữ liệu nhập hàng cũ bằng file này (nên bật khi tải cả file)</label><span class="fmsg" id="cmMsg"></span></div>
         </div>
       </div>
       <div class="card">
-        <div class="cardhead"><div><h2>Giá vốn hiện tại</h2><p class="hint">Giá của lần nhập gần nhất. Dòng đỏ: sản phẩm đã bán trong 30 ngày mà chưa có dữ liệu nhập hàng (giá vốn tính bằng 0).</p></div><input type="search" id="costQ" placeholder="Tìm mã hoặc tên"></div>
+        <div class="cardhead"><div><h2>Giá vốn sản phẩm đang bán</h2><p class="hint">Sản phẩm bán trong 30 ngày, giá của lần nhập gần nhất. Khớp với file nhập hàng theo: mã gán tay → mã trùng → tên tiếng Anh trùng tên trên POS. Dòng đỏ là chưa khớp (giá vốn tính bằng 0): gõ mã trong file nhập hàng vào ô “Mã trong file” rồi bấm Enter.</p></div><input type="search" id="costQ" placeholder="Tìm mã hoặc tên"></div>
         <div class="msg" id="costMsg" role="status"></div>
-        <div class="tw"><table><thead><tr><th class="l">Mã</th><th class="l">Sản phẩm</th><th>Giá vốn hiện tại (VNĐ)</th><th class="l">Lần nhập gần nhất</th><th>SL nhập</th><th>Số lần nhập</th><th>Đã bán 30 ngày</th></tr></thead><tbody id="costRows"><tr><td colspan="7" class="l muted">Đang tải…</td></tr></tbody></table></div>
+        <div class="tw"><table><thead><tr><th class="l">Mã POS</th><th class="l">Sản phẩm</th><th class="l">Mã trong file</th><th>Giá vốn hiện tại (VNĐ)</th><th class="l">Lần nhập gần nhất</th><th>SL nhập</th><th>Số lần nhập</th><th>Đã bán 30 ngày</th></tr></thead><tbody id="costRows"><tr><td colspan="8" class="l muted">Đang tải…</td></tr></tbody></table></div>
       </div>
     </section>
 
@@ -716,17 +720,29 @@
   let costList = [], wb = null, grid = [];
   async function loadCosts() {
     const { data, error } = await sb.rpc("admin_cost_overview");
-    if (error) { $("#costRows").innerHTML = `<tr><td colspan="7" class="l neg">${esc(error.message)}. Kiểm tra đã chạy SQL 20261025050000_cost.sql chưa.</td></tr>`; return; }
+    if (error) { $("#costRows").innerHTML = `<tr><td colspan="8" class="l neg">${esc(error.message)}. Kiểm tra đã chạy SQL 20261025060000_cost_match.sql chưa.</td></tr>`; return; }
     costList = data; renderCosts();
   }
   function renderCosts() {
     const q = ($("#costQ").value || "").toLowerCase();
     const rows = costList.filter((r) => !q || (String(r.code) + " " + (r.name || "")).toLowerCase().includes(q));
-    const missing = costList.filter((r) => r.unit_cost_vnd == null && +r.sold_30d > 0).length;
+    const missing = costList.filter((r) => r.unit_cost_vnd == null).length;
     say($("#costMsg"), missing ? `${missing} sản phẩm đã bán trong 30 ngày chưa có giá vốn.` : costList.length ? "Mọi sản phẩm đã bán trong 30 ngày đều có giá vốn." : "", missing ? "neg" : "pos");
-    $("#costRows").innerHTML = rows.map((r) => `<tr${r.unit_cost_vnd == null && +r.sold_30d > 0 ? ' style="background:var(--bad-soft)"' : ""}><td class="l mono">${esc(r.code)}</td><td class="l" style="white-space:normal">${esc(r.name || "")}</td><td>${r.unit_cost_vnd != null ? nf.format(Math.round(r.unit_cost_vnd)) : '<span class="pill p-bad">Chưa có</span>'}</td><td class="l">${r.last_date ? fmtDate(new Date(r.last_date + "T00:00:00")) : "–"}</td><td>${r.last_qty != null ? nf.format(r.last_qty) : "–"}</td><td>${nf.format(r.purchases)}</td><td>${nf.format(r.sold_30d)}</td></tr>`).join("") || '<tr><td colspan="7" class="l muted">Chưa có dữ liệu.</td></tr>';
+    $("#costRows").innerHTML = rows.map((r) => `<tr${r.unit_cost_vnd == null ? ' style="background:var(--bad-soft)"' : ""}><td class="l mono">${esc(r.code)}</td><td class="l" style="white-space:normal">${esc(r.name || "")}</td>
+      <td class="l">${canUpload ? `<input class="aliasIn mono" data-code="${esc(r.code)}" type="text" value="${esc(r.alias || "")}" placeholder="${esc(r.cost_code || "VD: HT5450")}" style="width:110px">` : esc(r.alias || r.cost_code || "")}</td>
+      <td>${r.unit_cost_vnd != null ? nf.format(Math.round(r.unit_cost_vnd)) : '<span class="pill p-bad">Chưa có</span>'}</td><td class="l">${r.last_date ? fmtDate(new Date(r.last_date + "T00:00:00")) : "–"}</td><td>${r.last_qty != null ? nf.format(r.last_qty) : "–"}</td><td>${nf.format(r.purchases)}</td><td>${nf.format(r.sold_30d)}</td></tr>`).join("") || '<tr><td colspan="8" class="l muted">Chưa có dữ liệu.</td></tr>';
   }
   $("#costQ").addEventListener("input", renderCosts);
+  // Gán tay mã POS → mã trong file nhập hàng (bỏ trống = bỏ gán).
+  $("#costRows").addEventListener("change", async (e) => {
+    const inp = e.target.closest(".aliasIn"); if (!inp) return;
+    const code = inp.dataset.code, v = inp.value.trim();
+    const { error } = v ? await sb.from("product_alias").upsert({ pos_key: code.toLowerCase(), pos_code: code, cost_code: v, updated_at: new Date().toISOString() })
+                        : await sb.from("product_alias").delete().eq("pos_key", code.toLowerCase());
+    if (error) { say($("#costMsg"), "Chưa lưu được: " + esc(error.message), "neg"); return; }
+    say($("#costMsg"), v ? `Đã gán ${esc(code)} → ${esc(v)}. Đang tính lại giá vốn…` : `Đã bỏ gán ${esc(code)}.`, "pos");
+    await loadCosts(); drainRecompute($("#costMsg"), loadCosts);
+  });
 
   // Đọc số kiểu Việt Nam (38.000 / 38,5) lẫn kiểu Anh (38,000 / 38.5).
   function parseNum(v) {
@@ -742,26 +758,41 @@
   function parseDate(v) {
     if (v instanceof Date && !isNaN(v)) return new Date(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate()));
     if (typeof v === "number" && v > 20000 && v < 80000) return new Date(Date.UTC(1899, 11, 30) + v * 86400000);
-    const s = String(v ?? "").trim(); let m;
+    const s = String(v ?? "").replace(/\s+/g, ""); let m;
     if ((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/))) { const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return new Date(Date.UTC(y, +m[2] - 1, +m[1])); }
     if ((m = s.match(/^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})/))) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
     return null;
   }
   const iso = (d) => d.toISOString().slice(0, 10);
-  const norm = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().trim();
+  const norm = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().replace(/\s+/g, " ").trim();
+  // Thứ tự quan trọng: cột cụ thể đoán trước, cột chung chung đoán sau.
   const GUESS = {
-    cmCode: ["ma sp", "ma san pham", "sku", "ma hang", "product code", "code", "ma"],
-    cmName: ["ten sp", "ten san pham", "ten hang", "product name", "san pham", "ten"],
-    cmDate: ["ngay nhap", "ngay", "date", "thoi gian"],
-    cmQty: ["so luong", "sl", "qty", "quantity"],
-    cmCost: ["don gia", "gia nhap", "gia von", "unit cost", "unit price", "gia/sp", "gia"],
-    cmTotal: ["thanh tien", "tong tien", "total", "amount"],
+    cmCode: ["ma san pham", "ma sp", "sku", "ma hang", "product code", "code"],
+    cmNameEn: ["ten san pham tieng anh", "tieng anh", "english name", "name en"],
+    cmName: ["ten san pham tieng viet", "ten san pham", "ten sp", "ten hang", "product name"],
+    cmDate: ["ngay ve hang", "ngay nhap kho", "ngay nhap", "ngay ve", "date"],
+    cmDate2: ["ngay dat hang", "ngay dat"],
+    cmStatus: ["trang thai", "status"],
+    cmQty: ["so luong dat", "so luong nhap", "so luong", "sl", "qty", "quantity"],
+    cmCost: ["don gia (vnd)", "don gia vnd", "don gia", "gia von", "gia nhap (vnd)", "unit cost"],
+    cmTotal: ["tong thanh toan", "thanh tien", "tong tien", "total", "amount"],
     cmSupplier: ["nha cung cap", "ncc", "supplier"],
   };
   function guessCol(headers, keys, used) {
     for (const k of keys) { const i = headers.findIndex((h, j) => !used.has(j) && norm(h) === k); if (i >= 0) return i; }
     for (const k of keys) { const i = headers.findIndex((h, j) => !used.has(j) && norm(h).includes(k)); if (i >= 0) return i; }
     return -1;
+  }
+  // Chọn trang tính có nhiều cột khớp nhất (mã, ngày, đơn giá...).
+  function pickSheet() {
+    let best = wb.SheetNames[0], score = -1;
+    for (const n of wb.SheetNames) {
+      const g = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: "", raw: true }).slice(0, 10);
+      const words = g.flat().map(norm);
+      const sc = ["ma san pham", "don gia", "ngay", "so luong", "tieng anh"].filter((k) => words.some((w) => w.includes(k))).length;
+      if (sc > score) { score = sc; best = n; }
+    }
+    return best;
   }
   function loadSheet() {
     const ws = wb.Sheets[$("#cmSheet").value];
@@ -770,6 +801,9 @@
     let h = grid.findIndex((r) => r.filter((c) => typeof c === "string" && c.trim()).length >= 3);
     $("#cmHeader").value = (h < 0 ? 0 : h) + 1;
     mapCols(true);
+    // Có cột trạng thái thì mặc định chỉ lấy hàng đã về.
+    $("#cmStatusVal").value = parseInt($("#cmStatus").value, 10) >= 0 ? "đã về" : "";
+    preview();
   }
   function mapCols(guess) {
     const hi = Math.max(0, (parseInt($("#cmHeader").value, 10) || 1) - 1);
@@ -785,28 +819,31 @@
   function readRows() {
     const hi = Math.max(0, (parseInt($("#cmHeader").value, 10) || 1) - 1);
     const col = (id) => parseInt($("#" + id).value, 10);
-    const c = { code: col("cmCode"), name: col("cmName"), date: col("cmDate"), qty: col("cmQty"), cost: col("cmCost"), total: col("cmTotal"), sup: col("cmSupplier") };
+    const c = { code: col("cmCode"), name: col("cmName"), nameEn: col("cmNameEn"), date: col("cmDate"), date2: col("cmDate2"), status: col("cmStatus"), qty: col("cmQty"), cost: col("cmCost"), total: col("cmTotal"), sup: col("cmSupplier") };
+    const stWant = norm($("#cmStatusVal").value);
+    let skipped = 0;
     const rate = parseNum($("#cmRate").value) || 1, cur = $("#cmCur").value;
     const ok = [], bad = [];
     grid.slice(hi + 1).forEach((r, i) => {
       if (!r.some((x) => String(x).trim())) return;
+      if (stWant && c.status >= 0 && !norm(r[c.status]).includes(stWant)) { skipped++; return; }
       const code = c.code >= 0 ? String(r[c.code]).trim() : "";
-      const date = c.date >= 0 ? parseDate(r[c.date]) : null;
+      const date = (c.date >= 0 ? parseDate(r[c.date]) : null) || (c.date2 >= 0 ? parseDate(r[c.date2]) : null);
       const qty = c.qty >= 0 ? parseNum(r[c.qty]) : NaN;
       let cost = c.cost >= 0 ? parseNum(r[c.cost]) : NaN;
       if (!(cost > 0) && c.total >= 0 && qty > 0) cost = parseNum(r[c.total]) / qty;
       const why = !code ? "thiếu mã" : !date ? "ngày không đọc được" : !(cost > 0) ? "thiếu đơn giá" : "";
       if (why) { bad.push({ row: hi + 2 + i, why }); return; }
-      ok.push({ code, name: c.name >= 0 ? String(r[c.name]).trim() || null : null, purchase_date: iso(date), qty: qty > 0 ? qty : null,
+      ok.push({ code, name: c.name >= 0 ? String(r[c.name]).trim() || null : null, name_en: c.nameEn >= 0 ? String(r[c.nameEn]).trim() || null : null, purchase_date: iso(date), qty: qty > 0 ? qty : null,
         unit_cost: Math.round(cost * 10000) / 10000, currency: cur, unit_cost_vnd: Math.round(cost * rate * 100) / 100,
         supplier: c.sup >= 0 ? String(r[c.sup]).trim() || null : null });
     });
-    return { ok, bad };
+    return { ok, bad, skipped };
   }
   function preview() {
-    const { ok, bad } = readRows();
-    $("#cmSummary").innerHTML = `Đọc được <b>${nf.format(ok.length)}</b> dòng nhập hàng${bad.length ? `, bỏ qua <span class="neg">${nf.format(bad.length)} dòng</span> (${esc(bad.slice(0, 5).map((b) => "dòng " + b.row + ": " + b.why).join("; "))}${bad.length > 5 ? "…" : ""})` : ""}. Xem trước 8 dòng đầu:`;
-    $("#cmPreview").innerHTML = `<thead><tr><th class="l">Mã</th><th class="l">Tên</th><th class="l">Ngày nhập</th><th>SL</th><th>Đơn giá</th><th>Đơn giá (VNĐ)</th></tr></thead><tbody>${ok.slice(0, 8).map((r) => `<tr><td class="l mono">${esc(r.code)}</td><td class="l">${esc(r.name || "")}</td><td class="l">${r.purchase_date.split("-").reverse().join("/")}</td><td>${r.qty != null ? nf.format(r.qty) : "–"}</td><td>${nf.format(r.unit_cost)} ${esc(r.currency)}</td><td>${nf.format(r.unit_cost_vnd)}</td></tr>`).join("")}</tbody>`;
+    const { ok, bad, skipped } = readRows();
+    $("#cmSummary").innerHTML = `Đọc được <b>${nf.format(ok.length)}</b> dòng nhập hàng${skipped ? `, bỏ ${nf.format(skipped)} dòng không đúng trạng thái` : ""}${bad.length ? `, bỏ qua <span class="neg">${nf.format(bad.length)} dòng</span> (${esc(bad.slice(0, 5).map((b) => "dòng " + b.row + ": " + b.why).join("; "))}${bad.length > 5 ? "…" : ""})` : ""}. Xem trước 8 dòng đầu:`;
+    $("#cmPreview").innerHTML = `<thead><tr><th class="l">Mã</th><th class="l">Tên</th><th class="l">Tên tiếng Anh</th><th class="l">Ngày nhập</th><th>SL</th><th>Đơn giá</th><th>Đơn giá (VNĐ)</th></tr></thead><tbody>${ok.slice(0, 8).map((r) => `<tr><td class="l mono">${esc(r.code)}</td><td class="l">${esc(r.name || "")}</td><td class="l">${esc(r.name_en || "")}</td><td class="l">${r.purchase_date.split("-").reverse().join("/")}</td><td>${r.qty != null ? nf.format(r.qty) : "–"}</td><td>${nf.format(r.unit_cost)} ${esc(r.currency)}</td><td>${nf.format(r.unit_cost_vnd)}</td></tr>`).join("")}</tbody>`;
   }
   async function hashRow(r) {
     const s = [r.code.toLowerCase(), r.purchase_date, r.qty ?? "", r.unit_cost, r.currency, r.supplier ?? ""].join("|");
@@ -819,7 +856,8 @@
     fr.onload = (e) => {
       try {
         wb = /\.csv$/i.test(file.name) ? XLSX.read(new TextDecoder("utf-8").decode(e.target.result).replace(/^\ufeff/, ""), { type: "string", cellDates: true }) : XLSX.read(new Uint8Array(e.target.result), { type: "array", cellDates: true });
-        $("#cmSheet").innerHTML = wb.SheetNames.map((n) => `<option>${esc(n)}</option>`).join("");
+        const best = pickSheet();
+        $("#cmSheet").innerHTML = wb.SheetNames.map((n) => `<option ${n === best ? "selected" : ""}>${esc(n)}</option>`).join("");
         $("#costMap").hidden = false; say($("#cmMsg"), "", ""); loadSheet();
       } catch (err) { say($("#cmMsg"), "Không đọc được file: " + esc(err.message), "neg"); }
     };
@@ -832,11 +870,12 @@
   ["dragover", "dragleave", "drop"].forEach((ev) => $("#costDrop").addEventListener(ev, (e) => { e.preventDefault(); $("#costDrop").classList.toggle("over", ev === "dragover"); if (ev === "drop" && e.dataTransfer.files[0]) openFile(e.dataTransfer.files[0]); }));
   $("#cmSheet").addEventListener("change", loadSheet);
   $("#cmHeader").addEventListener("change", () => mapCols(true));
-  ["#cmCode", "#cmName", "#cmDate", "#cmQty", "#cmCost", "#cmTotal", "#cmSupplier", "#cmRate"].forEach((id) => $(id).addEventListener("change", preview));
+  ["#cmCode", "#cmName", "#cmNameEn", "#cmDate", "#cmDate2", "#cmStatus", "#cmQty", "#cmCost", "#cmTotal", "#cmSupplier", "#cmRate"].forEach((id) => $(id).addEventListener("change", preview));
+  $("#cmStatusVal").addEventListener("input", preview);
   $("#cmImport").onclick = async () => {
     const { ok } = readRows();
     if (!ok.length) { say($("#cmMsg"), "Không có dòng hợp lệ để tải.", "neg"); return; }
-    if ($("#cmReplace").checked && !confirm("Xoá toàn bộ dữ liệu nhập hàng cũ rồi tải file này?")) return;
+    if ($("#cmReplace").checked && !confirm(`Thay toàn bộ dữ liệu nhập hàng cũ bằng ${ok.length} dòng trong file này?`)) return;
     $("#cmImport").disabled = true;
     try {
       if ($("#cmReplace").checked) { const { error } = await sb.from("purchases").delete().gte("id", 0); if (error) throw error; }
