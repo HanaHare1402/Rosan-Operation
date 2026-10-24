@@ -32,6 +32,16 @@
   };
   const DEFAULT_SCOPE = { admin: "all", ke_toan: "all", quan_ly: "project", van_don: "project", kho: "project", truong_team: "team", marketing: "self", sale: "self" };
 
+  // Tab nào của trang Quản trị mỗi vai trò được vào.
+  const ADMIN_TABS = {
+    danhmuc: ["admin", "quan_ly"],
+    chuakhaibao: ["admin", "quan_ly"],
+    giavon: ["admin", "quan_ly", "ke_toan"],
+    pos: ["admin"],
+    taikhoan: ["admin"],
+    nhatky: ["admin"],
+  };
+
   const configured = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
   const sb = configured && window.supabase ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
 
@@ -75,5 +85,5 @@
 
   async function signOut() { if (sb) await sb.auth.signOut(); location.replace("login.html"); }
 
-  window.Auth = { sb, configured, ROLES, VIEWS, SCOPES, DEFAULT_SCOPE, loadCatalog, loadProfile, requireAuth, callFn, signOut };
+  window.Auth = { sb, configured, ROLES, VIEWS, ADMIN_TABS, SCOPES, DEFAULT_SCOPE, loadCatalog, loadProfile, requireAuth, callFn, signOut };
 })();

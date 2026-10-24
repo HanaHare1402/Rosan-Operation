@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Đăng nhập · Team Vương</title>
+<title>Đăng nhập · Rosan Operation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -11,8 +11,21 @@
 </head>
 <body>
 <div class="authwrap">
+  <section class="auth-side" aria-hidden="true">
+    <div class="brand-row" style="padding:0"><div class="logo">RO</div><div><div class="brand" style="color:#fff">Rosan Operation</div><div class="brand-sub" style="color:#a8dccb">Team Vương · Philippines</div></div></div>
+    <div>
+      <h2>Số liệu vận hành, cập nhật từ POS mỗi lần cậu mở trang.</h2>
+      <ul>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Doanh số, đơn, tỷ lệ hoàn theo dự án, team, nhân sự</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Giá vốn theo giá nhập gần nhất, lợi nhuận gộp</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Mỗi người chỉ thấy phần số liệu được phân quyền</li>
+      </ul>
+    </div>
+    <div class="foot">Tài khoản do admin cấp. Quên mật khẩu? Dùng liên kết ở form bên cạnh.</div>
+  </section>
+  <main class="auth-main">
   <div class="authcard">
-    <div class="brand" style="margin:0 0 14px">Team Vương · Phil</div>
+    <div class="brand-row mobile-brand" style="padding:0 0 18px"><div class="logo">RO</div><div><div class="brand">Rosan Operation</div><div class="brand-sub">Team Vương · Philippines</div></div></div>
 
     <div id="unconfigured" hidden>
       <h1>Chưa nối Supabase</h1>
@@ -21,9 +34,9 @@
 
     <div id="loginBox" hidden>
       <h1>Đăng nhập</h1>
-      <p class="sub">Tài khoản do admin cấp.</p>
+      <p class="sub">Dùng email và mật khẩu admin cấp cho cậu.</p>
       <form id="loginForm" novalidate>
-        <label>Email<input id="email" type="email" autocomplete="username" required></label>
+        <label>Email<input id="email" type="email" autocomplete="username" placeholder="ten@congty.com" required></label>
         <label>Mật khẩu<input id="password" type="password" autocomplete="current-password" required></label>
         <button class="btn" type="submit" id="loginBtn">Đăng nhập</button>
         <div class="msg" id="loginMsg" role="status"></div>
@@ -46,6 +59,7 @@
       <div class="formrow"><button class="btn" type="button" onclick="location.reload()">Tải lại</button><button class="btn ghost" type="button" id="logout">Đăng xuất</button></div>
     </div>
   </div>
+  </main>
 </div>
 
 <script src="config.js"></script>
