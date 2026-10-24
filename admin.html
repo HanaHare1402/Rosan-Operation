@@ -16,6 +16,8 @@
     <div class="brand-sub">Quản trị hệ thống</div>
     <nav>
       <a href="index.html">← Bảng điều hành</a>
+      <a href="#danhmuc" data-tab="danhmuc">Danh mục</a>
+      <a href="#chuakhaibao" data-tab="chuakhaibao">Chưa khai báo <span class="cnt" id="unmappedCnt" hidden>0</span></a>
       <a href="#taikhoan" data-tab="taikhoan">Tài khoản</a>
       <a href="#pos" data-tab="pos">Kết nối POS</a>
       <a href="#nhatky" data-tab="nhatky">Nhật ký đồng bộ</a>
@@ -23,35 +25,53 @@
     <div class="userbox"><span class="who" id="who"></span><span class="muted" id="whoRole"></span><div class="acts"><button class="lnk" id="logout">Đăng xuất</button></div></div>
   </aside>
   <main>
-    <div class="topbar"><div><h1 id="title">Tài khoản</h1><p class="sub" id="subtitle"></p></div></div>
-    <div id="denied" class="card" hidden><h2>Không có quyền</h2><p class="muted">Trang này chỉ dành cho admin. <a href="index.html">Về bảng điều hành</a>.</p></div>
+    <div class="topbar"><div><h1 id="title">Quản trị</h1><p class="sub" id="subtitle"></p></div></div>
+    <div id="denied" class="card" hidden><h2>Không có quyền</h2><p class="muted">Trang này dành cho admin và quản lý. <a href="index.html">Về bảng điều hành</a>.</p></div>
+
+    <!-- ---------- danh mục ---------- -->
+    <section id="tab-danhmuc" hidden>
+      <div class="tabs" id="catTabs"></div>
+      <div id="catBody"></div>
+    </section>
+
+    <!-- ---------- chưa khai báo ---------- -->
+    <section id="tab-chuakhaibao" hidden>
+      <div class="card">
+        <div class="cardhead"><div><h2>Dữ liệu POS chưa khớp danh mục</h2><p class="hint">Đơn có tên marketer chưa khai báo thì chưa thuộc nhân sự, team, dự án nào; chỉ người xem toàn công ty (admin, kế toán) thấy. Khai báo xong, đơn cũ được tính lại ngay.</p></div><div class="formrow" style="margin:0"><button class="btn ghost" id="reloadUnmapped">Tải lại</button><button class="btn ghost" id="recompute" data-admin>Tính lại toàn bộ đơn</button></div></div>
+        <div class="msg" id="unmappedMsg" role="status"></div>
+        <div id="unmapped"><p class="muted">Đang tải…</p></div>
+      </div>
+    </section>
 
     <!-- ---------- tài khoản ---------- -->
     <section id="tab-taikhoan" hidden>
       <div class="card">
-        <div class="cardhead"><div><h2>Tài khoản và phân quyền</h2><p class="hint">Mỗi người một vai trò. Vai trò quyết định màn nào của bảng điều hành người đó thấy. Người chưa có vai trò đăng nhập được nhưng không xem được gì.</p></div><button class="btn ghost" id="reloadUsers">Tải lại</button></div>
-        <div class="tw"><table><thead><tr><th class="l">Email</th><th class="l">Họ tên</th><th class="l">Vai trò</th><th class="l">Team</th><th class="l">Trạng thái</th><th class="l">Đăng nhập gần nhất</th><th></th></tr></thead><tbody id="users"><tr><td colspan="7" class="l muted">Đang tải…</td></tr></tbody></table></div>
+        <div class="cardhead"><div><h2>Tài khoản và phân quyền</h2><p class="hint"><b>Vai trò</b> quyết định thấy màn nào. <b>Phạm vi</b> quyết định thấy số của ai: toàn công ty, dự án, team, hay chỉ của mình (theo nhân sự được liên kết).</p></div><button class="btn ghost" id="reloadUsers">Tải lại</button></div>
+        <div class="tw"><table><thead><tr><th class="l">Email</th><th class="l">Họ tên</th><th class="l">Vai trò</th><th class="l">Phạm vi xem</th><th class="l">Trạng thái</th><th class="l">Đăng nhập gần nhất</th><th></th></tr></thead><tbody id="users"><tr><td colspan="7" class="l muted">Đang tải…</td></tr></tbody></table></div>
         <div class="msg" id="usersMsg" role="status" style="margin-top:8px"></div>
         <form id="userForm" class="editor" novalidate>
-          <div class="edtitle">Tạo tài khoản</div>
+          <div class="edtitle" id="ufTitle">Tạo tài khoản</div>
           <div class="form">
             <label>Email<input id="ufEmail" type="email" autocomplete="off"></label>
             <label>Họ tên<input id="ufName" type="text" autocomplete="off"></label>
-            <label>Mật khẩu (từ 8 ký tự)<input id="ufPw" type="text" autocomplete="off"></label>
+            <label id="ufPwWrap">Mật khẩu (từ 8 ký tự)<input id="ufPw" type="text" autocomplete="off"></label>
             <label>Vai trò<select id="ufRole"></select></label>
-            <label>Team<select id="ufTeam"></select></label>
+            <label>Phạm vi xem<select id="ufScope"></select></label>
+            <label id="ufTeamWrap">Team<select id="ufTeam"></select></label>
+            <label id="ufStaffWrap">Nhân sự liên kết<select id="ufStaff"></select></label>
           </div>
-          <div class="formrow"><button class="btn" type="submit">Tạo tài khoản</button><button class="btn ghost" type="button" id="genPw">Tạo mật khẩu ngẫu nhiên</button><span class="fmsg" id="userMsg"></span></div>
+          <div id="ufProjWrap" style="margin-top:10px"><div class="muted" style="font-size:12px;margin-bottom:4px">Dự án được xem</div><div class="chips" id="ufProj"></div></div>
+          <div class="formrow"><button class="btn" type="submit" id="ufSubmit">Tạo tài khoản</button><button class="btn ghost" type="button" id="genPw">Tạo mật khẩu ngẫu nhiên</button><button class="btn ghost" type="button" id="ufCancel" hidden>Huỷ</button><span class="fmsg" id="userMsg"></span></div>
         </form>
       </div>
-      <div class="card"><h2>Vai trò xem được gì</h2><div class="tw"><table><thead><tr><th class="l">Vai trò</th><th class="l">Màn hình</th><th class="l">Được sửa</th></tr></thead><tbody id="roleMatrix"></tbody></table></div></div>
+      <div class="card"><h2>Vai trò xem được gì</h2><div class="tw"><table><thead><tr><th class="l">Vai trò</th><th class="l">Màn hình</th><th class="l">Phạm vi mặc định</th></tr></thead><tbody id="roleMatrix"></tbody></table></div></div>
     </section>
 
     <!-- ---------- POS ---------- -->
     <section id="tab-pos" hidden>
       <div class="card">
-        <div class="cardhead"><div><h2>Shop trên Pancake POS</h2><p class="hint">API key cất trong Supabase Vault. Trang chỉ hiện 4 ký tự cuối, không ai đọc lại được key, kể cả admin. Muốn đổi thì dán key mới đè lên.</p></div><button class="btn" id="syncAll">Đồng bộ tất cả ngay</button></div>
-        <div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Shop ID POS</th><th class="l">Team</th><th class="l">API key</th><th class="l">Đồng bộ gần nhất</th><th></th></tr></thead><tbody id="shops"><tr><td colspan="6" class="l muted">Đang tải…</td></tr></tbody></table></div>
+        <div class="cardhead"><div><h2>Shop trên Pancake POS</h2><p class="hint">Mỗi shop bán cho một thị trường; kênh và team của từng đơn được nhận ra từ nguồn đơn và marketer. API key cất trong Supabase Vault, trang chỉ hiện 4 ký tự cuối.</p></div><button class="btn" id="syncAll">Đồng bộ tất cả ngay</button></div>
+        <div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Shop ID POS</th><th class="l">Thị trường</th><th class="l">API key</th><th class="l">Đồng bộ gần nhất</th><th></th></tr></thead><tbody id="shops"><tr><td colspan="6" class="l muted">Đang tải…</td></tr></tbody></table></div>
         <div class="msg" id="shopsMsg" role="status" style="margin-top:8px"></div>
 
         <form id="keyForm" class="editor" novalidate>
@@ -61,19 +81,18 @@
             <label>API key từ POS<input id="kfKey" type="password" autocomplete="off" placeholder="Dán key vào đây"></label>
           </div>
           <div class="formrow"><button class="btn" type="submit">Lưu key</button><button class="btn ghost" type="button" id="kfClear">Xoá key của shop này</button><span class="fmsg" id="keyMsg"></span></div>
-          <p class="hint" style="margin:10px 0 0">Lấy key trên pos.pages.fm: Cấu hình → Cấu hình ứng dụng → API KEY → Thêm mới. Một shop một key. Shop ID là dãy số trong link <code>pos.pages.fm/shop/&lt;số&gt;</code>.</p>
+          <p class="hint" style="margin:10px 0 0">Lấy key trên pos.pages.fm: Cấu hình → Cấu hình ứng dụng → API KEY → Thêm mới. Shop ID là dãy số trong link <code>pos.pages.fm/shop/&lt;số&gt;</code>.</p>
         </form>
 
         <form id="shopForm" class="editor" novalidate>
-          <div class="edtitle">Thêm shop</div>
+          <div class="edtitle" id="sfTitle">Thêm shop</div>
           <div class="form">
-            <label>Tên shop<input id="sfName" type="text" placeholder="VD: Facebook – Team Phong"></label>
-            <label>Kênh<select id="sfCh"></select></label>
+            <label>Tên shop<input id="sfName" type="text" placeholder="VD: POS Philippines 1"></label>
             <label>Shop ID POS<input id="sfPos" type="text" inputmode="numeric"></label>
-            <label>Team<select id="sfTeam"></select></label>
+            <label>Thị trường<select id="sfMarket"></select></label>
+            <label>Trạng thái<select id="sfAct"><option value="1">Đang bán</option><option value="0">Tạm dừng</option></select></label>
           </div>
-          <div class="formrow"><button class="btn" type="submit">Thêm shop</button><span class="fmsg" id="shopMsg"></span></div>
-          <p class="hint" style="margin:10px 0 0">Sửa nhân sự phụ trách, tạm dừng hay xoá shop ở màn Cài đặt của bảng điều hành.</p>
+          <div class="formrow"><button class="btn" type="submit" id="sfSubmit">Thêm shop</button><button class="btn ghost" type="button" id="sfCancel" hidden>Huỷ</button><span class="fmsg" id="shopMsg"></span></div>
         </form>
       </div>
       <div class="card" id="outCard" hidden><div class="cardhead"><h2 id="outTitle">Kết quả</h2><button class="lnk" id="outClose">Đóng</button></div><div id="out"></div></div>
@@ -96,7 +115,8 @@
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const say = (el, html, cls) => { el.className = (el.classList.contains("fmsg") ? "fmsg " : "msg ") + (cls || ""); el.innerHTML = html; };
   const when = (t) => t ? new Date(t).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "–";
-  const opts = (map, sel, blank) => (blank != null ? `<option value="">${blank}</option>` : "") + Object.entries(map).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${esc(v)}</option>`).join("");
+  const opts = (pairs, sel, blank) => (blank != null ? `<option value="">${esc(blank)}</option>` : "") + pairs.map(([k, v]) => `<option value="${esc(k)}" ${String(k) === String(sel ?? "") ? "selected" : ""}>${esc(v)}</option>`).join("");
+  const nf = new Intl.NumberFormat("vi-VN");
 
   const me = await Auth.requireAuth();
   const sb = Auth.sb;
@@ -104,60 +124,280 @@
   $("#who").textContent = me.full_name || me.email;
   $("#whoRole").textContent = Auth.ROLES[me.role] || "Chưa có vai trò";
   $("#logout").onclick = () => Auth.signOut();
-  if (me.role !== "admin") { $("#denied").hidden = false; $("#title").textContent = "Quản trị"; return; }
+  const isAdmin = me.role === "admin", isQL = me.role === "quan_ly";
+  if (!isAdmin && !isQL) { $("#denied").hidden = false; document.querySelector("nav").querySelectorAll("a[data-tab]").forEach((a) => (a.hidden = true)); return; }
+  document.querySelectorAll("[data-admin]").forEach((e) => (e.hidden = !isAdmin));
+
+  // ---------- danh mục dùng chung ----------
+  let C = { projects: [], teams: [], markets: [], channels: [], staff: [] };
+  async function reloadCatalog() { C = await Auth.loadCatalog(); }
+  const byId = (list, id) => list.find((x) => x.id === id);
+  const projName = (id) => byId(C.projects, id)?.name || "";
+  const teamLabel = (t) => t ? `${t.name}${t.project_id ? " · " + projName(t.project_id) : ""}` : "";
+  const teamPairs = () => C.teams.map((t) => [t.id, teamLabel(t)]);
+  const myProjects = () => isAdmin ? C.projects : C.projects.filter((p) => (me.project_ids || []).includes(p.id));
+  try { await reloadCatalog(); } catch (e) { $("#subtitle").innerHTML = `<span class="neg">Không đọc được danh mục: ${esc(e.message)}. Kiểm tra đã chạy file SQL 20261025000000_org_structure.sql chưa.</span>`; }
 
   // ---------- điều hướng tab ----------
-  const TABS = { taikhoan: ["Tài khoản", "Tạo tài khoản, cấp vai trò, khoá tài khoản"], pos: ["Kết nối POS", "Shop, API key Pancake POS và đồng bộ đơn"], nhatky: ["Nhật ký đồng bộ", "Lịch sử kéo đơn từ POS"] };
+  const TABS = {
+    danhmuc: ["Danh mục", "Dự án, team, thị trường, kênh, nhân sự", true],
+    chuakhaibao: ["Chưa khai báo", "Marketer và nguồn đơn từ POS chưa khớp danh mục", true],
+    taikhoan: ["Tài khoản", "Tạo tài khoản, cấp vai trò và phạm vi xem", false],
+    pos: ["Kết nối POS", "Shop, API key Pancake POS và đồng bộ đơn", false],
+    nhatky: ["Nhật ký đồng bộ", "Lịch sử kéo đơn từ POS", false],
+  };
+  const allowedTab = (t) => TABS[t] && (isAdmin || TABS[t][2]);
+  document.querySelectorAll("nav a[data-tab]").forEach((a) => (a.hidden = !allowedTab(a.dataset.tab)));
   function go(t) {
-    if (!TABS[t]) t = "taikhoan";
+    if (!allowedTab(t)) t = "danhmuc";
     Object.keys(TABS).forEach((k) => ($("#tab-" + k).hidden = k !== t));
     document.querySelectorAll("nav a[data-tab]").forEach((a) => a.classList.toggle("on", a.dataset.tab === t));
-    $("#title").textContent = TABS[t][0]; $("#subtitle").textContent = TABS[t][1];
+    $("#title").textContent = TABS[t][0]; if (!$("#subtitle").querySelector(".neg")) $("#subtitle").textContent = TABS[t][1];
     history.replaceState(null, "", "#" + t);
-    if (t === "taikhoan") loadUsers(); if (t === "pos") loadShops(); if (t === "nhatky") loadRuns();
+    ({ danhmuc: renderCat, chuakhaibao: loadUnmapped, taikhoan: loadUsers, pos: loadShops, nhatky: loadRuns })[t]();
   }
   document.querySelectorAll("nav a[data-tab]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); go(a.dataset.tab); }));
 
-  // ---------- tài khoản ----------
-  const VIEW_NAMES = { tongquan: "Tổng quan", team: "Team", nhansu: "Nhân sự", sanpham: "Sản phẩm", donhang: "Đơn hàng", kqkd: "KQKD", canhbao: "Cảnh báo", caidat: "Cài đặt" };
-  const EDITS = { admin: "Mọi thứ, tài khoản, API key", quan_ly: "Shop, FFM, chạy đồng bộ", ke_toan: "Đơn vị FFM", marketing: "–", van_don: "–", kho: "–", sale: "–" };
-  $("#roleMatrix").innerHTML = Object.entries(Auth.ROLES).map(([k, v]) => `<tr><td>${v}</td><td class="l" style="white-space:normal">${Auth.VIEWS[k].map((x) => VIEW_NAMES[x]).join(", ")}${k === "admin" ? ", Quản trị" : ""}</td><td class="l">${EDITS[k]}</td></tr>`).join("");
-  $("#ufRole").innerHTML = opts(Auth.ROLES, "", "Chưa cấp");
-  $("#ufTeam").innerHTML = opts(Auth.TEAMS, "", "Không thuộc team");
+  // ---------- danh mục: bảng + form dùng chung cho 5 loại ----------
+  const tags = (v) => String(v || "").split(",").map((x) => x.trim()).filter(Boolean);
+  const TZ = [["Asia/Ho_Chi_Minh", "Việt Nam (GMT+7)"], ["Asia/Manila", "Philippines (GMT+8)"], ["Asia/Bangkok", "Thái Lan (GMT+7)"], ["Asia/Kuala_Lumpur", "Malaysia (GMT+8)"], ["Asia/Jakarta", "Indonesia (GMT+7)"], ["Asia/Singapore", "Singapore (GMT+8)"]];
+  const CAT = {
+    projects: {
+      label: "Dự án", table: "projects", write: () => isAdmin,
+      hint: "Mỗi dự án do một quản lý phụ trách. Gán quản lý vào dự án ở tab Tài khoản (phạm vi “Dự án được gán”).",
+      fields: [
+        { k: "name", label: "Tên dự án", req: true },
+        { k: "note", label: "Ghi chú" },
+        { k: "sort", label: "Thứ tự", type: "number" },
+      ],
+      cell: { sort: (r) => r.sort },
+      extra: [["Số team", (r) => C.teams.filter((t) => t.project_id === r.id).length]],
+    },
+    teams: {
+      label: "Team", table: "teams", write: () => isAdmin || isQL,
+      hint: "Team thuộc một dự án. Quản lý chỉ thêm, sửa được team trong dự án mình phụ trách.",
+      fields: [
+        { k: "name", label: "Tên team", req: true },
+        { k: "project_id", label: "Dự án", type: "select", options: () => myProjects().map((p) => [p.id, p.name]), blank: "Chọn dự án", req: true },
+        { k: "target_vnd", label: "Target doanh số/tháng (VNĐ)", type: "number" },
+        { k: "active", label: "Trạng thái", type: "bool" },
+      ],
+      cell: { project_id: (r) => esc(projName(r.project_id) || "–"), target_vnd: (r) => r.target_vnd ? nf.format(r.target_vnd) : "–" },
+      extra: [["Nhân sự", (r) => C.staff.filter((s) => s.team_id === r.id && s.active).length]],
+    },
+    staff: {
+      label: "Nhân sự", table: "staff", write: () => isAdmin || isQL,
+      hint: "Khai báo marketer trên POS thuộc team nào. Đơn có tên marketer trùng (không phân biệt hoa thường) với “Tên trên POS” được tính cho người này, rồi theo team và dự án của team. Đơn không có marketer thì xét người được gán, rồi page phụ trách.",
+      fields: [
+        { k: "name", label: "Họ tên", req: true },
+        { k: "pos_names", label: "Tên trên POS (marketer / người được gán), cách nhau dấu phẩy", type: "tags" },
+        { k: "team_id", label: "Team", type: "select", options: teamPairs, blank: "Chưa thuộc team" },
+        { k: "project_id", label: "Dự án (khi chưa thuộc team)", type: "select", options: () => myProjects().map((p) => [p.id, p.name]), blank: "–" },
+        { k: "pages", label: "Page phụ trách (ID hoặc tên page), cách nhau dấu phẩy", type: "tags" },
+        { k: "active", label: "Trạng thái", type: "bool" },
+      ],
+      cell: { pos_names: (r) => (r.pos_names || []).map((x) => `<span class="pill p-mute">${esc(x)}</span>`).join(" ") || '<span class="muted">–</span>', pages: (r) => esc((r.pages || []).join(", ")) || '<span class="muted">–</span>', team_id: (r) => esc(teamLabel(byId(C.teams, r.team_id)) || "–"), project_id: (r) => esc(projName(r.project_id) || "") },
+    },
+    markets: {
+      label: "Thị trường", table: "markets", write: () => isAdmin,
+      hint: "Mỗi shop POS bán cho một thị trường. Doanh số quy về VNĐ theo tỷ giá ở đây; ngày của đơn tính theo múi giờ thị trường.",
+      fields: [
+        { k: "name", label: "Tên thị trường", req: true },
+        { k: "currency", label: "Tiền tệ (VD PHP, THB)", req: true },
+        { k: "rate_vnd", label: "1 đơn vị tiền = ? VNĐ", type: "number", req: true },
+        { k: "timezone", label: "Múi giờ", type: "select", options: () => TZ },
+      ],
+      cell: { rate_vnd: (r) => nf.format(r.rate_vnd), timezone: (r) => esc((TZ.find((z) => z[0] === r.timezone) || [, r.timezone])[1]) },
+    },
+    channels: {
+      label: "Kênh bán", table: "channels", write: () => isAdmin,
+      hint: "Kênh của đơn nhận ra từ “nguồn đơn” trên POS: nguồn chứa một trong các từ khoá (không phân biệt hoa thường) là thuộc kênh đó. Xem các nguồn chưa khớp ở tab Chưa khai báo.",
+      fields: [
+        { k: "name", label: "Tên kênh", req: true },
+        { k: "keywords", label: "Từ khoá trong nguồn đơn, cách nhau dấu phẩy", type: "tags" },
+        { k: "color", label: "Màu", type: "color" },
+        { k: "sort", label: "Thứ tự", type: "number" },
+      ],
+      cell: { keywords: (r) => (r.keywords || []).map((x) => `<span class="pill p-mute">${esc(x)}</span>`).join(" "), color: (r) => `<span class="dot" style="background:${esc(r.color)}"></span>` },
+    },
+  };
+  const catOrder = ["projects", "teams", "staff", "markets", "channels"];
+  let curCat = "teams", editing = null, armed = null, prefill = null, catMsg = "";
+  $("#catTabs").innerHTML = catOrder.map((k) => `<button data-cat="${k}">${CAT[k].label}</button>`).join("");
+  $("#catTabs").addEventListener("click", (e) => { const b = e.target.closest("[data-cat]"); if (b) { curCat = b.dataset.cat; editing = null; armed = null; catMsg = ""; renderCat(); } });
 
-  let users = [], armed = null;
+  function fieldInput(f, v) {
+    const id = "cf_" + f.k;
+    if (f.type === "select") return `<select id="${id}">${opts(f.options(), v, f.blank ?? null)}</select>`;
+    if (f.type === "bool") return `<select id="${id}"><option value="1" ${v !== false ? "selected" : ""}>Đang hoạt động</option><option value="0" ${v === false ? "selected" : ""}>Ngừng</option></select>`;
+    if (f.type === "tags") return `<input id="${id}" type="text" value="${esc((v || []).join(", "))}">`;
+    if (f.type === "color") return `<input id="${id}" type="color" value="${esc(v || "#8a9289")}" style="height:36px;padding:2px">`;
+    return `<input id="${id}" type="${f.type === "number" ? "number" : "text"}" ${f.type === "number" ? 'step="any"' : ""} value="${esc(v ?? "")}">`;
+  }
+  function renderCat() {
+    const c = CAT[curCat], rows = C[curCat], canW = c.write();
+    document.querySelectorAll("#catTabs button").forEach((b) => b.classList.toggle("on", b.dataset.cat === curCat));
+    const rec = editing ? byId(rows, editing) : prefill;
+    const shown = c.fields.filter((f) => f.type !== "bool" || true);
+    $("#catBody").innerHTML = `<div class="card"><h2>${c.label}</h2><p class="hint">${c.hint}</p>
+      <div class="tw"><table><thead><tr>${shown.map((f) => `<th class="l">${esc(f.label.split(" (")[0].split(",")[0])}</th>`).join("")}${(c.extra || []).map((x) => `<th>${x[0]}</th>`).join("")}<th></th></tr></thead><tbody>
+      ${rows.map((r) => `<tr class="${editing === r.id ? "editing" : ""}">${shown.map((f) => `<td class="l" style="white-space:normal">${c.cell && c.cell[f.k] ? c.cell[f.k](r) : f.type === "bool" ? (r[f.k] !== false ? '<span class="pill p-good">Hoạt động</span>' : '<span class="pill p-mute">Ngừng</span>') : esc(r[f.k] ?? "")}</td>`).join("")}${(c.extra || []).map((x) => `<td>${x[1](r)}</td>`).join("")}
+        <td class="actions">${canW ? `<button class="lnk" data-edit="${esc(r.id)}">Sửa</button><button class="lnk ${armed === r.id ? "danger" : ""}" data-del="${esc(r.id)}">${armed === r.id ? "Bấm lần nữa để xoá" : "Xoá"}</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="${shown.length + (c.extra || []).length + 1}" class="l muted">Chưa có ${c.label.toLowerCase()} nào.</td></tr>`}
+      </tbody></table></div>
+      ${canW ? `<form id="catForm" class="editor" novalidate><div class="edtitle">${editing ? "Sửa " + c.label.toLowerCase() + ": " + esc(rec?.name) : "Thêm " + c.label.toLowerCase()}</div>
+        <div class="form">${c.fields.map((f) => `<label>${esc(f.label)}${fieldInput(f, rec ? rec[f.k] : f.type === "bool" ? true : undefined)}</label>`).join("")}</div>
+        <div class="formrow"><button class="btn" type="submit">${editing ? "Lưu thay đổi" : "Thêm"}</button>${editing || prefill ? '<button class="btn ghost" type="button" id="catCancel">Huỷ</button>' : ""}<span class="fmsg" id="catMsg">${catMsg}</span></div></form>` : '<p class="hint" style="margin-top:12px">Chỉ admin sửa được mục này.</p>'}</div>`;
+    prefill = null;
+  }
+  $("#catBody").addEventListener("click", async (e) => {
+    const c = CAT[curCat];
+    const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; armed = null; catMsg = ""; renderCat(); $("#catForm").scrollIntoView({ block: "center" }); return; }
+    if (e.target.id === "catCancel") { editing = null; catMsg = ""; renderCat(); return; }
+    const del = e.target.closest("[data-del]"); if (del) {
+      const id = del.dataset.del; if (armed !== id) { armed = id; renderCat(); return; }
+      armed = null;
+      const { data, error } = await sb.from(c.table).delete().eq("id", id).select("id");
+      catMsg = error ? `<span class="neg">Chưa xoá được: ${esc(error.message)}</span>` : !data.length ? '<span class="neg">Không có quyền xoá mục này.</span>' : '<span class="muted">Đã xoá.</span>';
+      await reloadCatalog(); renderCat();
+    }
+  });
+  $("#catBody").addEventListener("submit", async (e) => {
+    e.preventDefault(); const c = CAT[curCat]; const row = {};
+    for (const f of c.fields) {
+      const el = document.getElementById("cf_" + f.k); let v = el.value;
+      if (f.type === "number") v = v === "" ? 0 : Number(v);
+      else if (f.type === "tags") v = tags(v);
+      else if (f.type === "bool") v = v === "1";
+      else if (f.type === "select") v = v || null;
+      else v = v.trim();
+      if (f.req && (v === "" || v == null)) { say($("#catMsg"), `Điền “${esc(f.label)}”.`, "neg"); el.focus(); return; }
+      row[f.k] = v;
+    }
+    const q = editing ? sb.from(c.table).update(row).eq("id", editing).select("id") : sb.from(c.table).insert(row).select("id");
+    const { data, error } = await q;
+    if (error) { say($("#catMsg"), "Chưa lưu được: " + esc(error.code === "23505" ? "trùng tên với mục đã có" : error.message), "neg"); return; }
+    if (!data.length) { say($("#catMsg"), "Không có quyền sửa mục này (quản lý chỉ sửa được trong dự án của mình).", "neg"); return; }
+    catMsg = `<span class="pos">${editing ? "Đã lưu" : "Đã thêm"} ${esc(row.name)}.${curCat === "staff" || curCat === "channels" ? " Đơn liên quan đã được tính lại." : ""}</span>`;
+    editing = null; await reloadCatalog(); renderCat(); refreshUnmappedCount();
+  });
+
+  // ---------- chưa khai báo ----------
+  let unmapped = [];
+  async function refreshUnmappedCount() {
+    const { data } = await sb.rpc("admin_unmapped");
+    unmapped = data || [];
+    const n = unmapped.filter((u) => u.kind === "marketer" || u.kind === "source").length;
+    $("#unmappedCnt").textContent = n; $("#unmappedCnt").hidden = !n;
+  }
+  async function loadUnmapped() {
+    const { error } = await sb.rpc("admin_unmapped");
+    if (error) { $("#unmapped").innerHTML = `<p class="neg">${esc(error.message)}</p>`; return; }
+    await refreshUnmappedCount();
+    const part = (kind) => unmapped.filter((u) => u.kind === kind);
+    const mk = part("marketer"), src = part("source"), nn = part("no_name"), ns = part("no_source");
+    const chOpts = opts(C.channels.map((c) => [c.id, c.name]), "", "Chọn kênh");
+    $("#unmapped").innerHTML = `
+      <h2 style="margin-top:4px">Marketer / người được gán chưa khai báo <span class="muted" style="font-weight:400">(${mk.length})</span></h2>
+      <div class="tw"><table><thead><tr><th class="l">Tên trên POS</th><th>Số đơn</th><th class="l">Đơn gần nhất</th><th class="l">Gán vào nhân sự có sẵn</th><th></th></tr></thead><tbody>
+      ${mk.map((u) => `<tr><td class="l"><b>${esc(u.value)}</b></td><td>${nf.format(u.orders)}</td><td class="l muted">${when(u.last_at)}</td>
+        <td class="l"><select class="mapStaff" data-v="${esc(u.value)}">${opts(C.staff.map((s) => [s.id, s.name + (s.team_id ? " · " + (byId(C.teams, s.team_id)?.name || "") : "")]), "", "Chọn nhân sự…")}</select></td>
+        <td class="actions"><button class="lnk" data-newstaff="${esc(u.value)}">Khai báo nhân sự mới</button></td></tr>`).join("") || '<tr><td colspan="5" class="l muted">Không còn marketer nào chưa khai báo.</td></tr>'}
+      </tbody></table></div>
+      <h2 style="margin-top:20px">Nguồn đơn chưa thuộc kênh nào <span class="muted" style="font-weight:400">(${src.length})</span></h2>
+      <div class="tw"><table><thead><tr><th class="l">Nguồn đơn trên POS</th><th>Số đơn</th><th class="l">Gán vào kênh</th></tr></thead><tbody>
+      ${src.map((u) => `<tr><td class="l"><b>${esc(u.value)}</b></td><td>${nf.format(u.orders)}</td><td class="l">${isAdmin ? `<select class="mapCh" data-v="${esc(u.value)}">${chOpts}</select>` : '<span class="muted">admin gán</span>'}</td></tr>`).join("") || '<tr><td colspan="3" class="l muted">Mọi nguồn đơn đều đã thuộc một kênh.</td></tr>'}
+      </tbody></table></div>
+      ${nn.length ? `<h2 style="margin-top:20px">Đơn không có marketer lẫn người được gán</h2><p class="hint">Gán theo page: thêm page ID hoặc tên page vào ô “Page phụ trách” của nhân sự.</p><div class="tw"><table><thead><tr><th class="l">Page</th><th>Số đơn</th><th></th></tr></thead><tbody>${nn.map((u) => `<tr><td class="l">${esc(u.value)}</td><td>${nf.format(u.orders)}</td><td class="actions">${u.value !== "(trống)" ? `<button class="lnk" data-newpage="${esc(u.value)}">Khai báo nhân sự cho page này</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""}
+      ${ns.length ? `<p class="hint" style="margin-top:16px">${nf.format(ns[0].orders)} đơn không có nguồn đơn nên chưa xác định được kênh. Gửi “đơn mẫu” cho người phát triển để kiểm tra POS ghi nguồn ở trường nào.</p>` : ""}`;
+  }
+  $("#unmapped").addEventListener("change", async (e) => {
+    const ms = e.target.closest(".mapStaff"); if (ms && ms.value) {
+      const s = byId(C.staff, ms.value), name = ms.dataset.v;
+      const { data, error } = await sb.from("staff").update({ pos_names: [...new Set([...(s.pos_names || []), name])] }).eq("id", s.id).select("id");
+      say($("#unmappedMsg"), error ? "Chưa gán được: " + esc(error.message) : !data.length ? "Không có quyền sửa nhân sự này." : `Đã gán “${esc(name)}” cho ${esc(s.name)}.`, error || !data.length ? "neg" : "pos");
+      await reloadCatalog(); loadUnmapped(); return;
+    }
+    const mc = e.target.closest(".mapCh"); if (mc && mc.value) {
+      const c = byId(C.channels, mc.value), v = mc.dataset.v.toLowerCase();
+      const { error } = await sb.from("channels").update({ keywords: [...new Set([...(c.keywords || []), v])] }).eq("id", c.id);
+      say($("#unmappedMsg"), error ? "Chưa gán được: " + esc(error.message) : `Đã thêm “${esc(v)}” vào từ khoá của kênh ${esc(c.name)}.`, error ? "neg" : "pos");
+      await reloadCatalog(); loadUnmapped();
+    }
+  });
+  $("#unmapped").addEventListener("click", (e) => {
+    const n = e.target.closest("[data-newstaff]"), p = e.target.closest("[data-newpage]");
+    if (!n && !p) return;
+    curCat = "staff"; editing = null;
+    prefill = n ? { name: n.dataset.newstaff, pos_names: [n.dataset.newstaff], active: true } : { name: "", pages: [p.dataset.newpage], active: true };
+    go("danhmuc"); $("#catForm") && $("#catForm").scrollIntoView({ block: "center" });
+  });
+  $("#reloadUnmapped").onclick = loadUnmapped;
+  $("#recompute").onclick = async () => {
+    say($("#unmappedMsg"), "Đang tính lại…", "muted");
+    const { data, error } = await sb.rpc("admin_recompute_orders");
+    say($("#unmappedMsg"), error ? "Lỗi: " + esc(error.message) : `Đã tính lại ${nf.format(data)} đơn.`, error ? "neg" : "pos"); loadUnmapped();
+  };
+  refreshUnmappedCount();
+
+  // ---------- tài khoản (chỉ admin) ----------
+  const VIEW_NAMES = { tongquan: "Tổng quan", team: "Team", nhansu: "Nhân sự", sanpham: "Sản phẩm", donhang: "Đơn hàng", kqkd: "KQKD", canhbao: "Cảnh báo", caidat: "Cài đặt" };
+  $("#roleMatrix").innerHTML = Object.entries(Auth.ROLES).map(([k, v]) => `<tr><td>${v}</td><td class="l" style="white-space:normal">${Auth.VIEWS[k].map((x) => VIEW_NAMES[x]).join(", ")}${k === "admin" ? ", Quản trị" : k === "quan_ly" ? ", Quản trị (danh mục team, nhân sự)" : ""}</td><td class="l">${Auth.SCOPES[Auth.DEFAULT_SCOPE[k]]}</td></tr>`).join("");
+  let users = [], uArmed = null, uEdit = null;
+  const scopeText = (u) => {
+    if (u.scope === "project") return "Dự án: " + ((u.project_ids || []).map(projName).filter(Boolean).join(", ") || '<span class="neg">chưa chọn</span>');
+    if (u.scope === "team") return "Team: " + (esc(byId(C.teams, u.team_id)?.name) || '<span class="neg">chưa chọn</span>');
+    if (u.scope === "self") return "Của mình: " + (esc(byId(C.staff, u.staff_id)?.name) || '<span class="neg">chưa liên kết nhân sự</span>');
+    return "Toàn công ty";
+  };
   async function loadUsers() {
     try { users = (await Auth.callFn("admin-users", { action: "list" })).users; renderUsers(); }
-    catch (e) { $("#users").innerHTML = `<tr><td colspan="7" class="l neg">Không tải được: ${esc(e.message)}. Kiểm tra đã deploy function admin-users chưa.</td></tr>`; }
+    catch (e) { $("#users").innerHTML = `<tr><td colspan="7" class="l neg">Không tải được: ${esc(e.message)}.</td></tr>`; }
   }
   function renderUsers() {
-    $("#users").innerHTML = users.map((u) => `<tr data-id="${u.id}">
-      <td class="l">${esc(u.email)}${u.id === me.id ? ' <span class="pill p-mute">bạn</span>' : ""}</td>
-      <td class="l"><input type="text" class="uName" value="${esc(u.full_name)}" style="width:150px"></td>
-      <td class="l"><select class="uRole">${opts(Auth.ROLES, u.role || "", "Chưa cấp")}</select></td>
-      <td class="l"><select class="uTeam">${opts(Auth.TEAMS, u.team || "", "–")}</select></td>
+    $("#users").innerHTML = users.map((u) => `<tr data-id="${u.id}" class="${uEdit === u.id ? "editing" : ""}">
+      <td class="l">${esc(u.email)}${u.id === me.id ? ' <span class="pill p-mute">bạn</span>' : ""}</td><td class="l">${esc(u.full_name)}</td>
+      <td class="l">${u.role ? esc(Auth.ROLES[u.role]) : '<span class="pill p-warn">Chưa cấp</span>'}</td><td class="l" style="white-space:normal">${u.role ? scopeText(u) : ""}</td>
       <td class="l">${u.banned ? '<span class="pill p-bad">Đã khoá</span>' : u.role ? '<span class="pill p-good">Hoạt động</span>' : '<span class="pill p-warn">Chờ cấp quyền</span>'}</td>
       <td class="l muted">${when(u.last_sign_in_at)}</td>
-      <td class="actions"><button class="lnk" data-act="save">Lưu</button><button class="lnk" data-act="pw">Đặt mật khẩu</button>${u.id === me.id ? "" : `<button class="lnk" data-act="${u.banned ? "unban" : "ban"}">${u.banned ? "Mở khoá" : "Khoá"}</button><button class="lnk ${armed === u.id ? "danger" : ""}" data-act="del">${armed === u.id ? "Bấm lần nữa để xoá" : "Xoá"}</button>`}</td></tr>`).join("") || '<tr><td colspan="7" class="l muted">Chưa có tài khoản.</td></tr>';
+      <td class="actions"><button class="lnk" data-act="edit">Sửa quyền</button><button class="lnk" data-act="pw">Đặt mật khẩu</button>${u.id === me.id ? "" : `<button class="lnk" data-act="${u.banned ? "unban" : "ban"}">${u.banned ? "Mở khoá" : "Khoá"}</button><button class="lnk ${uArmed === u.id ? "danger" : ""}" data-act="del">${uArmed === u.id ? "Bấm lần nữa để xoá" : "Xoá"}</button>`}</td></tr>`).join("") || '<tr><td colspan="7" class="l muted">Chưa có tài khoản.</td></tr>';
   }
+  function fillUserForm(u) {
+    uEdit = u ? u.id : null;
+    $("#ufTitle").textContent = u ? "Sửa quyền: " + u.email : "Tạo tài khoản";
+    $("#ufEmail").value = u ? u.email : ""; $("#ufEmail").disabled = !!u;
+    $("#ufName").value = u ? u.full_name : ""; $("#ufPwWrap").hidden = !!u; $("#genPw").hidden = !!u; $("#ufCancel").hidden = !u;
+    $("#ufSubmit").textContent = u ? "Lưu quyền" : "Tạo tài khoản";
+    $("#ufRole").innerHTML = opts(Object.entries(Auth.ROLES), u ? u.role : "", "Chưa cấp");
+    $("#ufScope").innerHTML = opts(Object.entries(Auth.SCOPES), u ? u.scope : "self");
+    $("#ufTeam").innerHTML = opts(teamPairs(), u ? u.team_id : "", "Chọn team");
+    $("#ufStaff").innerHTML = opts(C.staff.map((s) => [s.id, s.name + (s.team_id ? " · " + (byId(C.teams, s.team_id)?.name || "") : "")]), u ? u.staff_id : "", "Chọn nhân sự");
+    const pids = new Set(u ? u.project_ids || [] : []);
+    $("#ufProj").innerHTML = C.projects.map((p) => `<label class="chip" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" value="${esc(p.id)}" ${pids.has(p.id) ? "checked" : ""}>${esc(p.name)}</label>`).join("") || '<span class="muted">Chưa có dự án. Thêm ở tab Danh mục.</span>';
+    say($("#userMsg"), "", ""); scopeFields(); renderUsers();
+  }
+  function scopeFields() {
+    const sc = $("#ufScope").value;
+    $("#ufProjWrap").hidden = sc !== "project"; $("#ufTeamWrap").hidden = sc !== "team";
+    // Nhân sự liên kết: bắt buộc khi xem "của mình", vẫn chọn được cho vai trò khác.
+    $("#ufStaffWrap").hidden = false;
+  }
+  $("#ufRole").addEventListener("change", () => { const r = $("#ufRole").value; if (r) $("#ufScope").value = Auth.DEFAULT_SCOPE[r]; scopeFields(); });
+  $("#ufScope").addEventListener("change", scopeFields);
+  $("#ufCancel").onclick = () => fillUserForm(null);
   $("#users").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-act]"); if (!b) return;
-    const tr = b.closest("tr"), id = tr.dataset.id, u = users.find((x) => x.id === id), act = b.dataset.act;
+    const id = b.closest("tr").dataset.id, u = users.find((x) => x.id === id), act = b.dataset.act;
     try {
-      if (act === "save") {
-        await Auth.callFn("admin-users", { action: "update", id, full_name: tr.querySelector(".uName").value.trim(), role: tr.querySelector(".uRole").value, team: tr.querySelector(".uTeam").value });
-        say($("#usersMsg"), `Đã lưu ${esc(u.email)}.`, "pos");
-      } else if (act === "pw") {
+      if (act === "edit") { fillUserForm(u); $("#userForm").scrollIntoView({ block: "center" }); return; }
+      if (act === "pw") {
         const pw = prompt(`Mật khẩu mới cho ${u.email} (từ 8 ký tự):`); if (!pw) return;
         await Auth.callFn("admin-users", { action: "set_password", id, password: pw });
         say($("#usersMsg"), `Đã đặt mật khẩu mới cho ${esc(u.email)}.`, "pos"); return;
-      } else if (act === "ban" || act === "unban") {
-        await Auth.callFn("admin-users", { action: act, id });
-        say($("#usersMsg"), `${act === "ban" ? "Đã khoá" : "Đã mở khoá"} ${esc(u.email)}.`, "pos");
-      } else if (act === "del") {
-        if (armed !== id) { armed = id; renderUsers(); return; }
-        armed = null; await Auth.callFn("admin-users", { action: "delete", id });
-        say($("#usersMsg"), `Đã xoá ${esc(u.email)}.`, "muted");
+      }
+      if (act === "ban" || act === "unban") { await Auth.callFn("admin-users", { action: act, id }); say($("#usersMsg"), `${act === "ban" ? "Đã khoá" : "Đã mở khoá"} ${esc(u.email)}.`, "pos"); }
+      if (act === "del") {
+        if (uArmed !== id) { uArmed = id; renderUsers(); return; }
+        uArmed = null; await Auth.callFn("admin-users", { action: "delete", id }); say($("#usersMsg"), `Đã xoá ${esc(u.email)}.`, "muted");
       }
       await loadUsers();
     } catch (err) { say($("#usersMsg"), "Chưa làm được: " + esc(err.message), "neg"); }
@@ -166,70 +406,81 @@
   $("#genPw").onclick = () => { const a = crypto.getRandomValues(new Uint8Array(12)); $("#ufPw").value = Array.from(a, (x) => "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"[x % 55]).join(""); };
   $("#userForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const email = $("#ufEmail").value.trim(), password = $("#ufPw").value;
-    if (!email || password.length < 8) { say($("#userMsg"), "Cần email và mật khẩu từ 8 ký tự.", "neg"); return; }
+    const scope = $("#ufScope").value, role = $("#ufRole").value;
+    const payload = { full_name: $("#ufName").value.trim(), role, scope,
+      project_ids: [...$("#ufProj").querySelectorAll("input:checked")].map((x) => x.value), team_id: $("#ufTeam").value, staff_id: $("#ufStaff").value };
+    if (role && scope === "project" && !payload.project_ids.length) { say($("#userMsg"), "Chọn ít nhất một dự án.", "neg"); return; }
+    if (role && scope === "team" && !payload.team_id) { say($("#userMsg"), "Chọn team.", "neg"); return; }
+    if (role && scope === "self" && !payload.staff_id) { say($("#userMsg"), "Chọn nhân sự liên kết (người này sẽ chỉ thấy đơn của nhân sự đó).", "neg"); return; }
     try {
-      await Auth.callFn("admin-users", { action: "create", email, password, full_name: $("#ufName").value.trim(), role: $("#ufRole").value, team: $("#ufTeam").value });
-      say($("#userMsg"), `Đã tạo ${esc(email)}. Gửi email và mật khẩu cho người đó; họ đổi mật khẩu bằng “Quên mật khẩu” ở trang đăng nhập.`, "pos");
-      $("#userForm").reset(); await loadUsers();
-    } catch (err) { say($("#userMsg"), "Chưa tạo được: " + esc(err.message), "neg"); }
+      if (uEdit) {
+        await Auth.callFn("admin-users", { action: "update", id: uEdit, ...payload });
+        say($("#usersMsg"), "Đã lưu quyền.", "pos"); fillUserForm(null);
+      } else {
+        const email = $("#ufEmail").value.trim(), password = $("#ufPw").value;
+        if (!email || password.length < 8) { say($("#userMsg"), "Cần email và mật khẩu từ 8 ký tự.", "neg"); return; }
+        await Auth.callFn("admin-users", { action: "create", email, password, ...payload });
+        say($("#usersMsg"), `Đã tạo ${esc(email)}. Gửi email và mật khẩu cho người đó; họ đổi mật khẩu bằng “Quên mật khẩu” ở trang đăng nhập.`, "pos"); fillUserForm(null);
+      }
+      await loadUsers();
+    } catch (err) { say($("#userMsg"), "Chưa lưu được: " + esc(err.message), "neg"); }
   });
+  if (isAdmin) fillUserForm(null);
 
-  // ---------- POS ----------
-  $("#sfCh").innerHTML = opts(Auth.CHANNELS, "fb");
-  $("#sfTeam").innerHTML = opts(Auth.TEAMS, "", "–");
-  let shops = [];
+  // ---------- POS (chỉ admin) ----------
+  let shops = [], sEdit = null;
   const stPill = (s) => s === "ok" ? '<span class="pill p-good">ok</span>' : s === "error" ? '<span class="pill p-bad">lỗi</span>' : s === "partial" ? '<span class="pill p-warn">đang kéo dở</span>' : s ? `<span class="pill p-mute">${esc(s)}</span>` : '<span class="muted">chưa chạy</span>';
+  function shopForm(s) {
+    sEdit = s ? s.id : null;
+    $("#sfTitle").textContent = s ? "Sửa shop: " + s.name : "Thêm shop"; $("#sfSubmit").textContent = s ? "Lưu thay đổi" : "Thêm shop"; $("#sfCancel").hidden = !s;
+    $("#sfName").value = s ? s.name : ""; $("#sfPos").value = s ? s.pos_shop_id : ""; $("#sfAct").value = s && s.active === false ? "0" : "1";
+    $("#sfMarket").innerHTML = opts(C.markets.map((m) => [m.id, m.name + " (" + m.currency + ")"]), s ? s.market_id : (C.markets[0] || {}).id, "Chọn thị trường");
+  }
   async function loadShops() {
-    const { data, error } = await sb.from("pos_shops").select("*").order("channel").order("name");
-    if (error) { $("#shops").innerHTML = `<tr><td colspan="6" class="l neg">Không tải được: ${esc(error.message)}. Kiểm tra đã chạy file migration chưa.</td></tr>`; return; }
+    const { data, error } = await sb.from("pos_shops").select("*").order("name");
+    if (error) { $("#shops").innerHTML = `<tr><td colspan="6" class="l neg">Không tải được: ${esc(error.message)}.</td></tr>`; return; }
     shops = data;
-    $("#shops").innerHTML = shops.map((s) => `<tr data-id="${esc(s.id)}">
-      <td class="l"><span class="ch"><span class="dot d-${esc(s.channel)}"></span>${esc(s.name)}</span>${s.active ? "" : ' <span class="pill p-mute">tạm dừng</span>'}</td>
+    $("#shops").innerHTML = shops.map((s) => `<tr data-id="${esc(s.id)}" class="${sEdit === s.id ? "editing" : ""}">
+      <td class="l">${esc(s.name)}${s.active ? "" : ' <span class="pill p-mute">tạm dừng</span>'}</td>
       <td class="l mono">${s.pos_shop_id ? esc(s.pos_shop_id) : '<span class="pill p-warn">Chưa điền</span>'}</td>
-      <td class="l">${esc(Auth.TEAMS[s.team] || s.team || "–")}</td>
+      <td class="l">${esc(byId(C.markets, s.market_id)?.name) || '<span class="pill p-warn">Chưa chọn</span>'}</td>
       <td class="l mono">${s.api_key_hint ? "••••" + esc(s.api_key_hint) : '<span class="pill p-warn">Chưa có</span>'}</td>
       <td class="l">${stPill(s.last_sync_status)} <span class="muted">${when(s.last_synced_at)}${s.last_sync_count != null ? " · " + s.last_sync_count + " đơn" : ""}</span>${s.last_sync_error ? `<div class="neg" style="font-size:12px;white-space:normal;max-width:320px">${esc(s.last_sync_error)}</div>` : ""}</td>
-      <td class="actions"><button class="lnk" data-act="key">Đặt key</button><button class="lnk" data-act="test">Thử kết nối</button><button class="lnk" data-act="sync">Đồng bộ</button><button class="lnk" data-act="sample">Xem đơn mẫu</button><button class="lnk" data-act="reset">Kéo lại 90 ngày</button></td></tr>`).join("") || '<tr><td colspan="6" class="l muted">Chưa có shop. Thêm bằng form bên dưới.</td></tr>';
+      <td class="actions"><button class="lnk" data-act="editshop">Sửa</button><button class="lnk" data-act="key">Đặt key</button><button class="lnk" data-act="test">Thử kết nối</button><button class="lnk" data-act="sync">Đồng bộ</button><button class="lnk" data-act="sample">Xem đơn mẫu</button><button class="lnk" data-act="reset">Kéo lại 90 ngày</button></td></tr>`).join("") || '<tr><td colspan="6" class="l muted">Chưa có shop. Thêm bằng form bên dưới.</td></tr>';
     const cur = $("#kfShop").value;
     $("#kfShop").innerHTML = shops.map((s) => `<option value="${esc(s.id)}" ${s.id === cur ? "selected" : ""}>${esc(s.name)}${s.api_key_hint ? " (đã có key)" : ""}</option>`).join("");
   }
   function showOut(title, html) { $("#outTitle").textContent = title; $("#out").innerHTML = html; $("#outCard").hidden = false; $("#outCard").scrollIntoView({ block: "nearest" }); }
   $("#outClose").onclick = () => ($("#outCard").hidden = true);
-  function syncResult(r) {
-    return `<div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Kết quả</th><th>Trang</th><th>Đơn</th><th class="l">Lỗi</th></tr></thead><tbody>${(r.results || []).map((x) => `<tr><td class="l">${esc(x.shop)}</td><td class="l">${stPill(x.status)}</td><td>${x.pages ?? "–"}</td><td>${x.orders ?? "–"}</td><td class="l neg" style="white-space:normal">${esc(x.error || "")}</td></tr>`).join("") || '<tr><td colspan="5" class="l muted">Không có shop nào đủ điều kiện (đang bán và đã có key).</td></tr>'}</tbody></table></div>`;
-  }
+  const syncResult = (r) => `<div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Kết quả</th><th>Trang</th><th>Đơn</th><th class="l">Lỗi</th></tr></thead><tbody>${(r.results || []).map((x) => `<tr><td class="l">${esc(x.shop)}</td><td class="l">${stPill(x.status)}</td><td>${x.pages ?? "–"}</td><td>${x.orders ?? "–"}</td><td class="l neg" style="white-space:normal">${esc(x.error || "")}</td></tr>`).join("") || '<tr><td colspan="5" class="l muted">Không có shop nào đủ điều kiện (đang bán và đã có key).</td></tr>'}</tbody></table></div>`;
   async function runSync(body, label) {
     say($("#shopsMsg"), `${label}… có thể mất tới 2 phút.`, "muted");
-    try { const r = await Auth.callFn("pos", body); say($("#shopsMsg"), "", ""); showOut("Kết quả đồng bộ", syncResult(r)); }
+    try { const r = await Auth.callFn("pos", body); say($("#shopsMsg"), "", ""); showOut("Kết quả đồng bộ", syncResult(r)); refreshUnmappedCount(); }
     catch (err) { say($("#shopsMsg"), "Đồng bộ lỗi: " + esc(err.message), "neg"); }
     loadShops();
+  }
+  function mask(o) {
+    if (Array.isArray(o)) return o.map(mask);
+    if (!o || typeof o !== "object") return o;
+    const out = {};
+    for (const [k, v] of Object.entries(o)) out[k] = /phone|full_name|^name$|address|email/i.test(k) && typeof v === "string" && v && !/marketer|seller|page|source|product|variation|warehouse/i.test(k) ? v.slice(0, 2) + "•••" + v.slice(-2) : mask(v);
+    return out;
   }
   $("#shops").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-act]"); if (!b) return;
     const id = b.closest("tr").dataset.id, s = shops.find((x) => x.id === id), act = b.dataset.act;
+    if (act === "editshop") { shopForm(s); loadShops(); $("#shopForm").scrollIntoView({ block: "center" }); return; }
     if (act === "key") { $("#kfShop").value = id; $("#keyForm").scrollIntoView({ block: "center" }); $("#kfKey").focus(); return; }
     if (act === "sync") return runSync({ action: "sync", shop: id }, "Đang đồng bộ " + esc(s.name));
-    if (act === "reset") { if (!confirm(`Kéo lại toàn bộ đơn 90 ngày gần nhất của ${s.name}? Shop lớn có thể cần vài lần chạy mới xong (lịch 15 phút sẽ tự làm tiếp).`)) return; return runSync({ action: "sync", shop: id, reset: true, backfill_days: 90 }, "Đang kéo lại " + esc(s.name)); }
+    if (act === "reset") { if (!confirm(`Kéo lại toàn bộ đơn 90 ngày gần nhất của ${s.name}? Shop lớn có thể cần vài lượt mới xong (lịch 15 phút sẽ tự làm tiếp).`)) return; return runSync({ action: "sync", shop: id, reset: true, backfill_days: 90 }, "Đang kéo lại " + esc(s.name)); }
     say($("#shopsMsg"), (act === "test" ? "Đang thử kết nối " : "Đang lấy đơn mẫu của ") + esc(s.name) + "…", "muted");
     try {
       const r = await Auth.callFn("pos", { action: act, shop: id });
       say($("#shopsMsg"), "", "");
       if (act === "test") showOut("Kết nối " + s.name, `<p class="pos">Kết nối được. Tổng số đơn trên POS: <b>${r.total_orders ?? "không rõ"}</b>.</p><p class="hint">Kho trên POS (dùng để gán đơn vị FFM ở màn Cài đặt):</p><ul>${(r.warehouses || []).map((w) => `<li>${esc(w.name)} <span class="muted mono">#${esc(w.id)}</span></li>`).join("") || "<li class='muted'>Không có kho</li>"}</ul>`);
-      else showOut("Đơn mẫu · " + s.name, `<p class="hint">Đơn mới nhất, đúng như POS trả về. Gửi phần này cho người phát triển để khớp đúng các trường (nhân sự, sản phẩm, kho…). Số điện thoại và tên khách đã được che.</p><pre class="raw">${esc(JSON.stringify(mask(r.order), null, 2))}</pre>`);
+      else showOut("Đơn mẫu · " + s.name, `<p class="hint">Đơn mới nhất, đúng như POS trả về (tên, SĐT, địa chỉ khách đã che). Sao chép và gửi cho người phát triển để khớp đúng các trường marketer, nguồn đơn, sản phẩm, kho.</p><pre class="raw">${esc(JSON.stringify(mask(r.order), null, 2))}</pre>`);
     } catch (err) { say($("#shopsMsg"), (act === "test" ? "Kết nối lỗi: " : "Lỗi: ") + esc(err.message), "neg"); }
   });
-  // Che thông tin khách trước khi hiện / sao chép đơn mẫu.
-  function mask(o) {
-    if (Array.isArray(o)) return o.map(mask);
-    if (!o || typeof o !== "object") return o;
-    const out = {};
-    for (const [k, v] of Object.entries(o)) {
-      if (/phone|full_name|^name$|address|email/i.test(k) && typeof v === "string" && v) out[k] = v.slice(0, 2) + "•••" + v.slice(-2);
-      else out[k] = mask(v);
-    }
-    return out;
-  }
   $("#syncAll").onclick = () => runSync({ action: "sync" }, "Đang đồng bộ tất cả shop");
   $("#keyForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -246,13 +497,17 @@
     const { error } = await sb.rpc("admin_set_pos_key", { p_shop: shop, p_key: "" });
     say($("#keyMsg"), error ? "Chưa xoá được: " + esc(error.message) : "Đã xoá key.", error ? "neg" : "muted"); loadShops();
   };
+  $("#sfCancel").onclick = () => { shopForm(null); loadShops(); };
   $("#shopForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = $("#sfName").value.trim(); if (!name) { say($("#shopMsg"), "Nhập tên shop.", "neg"); return; }
-    const { error } = await sb.from("pos_shops").insert({ name, channel: $("#sfCh").value, pos_shop_id: $("#sfPos").value.trim(), team: $("#sfTeam").value, active: true });
-    if (error) { say($("#shopMsg"), "Chưa thêm được: " + esc(error.message), "neg"); return; }
-    $("#shopForm").reset(); say($("#shopMsg"), `Đã thêm ${esc(name)}. Giờ đặt API key cho shop ở form phía trên.`, "pos"); loadShops();
+    const market_id = $("#sfMarket").value; if (!market_id) { say($("#shopMsg"), "Chọn thị trường (thêm ở Danh mục → Thị trường).", "neg"); return; }
+    const row = { name, pos_shop_id: $("#sfPos").value.trim(), market_id, active: $("#sfAct").value === "1" };
+    const { error } = sEdit ? await sb.from("pos_shops").update(row).eq("id", sEdit) : await sb.from("pos_shops").insert(row);
+    if (error) { say($("#shopMsg"), "Chưa lưu được: " + esc(error.message), "neg"); return; }
+    say($("#shopMsg"), sEdit ? `Đã lưu ${esc(name)}.` : `Đã thêm ${esc(name)}. Giờ đặt API key cho shop ở form phía trên.`, "pos"); shopForm(null); loadShops();
   });
+  if (isAdmin) shopForm(null);
 
   // ---------- nhật ký ----------
   async function loadRuns() {
@@ -262,7 +517,7 @@
   }
   $("#reloadRuns").onclick = loadRuns;
 
-  go((location.hash || "").slice(1));
+  go((location.hash || "").slice(1) || "danhmuc");
 })();
 </script>
 </body>

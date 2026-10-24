@@ -15,7 +15,9 @@ Bảng điều hành vận hành Team Vương (Phil): tổng quan, team, nhân s
 | Server | `supabase/functions/admin-users`, `supabase/functions/pos` | Quản lý tài khoản; gọi API Pancake POS và kéo đơn về. |
 | Cập nhật đơn | `supabase/functions/pos` + `supabase/cron.sql` | Mở bảng điều hành là kéo đơn mới nhất (tối đa 30 giây/lần cho mọi người), 2 phút/lần khi đang xem; lịch 15 phút làm tiếp phần kéo dở. |
 
-**Vai trò:** Admin · Quản lý · Marketing · Kế toán · Vận đơn · Kho · Sale. Bảng vai trò ↔ màn hình nằm trong `js/auth.js` (`VIEWS`) và hiện ở trang Quản trị.
+**Tổ chức:** Dự án → Team → Nhân sự; Thị trường; Kênh bán. Admin khai báo ở Quản trị → Danh mục. Mỗi shop POS bán cho một thị trường. Đơn từ POS là dữ liệu thô: database tự gán đơn cho nhân sự theo tên marketer (rồi người được gán, rồi page), từ đó ra team và dự án; kênh nhận ra từ nguồn đơn theo từ khoá. Sửa khai báo thì đơn cũ được tính lại ngay.
+
+**Vai trò và phạm vi xem:** Admin · Quản lý · Trưởng team · Marketing · Kế toán · Vận đơn · Kho · Sale. Vai trò quyết định thấy màn nào (`js/auth.js` → `VIEWS`); phạm vi quyết định thấy số của ai: toàn công ty (admin, kế toán), dự án được gán (quản lý), team được gán (trưởng team), chỉ của mình (nhân sự, theo nhân sự được liên kết). Phạm vi được áp ngay trong database (RLS), không chỉ ẩn trên giao diện.
 
 **Khoá nhạy cảm ở đâu:**
 - API key Pancake POS cất trong **Supabase Vault**. Chỉ Edge Function `pos` đọc được key, không trả về trình duyệt, kể cả admin cũng không xem lại được.
@@ -25,7 +27,7 @@ Bảng điều hành vận hành Team Vương (Phil): tổng quan, team, nhân s
 ## Cài đặt lần đầu
 
 1. **Tạo project Supabase** ở https://supabase.com (gói Free là đủ). Chọn region Singapore.
-2. **Tạo database:** SQL Editor → New query → dán lần lượt từng file trong `supabase/migrations/` theo thứ tự tên (`…000000_init.sql` trước, rồi `…010000_sync_lock.sql`) → Run.
+2. **Tạo database:** SQL Editor → New query → dán lần lượt từng file trong `supabase/migrations/` theo thứ tự tên (`…000000_init.sql`, `…010000_sync_lock.sql`, `…25000000_org_structure.sql`) → Run.
 3. **Khoá đăng ký và đặt địa chỉ trang:**
    - Authentication → Sign In / Providers: tắt **Allow new users to sign up**.
    - Authentication → URL Configuration: *Site URL* = `https://hanahare1402.github.io/Rosan-Operation/`. Thêm `https://hanahare1402.github.io/Rosan-Operation/login.html` vào *Redirect URLs* để link quên mật khẩu hoạt động.
