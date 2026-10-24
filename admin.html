@@ -69,6 +69,25 @@
 
     <!-- ---------- POS ---------- -->
     <section id="tab-pos" hidden>
+      <div class="card" id="rangeCard">
+        <div class="cardhead"><div><h2>Khoảng đồng bộ</h2><p class="hint">Chỉ kéo và giữ đơn <b>tạo</b> từ mốc này trở đi. Đơn trong khoảng vẫn được cập nhật trạng thái (giao, hoàn) dù đã qua ngày. Mốc tính theo múi giờ thị trường của shop.</p></div><span class="muted" id="storage" style="font-size:12.5px"></span></div>
+        <form id="rangeForm" class="editor" novalidate style="margin-top:4px">
+          <div class="form">
+            <label>Đồng bộ đơn tạo từ<select id="rgMode">
+              <option value="month">Đầu tháng hiện tại</option>
+              <option value="months">Đầu tháng, gồm N tháng gần nhất</option>
+              <option value="days">N ngày gần nhất</option>
+              <option value="date">Một ngày cụ thể</option>
+            </select></label>
+            <label id="rgNWrap"><span id="rgNLabel">Số tháng (2 = tháng này và tháng trước)</span><input id="rgN" type="number" min="1" max="400" step="1"></label>
+            <label id="rgDateWrap">Từ ngày<input id="rgDate" type="date"></label>
+            <label>Đơn cũ hơn mốc<select id="rgPurge"><option value="1">Tự xoá (tiết kiệm dung lượng)</option><option value="0">Giữ lại</option></select></label>
+          </div>
+          <p class="hint" style="margin:10px 0 0" id="rgPreview"></p>
+          <div class="formrow"><button class="btn" type="submit">Lưu</button><button class="btn ghost" type="button" id="rgApply">Lưu và kéo lại tất cả shop</button><span class="fmsg" id="rgMsg"></span></div>
+          <p class="hint" style="margin:8px 0 0">Mở rộng khoảng (VD từ 1 tháng lên 3 tháng) thì bấm “Lưu và kéo lại tất cả shop” để lấy thêm đơn cũ; shop nhiều đơn có thể cần vài lượt, lịch 15 phút tự làm tiếp. Thu hẹp khoảng thì chỉ cần Lưu, đơn cũ được xoá ở lượt lịch kế tiếp (nếu chọn tự xoá).</p>
+        </form>
+      </div>
       <div class="card">
         <div class="cardhead"><div><h2>Shop trên Pancake POS</h2><p class="hint">Mỗi shop bán cho một thị trường; kênh và team của từng đơn được nhận ra từ nguồn đơn và marketer. API key cất trong Supabase Vault, trang chỉ hiện 4 ký tự cuối.</p></div><button class="btn" id="syncAll">Đồng bộ tất cả ngay</button></div>
         <div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Shop ID POS</th><th class="l">Thị trường</th><th class="l">API key</th><th class="l">Đồng bộ gần nhất</th><th></th></tr></thead><tbody id="shops"><tr><td colspan="6" class="l muted">Đang tải…</td></tr></tbody></table></div>
@@ -449,7 +468,7 @@
       <td class="l">${esc(byId(C.markets, s.market_id)?.name) || '<span class="pill p-warn">Chưa chọn</span>'}</td>
       <td class="l mono">${s.api_key_hint ? "••••" + esc(s.api_key_hint) : '<span class="pill p-warn">Chưa có</span>'}</td>
       <td class="l">${stPill(s.last_sync_status)} <span class="muted">${when(s.last_synced_at)}${s.last_sync_count != null ? " · " + s.last_sync_count + " đơn" : ""}</span>${s.last_sync_error ? `<div class="neg" style="font-size:12px;white-space:normal;max-width:320px">${esc(s.last_sync_error)}</div>` : ""}</td>
-      <td class="actions"><button class="lnk" data-act="editshop">Sửa</button><button class="lnk" data-act="key">Đặt key</button><button class="lnk" data-act="test">Thử kết nối</button><button class="lnk" data-act="sync">Đồng bộ</button><button class="lnk" data-act="sample">Xem đơn mẫu</button><button class="lnk" data-act="reset">Kéo lại 90 ngày</button></td></tr>`).join("") || '<tr><td colspan="6" class="l muted">Chưa có shop. Thêm bằng form bên dưới.</td></tr>';
+      <td class="actions"><button class="lnk" data-act="editshop">Sửa</button><button class="lnk" data-act="key">Đặt key</button><button class="lnk" data-act="test">Thử kết nối</button><button class="lnk" data-act="sync">Đồng bộ</button><button class="lnk" data-act="sample">Xem đơn mẫu</button><button class="lnk" data-act="reset">Kéo lại từ mốc</button></td></tr>`).join("") || '<tr><td colspan="6" class="l muted">Chưa có shop. Thêm bằng form bên dưới.</td></tr>';
     const cur = $("#kfShop").value;
     $("#kfShop").innerHTML = shops.map((s) => `<option value="${esc(s.id)}" ${s.id === cur ? "selected" : ""}>${esc(s.name)}${s.api_key_hint ? " (đã có key)" : ""}</option>`).join("");
   }
@@ -475,7 +494,7 @@
     if (act === "editshop") { shopForm(s); loadShops(); $("#shopForm").scrollIntoView({ block: "center" }); return; }
     if (act === "key") { $("#kfShop").value = id; $("#keyForm").scrollIntoView({ block: "center" }); $("#kfKey").focus(); return; }
     if (act === "sync") return runSync({ action: "sync", shop: id }, "Đang đồng bộ " + esc(s.name));
-    if (act === "reset") { if (!confirm(`Kéo lại toàn bộ đơn 90 ngày gần nhất của ${s.name}? Shop lớn có thể cần vài lượt mới xong (lịch 15 phút sẽ tự làm tiếp).`)) return; return runSync({ action: "sync", shop: id, reset: true, backfill_days: 90 }, "Đang kéo lại " + esc(s.name)); }
+    if (act === "reset") { if (!confirm(`Kéo lại toàn bộ đơn của ${s.name} từ mốc đồng bộ? Shop lớn có thể cần vài lượt mới xong (lịch 15 phút sẽ tự làm tiếp).`)) return; return runSync({ action: "sync", shop: id, reset: true }, "Đang kéo lại " + esc(s.name)); }
     say($("#shopsMsg"), (act === "test" ? "Đang thử kết nối " : "Đang lấy đơn mẫu của ") + esc(s.name) + "…", "muted");
     try {
       const r = await Auth.callFn("pos", { action: act, shop: id });
@@ -511,6 +530,55 @@
     say($("#shopMsg"), sEdit ? `Đã lưu ${esc(name)}.` : `Đã thêm ${esc(name)}. Giờ đặt API key cho shop ở form phía trên.`, "pos"); shopForm(null); loadShops();
   });
   if (isAdmin) shopForm(null);
+
+  // ---------- khoảng đồng bộ ----------
+  let range = { mode: "month", n: 1, date: null, purge: true };
+  const fmtDate = (d) => d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  function rangeStart(r) {
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    if (r.mode === "months") return new Date(t.getFullYear(), t.getMonth() - (Math.max(1, +r.n || 1) - 1), 1);
+    if (r.mode === "days") { const d = new Date(t); d.setDate(d.getDate() - (Math.max(1, +r.n || 30) - 1)); return d; }
+    if (r.mode === "date" && r.date) return new Date(r.date + "T00:00:00");
+    return new Date(t.getFullYear(), t.getMonth(), 1);
+  }
+  function readRange() {
+    return { mode: $("#rgMode").value, n: Math.max(1, parseInt($("#rgN").value, 10) || (($("#rgMode").value === "days") ? 30 : 2)), date: $("#rgDate").value || null, purge: $("#rgPurge").value === "1" };
+  }
+  function rangeUI() {
+    const r = readRange();
+    $("#rgNWrap").hidden = !(r.mode === "months" || r.mode === "days");
+    $("#rgNLabel").textContent = r.mode === "days" ? "Số ngày" : "Số tháng (2 = tháng này và tháng trước)";
+    $("#rgDateWrap").hidden = r.mode !== "date";
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const days = Math.round((today - rangeStart(r)) / 86400000) + 1; // tính cả hôm nay
+    $("#rgPreview").innerHTML = `Sẽ đồng bộ đơn tạo từ <b>${fmtDate(rangeStart(r))}</b> (khoảng ${days} ngày)${r.purge ? ", đơn cũ hơn bị xoá khỏi Supabase (đơn trên POS không ảnh hưởng)" : ""}.`;
+  }
+  async function loadRange() {
+    const { data } = await sb.from("app_settings").select("value").eq("key", "sync_range").maybeSingle();
+    if (data) range = Object.assign(range, data.value);
+    $("#rgMode").value = range.mode; $("#rgN").value = range.n || (range.mode === "days" ? 30 : 2); $("#rgDate").value = range.date || ""; $("#rgPurge").value = range.purge ? "1" : "0";
+    rangeUI();
+    const { data: st } = await sb.rpc("admin_storage");
+    const x = st && st[0];
+    if (x) $("#storage").innerHTML = `${nf.format(x.orders)} đơn đang lưu${x.oldest ? " · cũ nhất " + fmtDate(new Date(x.oldest)) : ""} · database ${(x.db_bytes / 1048576).toFixed(0)} MB / 500 MB (gói Free)`;
+  }
+  ["#rgMode", "#rgN", "#rgDate", "#rgPurge"].forEach((id) => $(id).addEventListener("input", rangeUI));
+  async function saveRange(apply) {
+    const r = readRange();
+    if (r.mode === "date" && !r.date) { say($("#rgMsg"), "Chọn ngày bắt đầu.", "neg"); return; }
+    if (r.mode === "date" && new Date(r.date) > new Date()) { say($("#rgMsg"), "Ngày bắt đầu phải trước hôm nay.", "neg"); return; }
+    const { error } = await sb.from("app_settings").upsert({ key: "sync_range", value: r, updated_at: new Date().toISOString() });
+    if (error) { say($("#rgMsg"), "Chưa lưu được: " + esc(error.message), "neg"); return; }
+    range = r; say($("#rgMsg"), "Đã lưu khoảng đồng bộ.", "pos");
+    if (apply) {
+      if (!confirm("Kéo lại toàn bộ đơn của mọi shop từ mốc mới? Có thể mất vài lượt (lịch 15 phút tự làm tiếp).")) return;
+      await runSync({ action: "sync", reset: true, purge: r.purge }, "Đang kéo lại tất cả shop");
+    }
+    loadRange();
+  }
+  $("#rangeForm").addEventListener("submit", (e) => { e.preventDefault(); saveRange(false); });
+  $("#rgApply").onclick = () => saveRange(true);
+  if (isAdmin) loadRange().catch(() => {});
 
   // ---------- nhật ký ----------
   async function loadRuns() {
