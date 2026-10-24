@@ -85,7 +85,7 @@
           </div>
           <p class="hint" style="margin:10px 0 0" id="rgPreview"></p>
           <div class="formrow"><button class="btn" type="submit">Lưu</button><button class="btn ghost" type="button" id="rgApply">Lưu và kéo lại tất cả shop</button><span class="fmsg" id="rgMsg"></span></div>
-          <p class="hint" style="margin:8px 0 0">Mở rộng khoảng (VD từ 1 tháng lên 3 tháng) thì bấm “Lưu và kéo lại tất cả shop” để lấy thêm đơn cũ; shop nhiều đơn có thể cần vài lượt, lịch 15 phút tự làm tiếp. Thu hẹp khoảng thì chỉ cần Lưu, đơn cũ được xoá ở lượt lịch kế tiếp (nếu chọn tự xoá).</p>
+          <p class="hint" style="margin:8px 0 0">Mở rộng khoảng (VD từ 1 tháng lên 3 tháng) thì bấm “Lưu và kéo lại tất cả shop” để lấy thêm đơn cũ; shop nhiều đơn có thể cần vài lượt, lịch tự động 2 tiếng/lần tự làm tiếp. Thu hẹp khoảng thì chỉ cần Lưu, đơn cũ được xoá ở lượt lịch kế tiếp (nếu chọn tự xoá).</p>
         </form>
       </div>
       <div class="card">
@@ -119,7 +119,7 @@
 
     <!-- ---------- nhật ký ---------- -->
     <section id="tab-nhatky" hidden>
-      <div class="card"><div class="cardhead"><div><h2>50 lần đồng bộ gần nhất</h2><p class="hint">Đơn được kéo khi có người mở bảng điều hành (tối đa 30 giây một lần) và theo lịch 15 phút. “partial”: chưa kéo hết, lần sau làm tiếp. “busy”: lượt khác đang kéo shop đó.</p></div><button class="btn ghost" id="reloadRuns">Tải lại</button></div>
+      <div class="card"><div class="cardhead"><div><h2>50 lần đồng bộ gần nhất</h2><p class="hint">Đơn được kéo khi có người mở bảng điều hành (tối đa 30 giây một lần) và theo lịch tự động 2 tiếng/lần. “partial”: chưa kéo hết, lần sau làm tiếp. “busy”: lượt khác đang kéo shop đó.</p></div><button class="btn ghost" id="reloadRuns">Tải lại</button></div>
       <div class="tw"><table><thead><tr><th class="l">Bắt đầu</th><th class="l">Shop</th><th class="l">Người / lịch</th><th>Trang</th><th>Đơn</th><th class="l">Kết quả</th><th class="l">Lỗi</th></tr></thead><tbody id="runs"></tbody></table></div></div>
     </section>
   </main>
@@ -305,7 +305,7 @@
 
   // ---------- tính lại phân bổ đơn theo đợt ----------
   // Sửa nhân sự / team / kênh chỉ đánh dấu đơn cần tính lại; ở đây tính dần 2.000 đơn mỗi lượt (mỗi lượt ~1 giây,
-  // dưới giới hạn thời gian của Supabase). Đóng trang giữa chừng thì lịch 15 phút làm nốt.
+  // dưới giới hạn thời gian của Supabase). Đóng trang giữa chừng thì lịch tự động (2 tiếng/lần) làm nốt.
   let draining = false;
   async function drainRecompute(el, then) {
     if (draining) return; draining = true;
@@ -503,7 +503,7 @@
       if (running && sm.length >= 2) { const a = sm[0], b = sm[sm.length - 1]; const rate = (b.done - a.done) / (b.t - a.t); if (rate > 0) eta = " · còn khoảng " + fmtDur((total - done) / rate); }
       html = `<div style="min-width:220px"><div class="bar" style="margin:2px 0 4px"><i style="width:${pct.toFixed(1)}%"></i></div>
         <span style="font-size:12.5px">${running ? '<span class="spin" aria-hidden="true"></span> Đang kéo' : "Đã kéo"} <b>${nf.format(done)}</b> / ${nf.format(total)} đơn (${pct.toFixed(0)}%)${eta}</span>
-        ${!running ? '<div class="muted" style="font-size:12px">Tạm dừng giữa chừng, bấm Đồng bộ để chạy tiếp (lịch 15 phút cũng tự chạy tiếp).</div>' : ""}</div>`;
+        ${!running ? '<div class="muted" style="font-size:12px">Tạm dừng giữa chừng, bấm Đồng bộ để chạy tiếp (lịch tự động 2 tiếng/lần cũng chạy tiếp).</div>' : ""}</div>`;
     } else if (running) {
       html = `<span style="font-size:12.5px"><span class="spin" aria-hidden="true"></span> Đang kéo…</span>`;
     } else {
@@ -553,7 +553,7 @@
         (last.results || []).forEach((x) => (sum[x.shop] = (sum[x.shop] || 0) + (x.orders || 0)));
         const pending = (last.results || []).filter((x) => x.status === "partial" || x.status === "busy" || x.status === "skipped");
         if (!pending.length) break;
-        // Lượt khác (lịch 15 phút / người khác) đang kéo đúng shop đó thì chờ; khoá tự hết sau 3 phút.
+        // Lượt khác (lịch tự động / người khác) đang kéo đúng shop đó thì chờ; khoá tự hết sau 3 phút.
         if (pending.every((x) => x.status === "busy")) {
           busySince = busySince || Date.now();
           if (Date.now() - busySince > 240000) { say($("#shopsMsg"), "Shop vẫn bị một lượt khác giữ sau 4 phút. Kiểm tra đã chạy SQL 20261025030000_sync_progress.sql chưa, rồi bấm Đồng bộ lại.", "neg"); looping = false; loadShops(); return; }
@@ -561,7 +561,7 @@
         } else busySince = null;
         loadShops();
       }
-      say($("#shopsMsg"), stopLoop ? "Đã dừng. Phần còn lại lịch 15 phút sẽ tự chạy tiếp, hoặc bấm Đồng bộ lần nữa." : `Xong sau ${round} lượt.`, stopLoop ? "muted" : "pos");
+      say($("#shopsMsg"), stopLoop ? "Đã dừng. Phần còn lại lịch tự động (2 tiếng/lần) sẽ chạy tiếp, hoặc bấm Đồng bộ lần nữa." : `Xong sau ${round} lượt.`, stopLoop ? "muted" : "pos");
       if (last) showOut("Kết quả đồng bộ", syncResult({ results: (last.results || []).map((x) => Object.assign({}, x, { orders: sum[x.shop] ?? x.orders })) }));
       refreshUnmappedCount();
     } catch (err) { say($("#shopsMsg"), "Đồng bộ lỗi: " + esc(err.message), "neg"); }

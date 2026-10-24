@@ -13,7 +13,7 @@ Bảng điều hành vận hành Team Vương (Phil): tổng quan, team, nhân s
 | Quản trị (admin) | `admin.html` | Tạo tài khoản, cấp vai trò, khoá/xoá; thêm shop POS, đặt API key, thử kết nối, đồng bộ. |
 | Database | `supabase/migrations/…_init.sql` | Bảng, phân quyền (RLS), lưu key vào Supabase Vault. |
 | Server | `supabase/functions/admin-users`, `supabase/functions/pos` | Quản lý tài khoản; gọi API Pancake POS và kéo đơn về. |
-| Cập nhật đơn | `supabase/functions/pos` + `supabase/cron.sql` | Mở bảng điều hành là kéo đơn mới nhất (tối đa 30 giây/lần cho mọi người), 2 phút/lần khi đang xem; lịch 15 phút làm tiếp phần kéo dở. |
+| Cập nhật đơn | `supabase/functions/pos` + `supabase/cron.sql` | Mở bảng điều hành là kéo đơn mới nhất (tối đa 30 giây/lần cho mọi người), 2 phút/lần khi đang xem; lịch tự động 2 tiếng/lần làm tiếp phần kéo dở. |
 
 **Tổ chức:** Dự án → Team → Nhân sự; Thị trường; Kênh bán. Admin khai báo ở Quản trị → Danh mục. Mỗi shop POS bán cho một thị trường. Đơn từ POS là dữ liệu thô: database tự gán đơn cho nhân sự theo tên marketer (rồi người được gán, rồi page), từ đó ra team và dự án; kênh nhận ra từ nguồn đơn theo từ khoá. Sửa khai báo thì đơn cũ được tính lại ngay.
 
@@ -44,7 +44,7 @@ Bảng điều hành vận hành Team Vương (Phil): tổng quan, team, nhân s
      - `SUPABASE_PROJECT_REF`: mã dự án, phần đầu của Project URL (`https://<mã>.supabase.co`).
    - Tab Actions → *Deploy Supabase functions* → Run workflow. Sau này mỗi lần sửa function trên `main`, workflow tự deploy lại.
 6. **Nối trang với Supabase:** sửa `config.js`, điền `SUPABASE_URL` và `SUPABASE_ANON_KEY` lấy ở Project Settings → API. Dùng anon / publishable key, **không** dùng service_role.
-7. **Bật lịch đồng bộ 15 phút:** dán toàn bộ `supabase/cron.sql` vào SQL Editor → Run (mã dự án đã điền sẵn, mã bí mật tự sinh).
+7. **Bật lịch tự đồng bộ (2 tiếng/lần):** dán toàn bộ `supabase/cron.sql` vào SQL Editor → Run (mã dự án đã điền sẵn, mã bí mật tự sinh).
 8. **Nối POS:** đăng nhập bằng tài khoản admin → Quản trị → Kết nối POS:
    - Thêm shop, kèm Shop ID trên POS.
    - Đặt API key. Lấy key trên pos.pages.fm: Cấu hình → Cấu hình ứng dụng → API KEY → Thêm mới.
