@@ -105,5 +105,18 @@
     });
   });
 
-  window.Shell = { render, icon, badge, empty };
+  // Thông báo nổi ở đáy màn hình, tự ẩn; có nút "Hoàn tác" nếu truyền undo.
+  function toast(msg, o = {}) {
+    let box = document.querySelector(".toasts");
+    if (!box) { box = document.createElement("div"); box.className = "toasts"; box.setAttribute("role", "status"); box.setAttribute("aria-live", "polite"); document.body.appendChild(box); }
+    const t = document.createElement("div");
+    t.className = "toast" + (o.err ? " err" : "");
+    t.innerHTML = `<span>${esc(msg)}</span>${o.undo ? '<button type="button">Hoàn tác</button>' : ""}`;
+    box.appendChild(t);
+    const done = () => t.remove();
+    const timer = setTimeout(done, o.ms || (o.undo ? 7000 : 4000));
+    if (o.undo) t.querySelector("button").onclick = () => { clearTimeout(timer); done(); o.undo(); };
+  }
+
+  window.Shell = { render, icon, badge, empty, toast };
 })();
