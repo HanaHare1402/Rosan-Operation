@@ -458,29 +458,84 @@
     $("#sfName").value = s ? s.name : ""; $("#sfPos").value = s ? s.pos_shop_id : ""; $("#sfAct").value = s && s.active === false ? "0" : "1";
     $("#sfMarket").innerHTML = opts(C.markets.map((m) => [m.id, m.name + " (" + m.currency + ")"]), s ? s.market_id : (C.markets[0] || {}).id, "Chọn thị trường");
   }
+  // ---------- tiến độ đồng bộ ----------
+  // Function pos ghi sync_total / sync_done sau mỗi trang; trang này hỏi lại vài giây một lần khi đang chạy.
+  let counts = {}, looping = false, stopLoop = false, pollTimer = null;
+  const samples = {}; // shop → [{t, done}] để ước thời gian còn lại
+  const isRunning = (s) => s.sync_lock_at && Date.now() - new Date(s.sync_lock_at) < 180000;
+  function fmtDur(ms) { const m = Math.round(ms / 60000); return m < 1 ? "dưới 1 phút" : m < 60 ? m + " phút" : Math.floor(m / 60) + " giờ " + (m % 60) + " phút"; }
+  function progressCell(s) {
+    const running = isRunning(s), partial = s.last_sync_status === "partial" || !!s.sync_window_start;
+    const total = s.sync_total, done = s.sync_done || 0;
+    let html = "";
+    if ((running || partial) && total) {
+      const pct = Math.min(100, done / total * 100);
+      const sm = samples[s.id] || (samples[s.id] = []);
+      if (running && (!sm.length || sm[sm.length - 1].done !== done)) sm.push({ t: Date.now(), done });
+      while (sm.length > 20) sm.shift();
+      let eta = "";
+      if (running && sm.length >= 2) { const a = sm[0], b = sm[sm.length - 1]; const rate = (b.done - a.done) / (b.t - a.t); if (rate > 0) eta = " · còn khoảng " + fmtDur((total - done) / rate); }
+      html = `<div style="min-width:220px"><div class="bar" style="margin:2px 0 4px"><i style="width:${pct.toFixed(1)}%"></i></div>
+        <span style="font-size:12.5px">${running ? '<span class="spin" aria-hidden="true"></span> Đang kéo' : "Đã kéo"} <b>${nf.format(done)}</b> / ${nf.format(total)} đơn (${pct.toFixed(0)}%)${eta}</span>
+        ${!running ? '<div class="muted" style="font-size:12px">Tạm dừng giữa chừng, bấm Đồng bộ để chạy tiếp (lịch 15 phút cũng tự chạy tiếp).</div>' : ""}</div>`;
+    } else if (running) {
+      html = `<span style="font-size:12.5px"><span class="spin" aria-hidden="true"></span> Đang kéo…</span>`;
+    } else {
+      html = `${stPill(s.last_sync_status)} <span class="muted">${when(s.last_synced_at)}</span>`;
+    }
+    const n = counts[s.id];
+    return html + `<div class="muted" style="font-size:12px">${n != null ? nf.format(n) + " đơn đang lưu" : ""}</div>` +
+      (s.last_sync_error ? `<div class="neg" style="font-size:12px;white-space:normal;max-width:320px">${esc(s.last_sync_error)}</div>` : "");
+  }
+  function schedulePoll() {
+    clearTimeout(pollTimer);
+    if (!$("#tab-pos") || $("#tab-pos").hidden) return;
+    if (looping || shops.some(isRunning)) pollTimer = setTimeout(() => loadShops(), 3000);
+  }
   async function loadShops() {
-    const { data, error } = await sb.from("pos_shops").select("*").order("name");
+    const [{ data, error }, cr] = await Promise.all([sb.from("pos_shops").select("*").order("name"), sb.rpc("admin_shop_counts")]);
     if (error) { $("#shops").innerHTML = `<tr><td colspan="6" class="l neg">Không tải được: ${esc(error.message)}.</td></tr>`; return; }
+    counts = {}; (cr.data || []).forEach((x) => (counts[x.shop_id] = +x.orders));
     shops = data;
     $("#shops").innerHTML = shops.map((s) => `<tr data-id="${esc(s.id)}" class="${sEdit === s.id ? "editing" : ""}">
       <td class="l">${esc(s.name)}${s.active ? "" : ' <span class="pill p-mute">tạm dừng</span>'}</td>
       <td class="l mono">${s.pos_shop_id ? esc(s.pos_shop_id) : '<span class="pill p-warn">Chưa điền</span>'}</td>
       <td class="l">${esc(byId(C.markets, s.market_id)?.name) || '<span class="pill p-warn">Chưa chọn</span>'}</td>
       <td class="l mono">${s.api_key_hint ? "••••" + esc(s.api_key_hint) : '<span class="pill p-warn">Chưa có</span>'}</td>
-      <td class="l">${stPill(s.last_sync_status)} <span class="muted">${when(s.last_synced_at)}${s.last_sync_count != null ? " · " + s.last_sync_count + " đơn" : ""}</span>${s.last_sync_error ? `<div class="neg" style="font-size:12px;white-space:normal;max-width:320px">${esc(s.last_sync_error)}</div>` : ""}</td>
+      <td class="l">${progressCell(s)}</td>
       <td class="actions"><button class="lnk" data-act="editshop">Sửa</button><button class="lnk" data-act="key">Đặt key</button><button class="lnk" data-act="test">Thử kết nối</button><button class="lnk" data-act="sync">Đồng bộ</button><button class="lnk" data-act="sample">Xem đơn mẫu</button><button class="lnk" data-act="reset">Kéo lại từ mốc</button></td></tr>`).join("") || '<tr><td colspan="6" class="l muted">Chưa có shop. Thêm bằng form bên dưới.</td></tr>';
     const cur = $("#kfShop").value;
     $("#kfShop").innerHTML = shops.map((s) => `<option value="${esc(s.id)}" ${s.id === cur ? "selected" : ""}>${esc(s.name)}${s.api_key_hint ? " (đã có key)" : ""}</option>`).join("");
+    schedulePoll();
   }
   function showOut(title, html) { $("#outTitle").textContent = title; $("#out").innerHTML = html; $("#outCard").hidden = false; $("#outCard").scrollIntoView({ block: "nearest" }); }
   $("#outClose").onclick = () => ($("#outCard").hidden = true);
   const syncResult = (r) => `<div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Kết quả</th><th>Trang</th><th>Đơn</th><th class="l">Lỗi</th></tr></thead><tbody>${(r.results || []).map((x) => `<tr><td class="l">${esc(x.shop)}</td><td class="l">${stPill(x.status)}</td><td>${x.pages ?? "–"}</td><td>${x.orders ?? "–"}</td><td class="l neg" style="white-space:normal">${esc(x.error || "")}</td></tr>`).join("") || '<tr><td colspan="5" class="l muted">Không có shop nào đủ điều kiện (đang bán và đã có key).</td></tr>'}</tbody></table></div>`;
+  // Gọi đồng bộ lặp lại cho tới khi mọi shop xong (mỗi lượt server chạy tối đa ~2 phút).
   async function runSync(body, label) {
-    say($("#shopsMsg"), `${label}… có thể mất tới 2 phút.`, "muted");
-    try { const r = await Auth.callFn("pos", body); say($("#shopsMsg"), "", ""); showOut("Kết quả đồng bộ", syncResult(r)); refreshUnmappedCount(); }
-    catch (err) { say($("#shopsMsg"), "Đồng bộ lỗi: " + esc(err.message), "neg"); }
+    if (looping) { say($("#shopsMsg"), "Đang có lượt đồng bộ chạy, bấm Dừng nếu muốn chạy lượt khác.", "neg"); return; }
+    looping = true; stopLoop = false;
+    const sum = {}; let round = 0, last = null;
+    const status = () => say($("#shopsMsg"), `<span class="spin" aria-hidden="true"></span> ${label} · lượt ${round}${Object.keys(sum).length ? " · đã lưu " + nf.format(Object.values(sum).reduce((a, b) => a + b, 0)) + " đơn" : ""} <button class="lnk danger" type="button" id="stopSync">Dừng</button>`, "muted");
     loadShops();
+    try {
+      for (round = 1; round <= 300 && !stopLoop; round++) {
+        status();
+        last = await Auth.callFn("pos", round === 1 ? body : Object.assign({}, body, { reset: false }));
+        (last.results || []).forEach((x) => (sum[x.shop] = (sum[x.shop] || 0) + (x.orders || 0)));
+        const pending = (last.results || []).filter((x) => x.status === "partial" || x.status === "busy" || x.status === "skipped");
+        if (!pending.length) break;
+        // Lượt khác (lịch 15 phút / người khác) đang kéo đúng shop đó thì chờ một chút.
+        if (pending.every((x) => x.status === "busy")) await new Promise((r) => setTimeout(r, 5000));
+        loadShops();
+      }
+      say($("#shopsMsg"), stopLoop ? "Đã dừng. Phần còn lại lịch 15 phút sẽ tự chạy tiếp, hoặc bấm Đồng bộ lần nữa." : `Xong sau ${round} lượt.`, stopLoop ? "muted" : "pos");
+      if (last) showOut("Kết quả đồng bộ", syncResult({ results: (last.results || []).map((x) => Object.assign({}, x, { orders: sum[x.shop] ?? x.orders })) }));
+      refreshUnmappedCount();
+    } catch (err) { say($("#shopsMsg"), "Đồng bộ lỗi: " + esc(err.message), "neg"); }
+    looping = false; loadShops();
   }
+  $("#shopsMsg").addEventListener("click", (e) => { if (e.target.id === "stopSync") { stopLoop = true; e.target.textContent = "Đang dừng sau lượt này…"; e.target.disabled = true; } });
   function mask(o) {
     if (Array.isArray(o)) return o.map(mask);
     if (!o || typeof o !== "object") return o;
@@ -494,7 +549,7 @@
     if (act === "editshop") { shopForm(s); loadShops(); $("#shopForm").scrollIntoView({ block: "center" }); return; }
     if (act === "key") { $("#kfShop").value = id; $("#keyForm").scrollIntoView({ block: "center" }); $("#kfKey").focus(); return; }
     if (act === "sync") return runSync({ action: "sync", shop: id }, "Đang đồng bộ " + esc(s.name));
-    if (act === "reset") { if (!confirm(`Kéo lại toàn bộ đơn của ${s.name} từ mốc đồng bộ? Shop lớn có thể cần vài lượt mới xong (lịch 15 phút sẽ tự làm tiếp).`)) return; return runSync({ action: "sync", shop: id, reset: true }, "Đang kéo lại " + esc(s.name)); }
+    if (act === "reset") { if (!confirm(`Kéo lại toàn bộ đơn của ${s.name} từ mốc đồng bộ? Trang sẽ tự chạy nhiều lượt cho tới khi xong, có thanh tiến độ.`)) return; return runSync({ action: "sync", shop: id, reset: true }, "Đang kéo lại " + esc(s.name)); }
     say($("#shopsMsg"), (act === "test" ? "Đang thử kết nối " : "Đang lấy đơn mẫu của ") + esc(s.name) + "…", "muted");
     try {
       const r = await Auth.callFn("pos", { action: act, shop: id });
@@ -571,7 +626,7 @@
     if (error) { say($("#rgMsg"), "Chưa lưu được: " + esc(error.message), "neg"); return; }
     range = r; say($("#rgMsg"), "Đã lưu khoảng đồng bộ.", "pos");
     if (apply) {
-      if (!confirm("Kéo lại toàn bộ đơn của mọi shop từ mốc mới? Có thể mất vài lượt (lịch 15 phút tự làm tiếp).")) return;
+      if (!confirm("Kéo lại toàn bộ đơn của mọi shop từ mốc mới? Trang sẽ tự chạy nhiều lượt cho tới khi xong, có thanh tiến độ.")) return;
       await runSync({ action: "sync", reset: true, purge: r.purge }, "Đang kéo lại tất cả shop");
     }
     loadRange();

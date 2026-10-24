@@ -7,6 +7,7 @@ import { adminClient, cors, getCaller, json } from "../_shared/common.ts";
 
 const POS = "https://pos.pages.fm/api/v1";
 const PAGE_SIZE = 100;
+const PARALLEL = 4; // số trang gọi POS cùng lúc (POS cho 1000 lượt/phút)
 const TIME_BUDGET_MS = 110_000; // dừng sớm, lần chạy sau làm tiếp từ trang đang dở
 const OVERLAP_MS = 10 * 60_000; // lùi 10 phút mỗi lần để không sót đơn cập nhật sát mốc
 const REFRESH_BUDGET_MS = 25_000; // người dùng đang chờ trên trang
@@ -15,6 +16,7 @@ const REFRESH_MIN_GAP_MS = 30_000; // vừa kéo trong 30 giây thì dùng luôn
 type Shop = {
   id: string; name: string; pos_shop_id: string; active: boolean; api_key_secret_id: string | null;
   last_synced_at: string | null; sync_window_start: string | null; sync_window_end: string | null; sync_page: number | null;
+  sync_total: number | null;
 };
 
 async function posGet(path: string, key: string, params: Record<string, string | number> = {}) {
@@ -105,30 +107,51 @@ async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger:
     const end = shop.sync_window_end ? new Date(shop.sync_window_end) : new Date();
     // Lùi một trang khi làm tiếp: đơn được cập nhật trong lúc chạy có thể làm các trang dịch đi.
     let page = Math.max(1, (shop.sync_page ?? 1) - (shop.sync_page ? 1 : 0));
+    // Lần đầu (chưa đồng bộ xong lần nào): lọc theo NGÀY TẠO trong [mốc, end], chỉ đơn trong khoảng, không phí
+    // thời gian vào đơn cũ vừa đổi trạng thái. Sau đó: lọc theo ngày cập nhật để bắt đơn đổi trạng thái.
+    const backfill = !shop.last_synced_at;
+    const params: Record<string, string | number> = backfill
+      ? { updateStatus: "inserted_at", startDateTime: Math.floor(+start / 1000), endDateTime: Math.floor(+end / 1000) }
+      : { updateStatus: "updated_at", startDateTime: Math.floor(+start / 1000), endDateTime: Math.floor(+end / 1000), option_sort: "last_updated_order_asc" };
+    let total: number | null = shop.sync_window_start ? (shop.sync_total ?? null) : null, totalPages = 0;
 
     while (true) {
       if (Date.now() > deadline) {
         return await finish({ sync_window_start: start.toISOString(), sync_window_end: end.toISOString(), sync_page: page }, "partial", null);
       }
-      const body = await posGet(`/shops/${encodeURIComponent(shop.pos_shop_id)}/orders`, key, {
-        page_number: page, page_size: PAGE_SIZE, updateStatus: "updated_at",
-        startDateTime: Math.floor(+start / 1000), endDateTime: Math.floor(+end / 1000), option_sort: "last_updated_order_asc",
-      });
-      const list: any[] = Array.isArray(body.data) ? body.data : Array.isArray(body.orders) ? body.orders : [];
-      pages++;
-      if (list.length) {
-        // Lọc theo ngày tạo: đơn cũ vừa đổi trạng thái vẫn nằm trong danh sách "vừa cập nhật".
-        const rows = list.filter((o) => o && (o.id ?? o.system_id) != null && !(ts(o.inserted_at) && new Date(ts(o.inserted_at)!) < cutoff))
-          .map((o) => mapOrder(shop.id, o));
-        const { error } = await sb.from("orders").upsert(rows, { onConflict: "shop_id,pos_order_id" });
-        if (error) throw error;
-        count += rows.length;
+      // Gọi vài trang song song; trang vượt quá cuối danh sách trả về rỗng, không sao.
+      const n = totalPages ? Math.max(1, Math.min(PARALLEL, totalPages - page + 1)) : (page === 1 ? 1 : PARALLEL);
+      const batch = await Promise.all(Array.from({ length: n }, (_, i) =>
+        posGet(`/shops/${encodeURIComponent(shop.pos_shop_id)}/orders`, key, { page_number: page + i, page_size: PAGE_SIZE, ...params })));
+      let stop = false, last = page;
+      for (let i = 0; i < batch.length; i++) {
+        const body = batch[i];
+        const list: any[] = Array.isArray(body.data) ? body.data : Array.isArray(body.orders) ? body.orders : [];
+        pages++; last = page + i;
+        totalPages = Number(body.total_pages) || totalPages;
+        total = Number(body.total_entries) || total;
+        if (list.length) {
+          // Lọc theo ngày tạo: đơn cũ vừa đổi trạng thái vẫn nằm trong danh sách "vừa cập nhật".
+          const rows = list.filter((o) => o && (o.id ?? o.system_id) != null && !(ts(o.inserted_at) && new Date(ts(o.inserted_at)!) < cutoff))
+            .map((o) => mapOrder(shop.id, o));
+          if (rows.length) {
+            const { error } = await sb.from("orders").upsert(rows, { onConflict: "shop_id,pos_order_id" });
+            if (error) throw error;
+          }
+          count += rows.length;
+        }
+        if (!list.length || (totalPages ? last >= totalPages : list.length < PAGE_SIZE)) { stop = true; break; }
       }
-      const totalPages = Number(body.total_pages) || 0;
-      if (!list.length || list.length < PAGE_SIZE || (totalPages && page >= totalPages)) break;
-      page++;
+      // Ghi tiến độ để trang Quản trị hiện thanh tiến độ.
+      const done = Math.min(total ?? Infinity, last * PAGE_SIZE);
+      await sb.from("pos_shops").update({
+        sync_total: total, sync_done: done,
+        sync_window_start: start.toISOString(), sync_window_end: end.toISOString(), sync_page: last + 1,
+      }).eq("id", shop.id);
+      if (stop) break;
+      page = last + 1;
     }
-    return await finish({ last_synced_at: end.toISOString(), sync_window_start: null, sync_window_end: null, sync_page: null }, "ok", null);
+    return await finish({ last_synced_at: end.toISOString(), sync_window_start: null, sync_window_end: null, sync_page: null, sync_done: total ?? count, sync_total: total }, "ok", null);
   } catch (e) {
     return await finish({}, "error", (e as Error).message || String(e));
   }
@@ -188,7 +211,7 @@ Deno.serve(async (req) => {
       if (body.shop) q = q.eq("id", body.shop);
       // Kéo lại từ mốc đồng bộ: một shop, hoặc tất cả (sau khi admin đổi khoảng đồng bộ).
       if (body.reset && isAdmin) {
-        let r = sb.from("pos_shops").update({ last_synced_at: null, sync_window_start: null, sync_window_end: null, sync_page: null });
+        let r = sb.from("pos_shops").update({ last_synced_at: null, sync_window_start: null, sync_window_end: null, sync_page: null, sync_total: null, sync_done: null });
         r = body.shop ? r.eq("id", body.shop) : r.not("id", "is", null);
         await r;
       }
