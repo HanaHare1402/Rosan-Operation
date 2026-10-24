@@ -2,6 +2,7 @@
 //   action "test"   (admin)            : thử key của một shop, trả về danh sách kho và tổng số đơn
 //   action "sample" (admin)            : trả 1 đơn mới nhất dạng thô để xem POS có những trường gì
 //   action "sync"   (admin, quản lý, cron): kéo đơn mới/vừa cập nhật về bảng orders
+//   action "refresh"(mọi tài khoản có vai trò): gọi khi mở trang, kéo nhanh phần mới nhất của các shop đã đồng bộ xong
 import { adminClient, cors, getCaller, json } from "../_shared/common.ts";
 
 const POS = "https://pos.pages.fm/api/v1";
@@ -9,6 +10,8 @@ const PAGE_SIZE = 100;
 const TIME_BUDGET_MS = 110_000; // dừng sớm, lần chạy sau làm tiếp từ trang đang dở
 const OVERLAP_MS = 10 * 60_000; // lùi 10 phút mỗi lần để không sót đơn cập nhật sát mốc
 const DEFAULT_BACKFILL_DAYS = 30;
+const REFRESH_BUDGET_MS = 25_000; // người dùng đang chờ trên trang
+const REFRESH_MIN_GAP_MS = 30_000; // vừa kéo trong 30 giây thì dùng luôn, không gọi POS nữa
 
 type Shop = {
   id: string; name: string; pos_shop_id: string; active: boolean; api_key_secret_id: string | null;
@@ -75,10 +78,14 @@ function mapOrder(shopId: string, o: any) {
 }
 
 async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger: string, deadline: number, backfillDays: number) {
+  // Lượt khác đang kéo shop này thì bỏ qua, tránh hai lượt ghi chồng nhau.
+  const { data: locked, error: le } = await sb.rpc("internal_lock_shop", { p_shop: shop.id });
+  if (le) return { shop: shop.name, status: "error", pages: 0, orders: 0, error: "Chưa chạy SQL 20261024010000_sync_lock.sql trên Supabase: " + le.message };
+  if (locked !== true) return { shop: shop.name, status: "busy", pages: 0, orders: 0, error: null };
   const { data: run } = await sb.from("sync_runs").insert({ shop_id: shop.id, trigger, status: "running" }).select("id").single();
   let pages = 0, count = 0;
   const finish = async (patch: Record<string, unknown>, status: string, error: string | null) => {
-    await sb.from("pos_shops").update({ ...patch, last_sync_status: status, last_sync_error: error, last_sync_count: count }).eq("id", shop.id);
+    await sb.from("pos_shops").update({ ...patch, sync_lock_at: null, last_sync_status: status, last_sync_error: error, last_sync_count: count }).eq("id", shop.id);
     if (run) await sb.from("sync_runs").update({ finished_at: new Date().toISOString(), pages, orders: count, status, error }).eq("id", run.id);
     return { shop: shop.name, status, pages, orders: count, error };
   };
@@ -188,6 +195,23 @@ Deno.serve(async (req) => {
         results.push(await syncShop(sb, s, trigger, deadline, days));
       }
       return json({ ok: true, results });
+    }
+
+    if (body.action === "refresh") {
+      if (!role) return json({ error: "Tài khoản chưa được cấp quyền" }, 403);
+      const fresh = new Date(Date.now() - REFRESH_MIN_GAP_MS).toISOString();
+      // Chỉ shop đã kéo xong lần đầu; shop đang kéo dở lịch sử để lịch 15 phút làm tiếp.
+      const { data: shops, error } = await sb.from("pos_shops").select("*")
+        .eq("active", true).not("api_key_secret_id", "is", null)
+        .is("sync_window_start", null).not("last_synced_at", "is", null).lt("last_synced_at", fresh);
+      if (error) throw error;
+      const until = Date.now() + REFRESH_BUDGET_MS;
+      const results = await Promise.all((shops as Shop[]).map((s) => syncShop(sb, s, "mở trang: " + trigger, until, DEFAULT_BACKFILL_DAYS)));
+      // Mốc dữ liệu = shop cũ nhất trong số shop đang bán và có key.
+      const { data: all } = await sb.from("pos_shops").select("name, last_synced_at")
+        .eq("active", true).not("api_key_secret_id", "is", null);
+      const times = (all || []).map((x) => x.last_synced_at).filter(Boolean).sort();
+      return json({ ok: true, shops: (all || []).length, synced_at: times[0] ?? null, results });
     }
 
     return json({ error: "action không hợp lệ" }, 400);

@@ -81,7 +81,7 @@
 
     <!-- ---------- nhật ký ---------- -->
     <section id="tab-nhatky" hidden>
-      <div class="card"><div class="cardhead"><div><h2>50 lần đồng bộ gần nhất</h2><p class="hint">Lịch tự chạy 15 phút một lần (nếu đã cài cron.sql). “partial” nghĩa là chưa kéo hết, lần sau làm tiếp.</p></div><button class="btn ghost" id="reloadRuns">Tải lại</button></div>
+      <div class="card"><div class="cardhead"><div><h2>50 lần đồng bộ gần nhất</h2><p class="hint">Đơn được kéo khi có người mở bảng điều hành (tối đa 30 giây một lần) và theo lịch 15 phút. “partial”: chưa kéo hết, lần sau làm tiếp. “busy”: lượt khác đang kéo shop đó.</p></div><button class="btn ghost" id="reloadRuns">Tải lại</button></div>
       <div class="tw"><table><thead><tr><th class="l">Bắt đầu</th><th class="l">Shop</th><th class="l">Người / lịch</th><th>Trang</th><th>Đơn</th><th class="l">Kết quả</th><th class="l">Lỗi</th></tr></thead><tbody id="runs"></tbody></table></div></div>
     </section>
   </main>

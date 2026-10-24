@@ -29,7 +29,7 @@
   </aside>
   <main>
     <div class="topbar">
-      <div><h1 id="title">Tổng quan</h1><p class="sub" id="subtitle"></p></div>
+      <div><h1 id="title">Tổng quan</h1><p class="sub" id="subtitle"></p><p class="fresh" id="fresh" role="status"></p></div>
       <div class="chips" id="chFilter" role="group" aria-label="Lọc theo kênh">
         <button class="chip on" data-ch="all">Tất cả kênh</button>
         <button class="chip" data-ch="fb"><span class="ch"><span class="dot d-fb"></span>Facebook</span></button>
@@ -337,7 +337,7 @@ const realOrders=()=>{
   const items=o=>(o.items||[]).map(i=>`${esc(i.name||i.code||'?')}${i.quantity>1?' ×'+i.quantity:''}`).join('<br>')||'<span class="muted">–</span>';
   const phone=p=>!p?'<span class="muted">–</span>':maskPhone?esc(String(p).slice(0,3)+'•••'+String(p).slice(-3)):esc(p);
   return `<div class="tools"><input type="search" id="oq" placeholder="Mã đơn, SĐT, mã vận đơn, tên khách" value="${esc(oQ)}"><div class="chips">${['all'].concat(Object.keys(REAL_GROUPS)).map(s=>`<button class="chip ${oSt===s?'on':''}" data-st="${s}">${s==='all'?'Tất cả':s}</button>`).join('')}</div></div>
-  <div class="card"><h2>Đơn hàng từ POS</h2><p class="hint">Dữ liệu thật, đồng bộ 15 phút một lần. Tổng ${N(REAL.total)} đơn đã kéo về.${REAL.loading?' Đang tải…':''}</p>
+  <div class="card"><h2>Đơn hàng từ POS</h2><p class="hint">Dữ liệu thật, cập nhật từ POS khi mở trang và 2 phút một lần khi trang đang mở. Tổng ${N(REAL.total)} đơn đã kéo về.${REAL.loading?' Đang tải…':''}</p>
   ${REAL.err?`<p class="neg">Không tải được đơn: ${esc(REAL.err)}</p>`:''}
   <div class="tw"><table><thead><tr><th class="l">Mã đơn POS</th><th class="l">Mã vận đơn</th><th class="l">Kênh / shop</th><th class="l">Ngày tạo</th><th class="l">Khách</th><th class="l">SĐT</th><th class="l">Sản phẩm</th><th>COD</th><th class="l">Người phụ trách</th><th class="l">Kho</th><th class="l">Trạng thái</th></tr></thead><tbody>
   ${REAL.rows.map(o=>{const g=realGroup(o.status);return `<tr><td class="l mono">${esc(o.pos_order_id)}</td><td class="l mono">${o.tracking?esc(o.tracking):'<span class="muted">–</span>'}</td><td class="l">${chTag(o.pos_shops.channel)}<div class="muted" style="font-size:12px">${esc(o.pos_shops.name)}</div></td><td class="l">${o.inserted_at?new Date(o.inserted_at).toLocaleString('vi-VN',{dateStyle:'short',timeStyle:'short'}):'–'}</td><td class="l">${esc(o.bill_full_name||'')}</td><td class="l mono">${phone(o.bill_phone_number)}</td><td class="l" style="white-space:normal;min-width:160px">${items(o)}</td><td>${o.cod!=null?N(o.cod):'–'}</td><td class="l">${esc(o.seller||'')}</td><td class="l">${esc(o.warehouse||'')}</td><td class="l"><span class="pill ${REAL_PILL[g]}" title="${esc(o.status_name||POS_ST[o.status]||'')}">${esc(o.status_name||POS_ST[o.status]||g)}</span></td></tr>`}).join('')||`<tr><td colspan="11" class="l muted">${REAL.loading?'Đang tải…':'Không có đơn khớp bộ lọc.'}</td></tr>`}
@@ -484,7 +484,7 @@ V.caidat=()=>{
   </form></div>
 
   <div class="src">
-  <div class="card"><h2>POS Pancake</h2><div class="st">${REAL.total>0?`<span class="pill p-good">Đã có ${N(REAL.total)} đơn thật</span>`:'<span class="pill p-warn">Chưa có đơn</span>'}</div><p class="hint" style="margin:0">Nguồn đơn duy nhất: Facebook và Google (qua Ladipage), TikTok, Shopee.</p><ul><li>API key từng shop cất trong Supabase Vault, admin đặt ở trang Quản trị</li><li>Đồng bộ: 15 phút/lần</li>${ME.role==='admin'?'<li><a href="admin.html#pos">Mở Kết nối POS</a></li>':''}</ul></div>
+  <div class="card"><h2>POS Pancake</h2><div class="st">${REAL.total>0?`<span class="pill p-good">Đã có ${N(REAL.total)} đơn thật</span>`:'<span class="pill p-warn">Chưa có đơn</span>'}</div><p class="hint" style="margin:0">Nguồn đơn duy nhất: Facebook và Google (qua Ladipage), TikTok, Shopee.</p><ul><li>API key từng shop cất trong Supabase Vault, admin đặt ở trang Quản trị</li><li>Cập nhật khi mở trang, 2 phút/lần khi đang xem; lịch 15 phút dự phòng</li>${ME.role==='admin'?'<li><a href="admin.html#pos">Mở Kết nối POS</a></li>':''}</ul></div>
   <div class="card"><h2>Facebook Ads</h2><div class="st"><span class="pill p-warn">Chưa kết nối</span></div><p class="hint" style="margin:0">Chi phí theo camp, CPM, CPC, CTR, số dư tài khoản.</p><ul><li>Cần: System User token của từng BM</li><li>Đồng bộ: mỗi giờ</li><li>Tên camp: MÃSP_MÃNV_ddmm_ghichú</li></ul></div>
   <div class="card"><h2>Telegram</h2><div class="st"><span class="pill p-mute">Chưa cấu hình</span></div><p class="hint" style="margin:0">Báo cáo và cảnh báo tự động.</p><ul><li>Nhóm lãnh đạo: 8:00 và 18:00</li><li>Nhóm từng team: 18:00</li><li>Hết hàng, hết tiền: báo ngay</li></ul></div>
   </div>
@@ -570,6 +570,30 @@ liveSearch('pq',v=>pQ=v);liveSearch('oq',v=>{oQ=v;oPage=0});
 const h=(location.hash||'').slice(1);if(V[h])view=h;if(!ALLOWED.includes(view))view=ALLOWED[0];if(h!==view)try{history.replaceState(null,'','#'+view)}catch(e){}
 build();render();
 realCount().then(()=>{if(REAL.total)render()});
+
+// ---------- cập nhật từ POS khi mở trang ----------
+// Mở trang, quay lại tab, hoặc cứ 2 phút khi tab đang hiện: server kéo phần đơn mới nhất từ POS rồi trang tải lại số.
+let lastRefresh=0,refreshing=false,freshAt=null,freshErr='';
+const hhmm=t=>new Date(t).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+function showFresh(){
+  const el=$('#fresh');if(!el)return;
+  const txt=refreshing?'<span class="spin" aria-hidden="true"></span>Đang lấy số mới nhất từ POS…'
+    :freshErr?`<span class="neg">Không cập nhật được: ${esc(freshErr)}</span>`
+    :freshAt?`Dữ liệu POS tính đến <b>${hhmm(freshAt)}</b>`:'Chưa có shop nào nối POS';
+  el.innerHTML=txt+(refreshing?'':' <button class="lnk" id="refreshNow">Cập nhật ngay</button>');
+}
+async function refreshPOS(){
+  if(refreshing)return;refreshing=true;showFresh();
+  try{const r=await Auth.callFn('pos',{action:'refresh'});freshErr='';freshAt=r.synced_at}
+  catch(e){freshErr=e.message}
+  lastRefresh=Date.now();refreshing=false;showFresh();
+  await realCount();
+  if(view==='donhang'){REAL.key='';render()}
+}
+document.addEventListener('click',e=>{if(e.target.id==='refreshNow')refreshPOS()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-lastRefresh>60000)refreshPOS()});
+setInterval(()=>{if(document.visibilityState==='visible')refreshPOS()},120000);
+refreshPOS();
 
 // ---------- nối db (cài đặt dùng chung) ----------
 (async()=>{

@@ -150,3 +150,7 @@ html.auth-pending .app{visibility:hidden}
 .tabs button{font:600 13px var(--font);background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:9px 12px;cursor:pointer;white-space:nowrap}
 .tabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
 pre.raw{font:12px/1.5 var(--mono);background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;max-height:420px;white-space:pre}
+.fresh{margin:4px 0 0;font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.spin{width:11px;height:11px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;display:inline-block}
+@media (prefers-reduced-motion:no-preference){.spin{animation:spin .8s linear infinite}}
+@keyframes spin{to{transform:rotate(360deg)}}
