@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bảng điều hành Team Vương</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sidebar điều hướng trái + vùng làm việc; mỗi màn hình = tóm tắt trước, chi tiết sau */
+:root{
+  --bg:#f5f6f3; --panel:#ffffff; --sunk:#eceee8; --line:#dcdfd6; --ink:#1b211d; --muted:#5f685f; --faint:#8a9289;
+  --accent:#0f6e5a; --accent-soft:#dcefe8; --accent-ink:#0a4f40;
+  --good:#2f7d32; --good-soft:#e2f1e2; --warn:#a86400; --warn-soft:#fbefd9; --bad:#b3261e; --bad-soft:#fbe4e2;
+  --fb:#3461c1; --gg:#1e8e5a; --tt:#1b211d; --sp:#d4582a; --lz:#7a3fb0;
+  --font:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121614; --panel:#1a1f1c; --sunk:#232925; --line:#2f3732; --ink:#e7ebe6; --muted:#a3ada4; --faint:#7b857c;
+  --accent:#4cc3a4; --accent-soft:#183b32; --accent-ink:#9be4cf;
+  --good:#6cc070; --good-soft:#1e3320; --warn:#e9a845; --warn-soft:#3a2c14; --bad:#f08079; --bad-soft:#3d1d1b;
+  --fb:#7d9ef0; --gg:#5cc58f; --tt:#e7ebe6; --sp:#f08a5f; --lz:#b98be6; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121614; --panel:#1a1f1c; --sunk:#232925; --line:#2f3732; --ink:#e7ebe6; --muted:#a3ada4; --faint:#7b857c;
+  --accent:#4cc3a4; --accent-soft:#183b32; --accent-ink:#9be4cf;
+  --good:#6cc070; --good-soft:#1e3320; --warn:#e9a845; --warn-soft:#3a2c14; --bad:#f08079; --bad-soft:#3d1d1b;
+  --fb:#7d9ef0; --gg:#5cc58f; --tt:#e7ebe6; --sp:#f08a5f; --lz:#b98be6; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.45}
+.app{display:grid;grid-template-columns:224px minmax(0,1fr);min-height:100vh}
+aside{background:var(--panel);border-right:1px solid var(--line);padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{font-weight:700;font-size:15px;letter-spacing:-.01em;margin:0 8px 2px}
+.brand-sub{color:var(--muted);font-size:12px;margin:0 8px 20px}
+nav{display:flex;flex-direction:column;gap:2px}
+nav a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:8px;color:var(--ink);text-decoration:none;font-weight:500}
+nav a:hover{background:var(--sunk)}
+nav a.on{background:var(--accent-soft);color:var(--accent-ink)}
+nav .cnt{font-family:var(--mono);font-size:11px;background:var(--bad-soft);color:var(--bad);padding:1px 7px;border-radius:99px}
+.side-foot{margin-top:24px;padding:12px 10px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+main{min-width:0;padding-block:20px 48px;padding-left:28px;padding-right:max(16px,env(safe-area-inset-right,0px))}
+.topbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{font-size:22px;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:99px;font:500 13px var(--font);cursor:pointer}
+.chip:hover{border-color:var(--faint)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,nav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.demo{display:flex;gap:10px;align-items:flex-start;background:var(--warn-soft);color:var(--ink);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:13px}
+.demo b{color:var(--warn)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:18px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.kpi .l{color:var(--muted);font-size:12px;letter-spacing:.02em}
+.kpi .v{font-size:22px;font-weight:600;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpi .n{font-size:12px;color:var(--muted);margin-top:2px}
+.bar{height:6px;background:var(--sunk);border-radius:99px;margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.grid2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0;margin-bottom:14px}
+.grid2 .card{margin-bottom:0}
+.card h2{font-size:15px;margin:0 0 2px;letter-spacing:-.01em}
+.card .hint{color:var(--muted);font-size:12px;margin:0 0 12px}
+.tw{overflow-x:auto;margin:0 -4px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:11.5px;font-weight:600;color:var(--muted);text-align:right;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap;letter-spacing:.02em}
+th:first-child,td:first-child{text-align:left}
+th.l,td.l{text-align:left}
+th.sort{cursor:pointer;user-select:none}
+th.sort:hover{color:var(--ink)}
+td{padding:8px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover td{background:var(--sunk)}
+tfoot td{font-weight:600;border-top:1px solid var(--line);border-bottom:0}
+.mono{font-family:var(--mono);font-size:12.5px}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.p-good{background:var(--good-soft);color:var(--good)} .p-warn{background:var(--warn-soft);color:var(--warn)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-mute{background:var(--sunk);color:var(--muted)}
+.ch{display:inline-flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.d-fb{background:var(--fb)} .d-gg{background:var(--gg)} .d-tiktok{background:var(--tt)} .d-shopee{background:var(--sp)} .d-lazada{background:var(--lz)} .d-khac{background:var(--faint)}
+.cardhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.editor{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--sunk)}
+.edtitle{font-weight:600;margin-bottom:10px}
+.editor input,.editor select{width:100%}
+.formrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.fmsg{font-size:12.5px}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.lnk{background:none;border:0;padding:2px 6px;color:var(--accent);font:600 12.5px var(--font);cursor:pointer;border-radius:6px}
+.lnk:hover{background:var(--accent-soft)}
+.lnk.danger{color:var(--bad);background:var(--bad-soft)}
+td.actions{white-space:nowrap}
+tr.editing td{background:var(--accent-soft)}
+.mix{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--sunk);margin:8px 0 12px}
+.mix span{display:block;height:100%}
+.legend{display:flex;flex-direction:column;gap:8px}
+.legend .row{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:baseline;font-variant-numeric:tabular-nums}
+.legend .row .k{display:flex;align-items:center;gap:8px}
+.legend .row .s{color:var(--muted);font-size:12px;min-width:56px;text-align:right}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+select,input[type=search],input[type=text],input[type=number]{font:500 13px var(--font);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+input[type=search]{min-width:0;flex:1 1 200px;max-width:320px}
+svg text{font-family:var(--font)}
+.chart{width:100%;height:auto;display:block}
+.alerts{display:flex;flex-direction:column;gap:8px}
+.alert{display:grid;grid-template-columns:4px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px 10px 0;overflow:hidden}
+.alert .stripe{align-self:stretch}
+.alert .t{font-weight:600}
+.alert .m{color:var(--muted);font-size:12.5px}
+.s-bad{background:var(--bad)} .s-warn{background:var(--warn)} .s-info{background:var(--accent)}
+.src{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.src .card{margin:0}
+.src .st{margin:8px 0}
+.src ul{margin:6px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.drop{border:1.5px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted)}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.btn{font:600 13px var(--font);background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+:root[data-theme="dark"] .btn{color:#0b1a15}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn{color:#0b1a15}}
+.muted{color:var(--muted)} .neg{color:var(--bad)} .pos{color:var(--good)}
+.pl td:first-child{white-space:normal}
+.pl tr.h td{font-weight:600}
+.pl tr.sec td{background:var(--sunk);font-weight:700}
+.pl td.ind{padding-left:24px;color:var(--muted)}
+.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px;color:var(--muted);font-size:12.5px}
+.pager button{font:500 12.5px var(--font);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:5px 10px;cursor:pointer}
+.pager button:disabled{opacity:.4;cursor:default}
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  aside{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;height:auto;padding-block:10px;padding-right:max(16px,env(safe-area-inset-right,0px));border-right:0;border-bottom:1px solid var(--line)}
+  .brand-sub,.side-foot{display:none}
+  .brand{margin:0 0 8px}
+  nav{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:2px}
+  nav a{white-space:nowrap;padding:6px 10px}
+  main{padding-left:max(16px,env(safe-area-inset-left,0px))}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width .4s ease}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">Team Vương · Phil</div>
+    <div class="brand-sub">Bảng điều hành vận hành</div>
+    <nav id="nav">
+      <a href="#tongquan" data-v="tongquan">Tổng quan</a>
+      <a href="#team" data-v="team">Team</a>
+      <a href="#nhansu" data-v="nhansu">Nhân sự</a>
+      <a href="#sanpham" data-v="sanpham">Sản phẩm</a>
+      <a href="#donhang" data-v="donhang">Đơn hàng</a>
+      <a href="#kqkd" data-v="kqkd">KQKD</a>
+      <a href="#canhbao" data-v="canhbao">Cảnh báo <span class="cnt" id="alertCnt">0</span></a>
+      <a href="#caidat" data-v="caidat">Cài đặt</a>
+    </nav>
+    <div class="side-foot">Tháng 9/2026<br>Tỷ giá: 1 USD = 27.000 đ · 1 ₱ = 403 đ</div>
+  </aside>
+  <main>
+    <div class="topbar">
+      <div><h1 id="title">Tổng quan</h1><p class="sub" id="subtitle"></p></div>
+      <div class="chips" id="chFilter" role="group" aria-label="Lọc theo kênh">
+        <button class="chip on" data-ch="all">Tất cả kênh</button>
+        <button class="chip" data-ch="fb"><span class="ch"><span class="dot d-fb"></span>Facebook</span></button>
+        <button class="chip" data-ch="gg"><span class="ch"><span class="dot d-gg"></span>Google</span></button>
+        <button class="chip" data-ch="tiktok"><span class="ch"><span class="dot d-tiktok"></span>TikTok</span></button>
+        <button class="chip" data-ch="shopee"><span class="ch"><span class="dot d-shopee"></span>Shopee</span></button>
+      </div>
+    </div>
+    <div class="demo"><div><b>Dữ liệu mẫu.</b> Số Facebook được mô phỏng theo tổng tháng 9 trong sheet (24,76 tỷ doanh số, 6,92 tỷ chi phí, 156.770 đơn). Số Google, TikTok, Shopee là giả định. Khi nối API POS và Facebook, trang dùng dữ liệu thật. Chạy thật ngay: cài đặt shop và đơn vị FFM (lưu chung), ô đối soát file J&amp;T ở màn KQKD.</div></div>
+    <section id="view"></section>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+const USD=27000, PHP=403, ADS_LIMIT=0.30;
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+const TEAMS=[
+ {id:'phong',name:'Team Phong',ds:11184982094,cp:3190244940,orders:70820,target:14200000000,
+  staff:['PHONGLT','X.Tuyên','MINHNHAT','VUHAI','THAIDH','HUYND','Hoàng Sơn','Việt Hoàng','Trần Cường','Vũ Việt','Đăng Tuấn','Mạnh Tiến']},
+ {id:'mung',name:'Team Mừng',ds:9953472830,cp:2635610130,orders:63010,target:12600000000,
+  staff:['Mừng','HANQ','VIETND','MAINTP','THULT','LONGLT','TRANGNQ','LINHNTM','PHONGVD','HUYPD']},
+ {id:'hieu',name:'Team Hiếu',ds:3913952660,cp:1090105050,orders:22940,target:4766799912,
+  staff:['HIẾU VŨ','MINH ĐĂNG','THANH TUẤN','HOÀNG NQ','TƯƠI','ĐỨC CƯỜNG','TOANNV','HUYỀN TRANG']},
+ {id:'nhung',name:'Team Nhung',ds:0,cp:0,orders:0,target:0,staff:[]},
+ {id:'san',name:'Team Sàn',ds:0,cp:0,orders:0,target:3500000000,staff:[]}
+];
+const teamName=id=>(TEAMS.find(t=>t.id===id)||{name:id||'(chưa gán team)'}).name;
+// [mã, tên VN, tên EN, nhóm, giá bán ₱/đơn, giá vốn ₱/sp, tỷ lệ hoàn, tồn kho]
+const PRODUCTS=[
+ ['VP3801','Tẩy Cặn Nhà Tắm','Bathroom Descaler','Nhóm 2',498,38,.22,2400],
+ ['VP3802','Băng Dán Cơ','Flex Muscle Tape','Nhóm 2',329,9.5,.27,5200],
+ ['VP3803','Con Lăn Cơ 360','360 Muscle Roller','Nhóm 2',469,43.99,.24,1800],
+ ['VP3804','Đĩa Mài Đánh Bóng','Polishing Disc','Nhóm 2',349,21,.20,90],
+ ['VP3805','Lót Chuột Phím Tắt','Shortcut Mouse Pad','Nhóm 3',349,28,.18,3100],
+ ['MC60','Gioăng Cao Su Ô Tô','Car Rubber Gasket','Nhóm 3',459,36,.29,4300],
+ ['MC61','Khung Biển Số','License Plate Frame','Nhóm 3',599,85.47,.33,2700],
+ ['MC62','Tất Giãn Tĩnh Mạch','Varicose Socks','Nhóm 3',499,31,.31,6100],
+ ['MC63','Bột Diệt Rễ','RootKill Powder','Nhóm 3',389,26,.26,0],
+ ['MC64','Chất Khử Mùi Cống','Drain Deodorizer','Nhóm 3',399,24,.23,3900],
+ ['MC65','Viên Tẩy Cặn Canxi','Oxy Descaling Tabs','Nhóm 3',449,30,.25,150],
+ ['MC66','Móc Khoá Dao Mini','Mini Keychain Knife','Nhóm 3',299,14,.21,2200],
+ ['MC67','Cưa Cắt Cành','Branch Cutting Saw','Nhóm 3',549,79.41,.28,1300],
+ ['VP3701','Bút Cắt Kính','Glass Cutting Pen','Nhóm 1',299,10.98,.19,800],
+ ['VP3702','Kem Dưỡng Mắt','Eye Cream','Nhóm 1',399,25,.30,600],
+ ['TS01','Gậy Gặt Quả','Saw & Fruit Picking','Mới test',529,62,.35,120]
+].map(p=>({code:p[0],vn:p[1],en:p[2],grp:p[3],price:p[4],cost:p[5],ret:p[6],stock:p[7]}));
+const PM={};PRODUCTS.forEach(p=>PM[p.code]=p);
+const PW={'Nhóm 1':.15,'Nhóm 2':.42,'Nhóm 3':1.25,'Mới test':.25};
+const REGIONS=['Metro Manila','Cagayan','Cebu','Davao del Sur','Pampanga','Laguna','Cavite','Iloilo','Pangasinan','Bulacan'];
+
+// ---------- cấu hình (shop sàn, đơn vị FFM): lưu trong db của trang ----------
+const DEF_SHOPS=[
+ {id:'d1',channel:'tiktok',name:'PH01 Casa Bliss PH',posShopId:'',team:'san',staff:'',active:true},
+ {id:'d2',channel:'tiktok',name:'PH02 HomeEase Finds PH',posShopId:'',team:'san',staff:'',active:true},
+ {id:'d3',channel:'tiktok',name:'PH03 Homey Finds PH',posShopId:'',team:'san',staff:'',active:true},
+ {id:'d4',channel:'shopee',name:'Shopee – Đạt',posShopId:'',team:'san',staff:'Đạt',active:true},
+ {id:'d5',channel:'shopee',name:'Shopee – Đức',posShopId:'',team:'san',staff:'Đức',active:true}];
+const DEF_FFMS=[
+ {id:'gip',name:'GIP',warehouse:'Kho GIP',feePct:2.5,shipPhp:48,share:70,note:'Phí giả định, sửa theo hợp đồng'},
+ {id:'gpx',name:'GPX',warehouse:'Kho GPX',feePct:3,shipPhp:52,share:30,note:'Phí giả định, sửa theo hợp đồng'}];
+let SHOPS=DEF_SHOPS.slice(), FFMS=DEF_FFMS.slice();
+let db=null, dbState='loading', dbErr='';
+const ffmName=id=>(FFMS.find(f=>f.id===id)||{name:'(chưa gán)'}).name;
+
+// ---------- sinh dữ liệu mẫu ----------
+let rows=[], ORDERS=[];
+function build(){
+  const R=rng(20260926);
+  rows=[];
+  const dayF=[],cpF=[];for(let d=1;d<=30;d++){dayF.push(.75+.5*Math.sin(d/4.3)+.35*R()+(d%7===0?.25:0));cpF.push(.82+.36*R())}
+  const ffmPick=(u)=>{const tot=FFMS.reduce((s,f)=>s+(+f.share||0),0);if(!FFMS.length)return '';if(!tot)return FFMS[0].id;let x=u*tot;for(const f of FFMS){x-=(+f.share||0);if(x<=0)return f.id}return FFMS.at(-1).id};
+  function finish(r){const p=PM[r.code];r.sent=r.ord*.94;const done=Math.max(0,Math.min(1,(31-r.day)/9));r.ret=r.sent*done*p.ret;r.ok=r.sent*done*(1-p.ret);r.ship=r.sent-r.ret-r.ok;r.okDs=r.ds*.94*done*(1-p.ret);rows.push(r)}
+  TEAMS.filter(t=>t.ds>0).forEach(t=>{
+    const tr=[];
+    t.staff.forEach(name=>{
+      const sw=.4+R()*1.3;
+      const pool=PRODUCTS.slice().sort(()=>R()-.5).slice(0,4+Math.floor(R()*3));
+      const pct0=.24+R()*.1;
+      pool.forEach(p=>{
+        const w=PW[p.grp]*(.4+R()); const ch=R()<.08?'gg':'fb'; const fu=R();
+        for(let d=1;d<=30;d++){
+          if(R()<.12)continue;
+          const ds=sw*w*dayF[d-1]*(.55+.9*R());
+          tr.push({team:t.id,staff:name,ch,shop:'',code:p.code,day:d,ds,cp:ds*(pct0*cpF[d-1]*(.8+.45*R())),ord:0,fu});
+        }
+      });
+    });
+    const sds=tr.reduce((a,r)=>a+r.ds,0), scp=tr.reduce((a,r)=>a+r.cp,0);
+    let sOrd=0;
+    tr.forEach(r=>{r.ds*=t.ds/sds;r.cp*=t.cp/scp;r.ord=r.ds/(PM[r.code].price*PHP);sOrd+=r.ord});
+    tr.forEach(r=>{r.ord*=t.orders/sOrd;r.ffm=ffmPick(r.fu);finish(r)});
+  });
+  // đơn sàn: mỗi shop đang bật sinh ~570 triệu/tháng, tính cho nhân sự phụ trách (chưa gán thì tính cho shop)
+  SHOPS.filter(s=>s.active!==false).forEach((s,si)=>{
+    const r2=rng(500+si*97+String(s.name).length);
+    const pool=PRODUCTS.slice().sort(()=>r2()-.5).slice(0,4);
+    const tr=[];
+    pool.forEach(p=>{const w=PW[p.grp]*(.4+r2());const fu=r2();for(let d=1;d<=30;d++){const ds=w*dayF[d-1]*(.55+.9*r2());tr.push({team:s.team||'',staff:(s.staff||'').trim()||s.name,ch:s.channel,shop:s.name,code:p.code,day:d,ds,cp:ds*(.1+.08*r2()),fu})}});
+    const sds=tr.reduce((a,r)=>a+r.ds,0),k=572e6*(.6+.8*r2())/sds;
+    tr.forEach(r=>{r.ds*=k;r.cp*=k;r.ord=r.ds/(PM[r.code].price*PHP);r.ffm=ffmPick(r.fu);finish(r)});
+  });
+  // đơn mẫu cho màn Đơn hàng
+  ORDERS=[];const r3=rng(77);const fr=rows.filter(r=>r.ord>2);
+  for(let i=0;i<600&&fr.length;i++){const r=fr[Math.floor(r3()*fr.length)];const p=PM[r.code];const q=1+Math.floor(r3()*r3()*4);
+    const done=Math.max(0,Math.min(1,(31-r.day)/9));const x=r3();
+    const st=x<.06?'Đã huỷ':(x<.06+.94*(1-done)?'Đang giao':(r3()<p.ret?'Hoàn':'Đã giao'));
+    ORDERS.push({id:'PH'+(260900000+i*37+Math.floor(r3()*30)),wb:st==='Đã huỷ'?'':'JT00'+(23484765743+i*9137),ch:r.ch,shop:r.shop,day:r.day,staff:r.staff,team:r.team,code:r.code,q,cod:Math.round(p.price*(q>1?q*.82:1)+30),region:REGIONS[Math.floor(r3()*REGIONS.length)],phone:'9'+String(Math.floor(r3()*90+10))+'•••'+String(Math.floor(r3()*9000+1000)),st,ffm:r.ffm})}
+  ORDERS.sort((a,b)=>b.day-a.day||b.id.localeCompare(a.id));
+}
+
+// ---------- tiện ích ----------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nf=new Intl.NumberFormat('vi-VN');
+const N=v=>nf.format(Math.round(v));
+function M(v){const a=Math.abs(v),s=v<0?'−':'';if(a>=1e9)return s+(a/1e9).toFixed(2).replace('.',',')+' tỷ';if(a>=1e6)return s+(a/1e6).toFixed(1).replace('.',',')+' tr';return s+N(a)}
+const PF=v=>String(v).replace('.',',');
+const P=(v,d=1)=>isFinite(v)?(v*100).toFixed(d).replace('.',',')+'%':'–';
+const CHN={fb:'Facebook',gg:'Google',tiktok:'TikTok',shopee:'Shopee',lazada:'Lazada',khac:'Khác'};
+const chTag=c=>`<span class="ch"><span class="dot d-${c}"></span>${CHN[c]||esc(c)}</span>`;
+function adsPill(p){if(!isFinite(p))return '–';if(p>.35)return `<span class="pill p-bad">${P(p)}</span>`;if(p>ADS_LIMIT)return `<span class="pill p-warn">${P(p)}</span>`;return `<span class="pill p-good">${P(p)}</span>`}
+const store={get(k,d){try{const v=localStorage.getItem('tv_'+k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem('tv_'+k,v)}catch(e){}}};
+
+let CH=store.get('ch','all');
+const F=()=>rows.filter(r=>CH==='all'||r.ch===CH);
+function agg(list,key){const m=new Map();list.forEach(r=>{const k=key(r);let a=m.get(k);if(!a){a={k,ds:0,cp:0,ord:0,sent:0,ok:0,ret:0,ship:0,okDs:0,cogs:0};m.set(k,a)}a.ds+=r.ds;a.cp+=r.cp;a.ord+=r.ord;a.sent+=r.sent;a.ok+=r.ok;a.ret+=r.ret;a.ship+=r.ship;a.okDs+=r.okDs;a.cogs+=r.ok*1.6*PM[r.code].cost*PHP});return [...m.values()]}
+const ZERO={ds:0,cp:0,ord:0,sent:0,ok:0,ret:0,ship:0,okDs:0,cogs:0};
+const tot=list=>agg(list,()=>'all')[0]||Object.assign({},ZERO);
+const retRate=a=>(a.ok+a.ret)>0?a.ret/(a.ok+a.ret):NaN;
+
+// ---------- biểu đồ ----------
+function dailyChart(list,h=220){
+  const days=agg(list,r=>r.day).sort((a,b)=>a.k-b.k);
+  if(!days.length)return '<p class="muted">Chưa có dữ liệu.</p>';
+  const W=720,H=h,L=52,Rr=44,T=16,B=28,iw=W-L-Rr,ih=H-T-B;
+  const maxDs=Math.max(1,...days.map(d=>d.ds));
+  const step=Math.pow(10,Math.floor(Math.log10(maxDs)));const nice=[1,2,2.5,5,10].map(x=>x*step).find(x=>maxDs/x<=5)||step*10;
+  const top=Math.ceil(maxDs/nice)*nice;
+  const bw=iw/30;
+  const y=v=>T+ih-(v/top)*ih, yp=p=>T+ih-(Math.min(p,.5)/.5)*ih;
+  let g='';
+  for(let v=0;v<=top+1;v+=nice){g+=`<line x1="${L}" x2="${W-Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${v>=1e9?(v/1e9).toLocaleString('vi-VN',{maximumFractionDigits:1})+' tỷ':v>0?Math.round(v/1e6)+' tr':'0'}</text>`}
+  [0,.1,.2,.3,.4,.5].forEach(p=>{g+=`<text x="${W-Rr+8}" y="${yp(p)+4}" font-size="11" fill="var(--muted)">${p*100}%</text>`});
+  g+=`<line x1="${L}" x2="${W-Rr}" y1="${yp(ADS_LIMIT)}" y2="${yp(ADS_LIMIT)}" stroke="var(--bad)" stroke-dasharray="4 4" stroke-width="1"/><text x="${W-Rr-4}" y="${yp(ADS_LIMIT)-6}" text-anchor="end" font-size="11" fill="var(--bad)">giới hạn 30%</text>`;
+  let pts=[];
+  days.forEach(d=>{const x=L+(d.k-1)*bw;g+=`<rect x="${x+bw*.18}" y="${y(d.ds)}" width="${bw*.64}" height="${T+ih-y(d.ds)}" rx="2" fill="var(--accent)" opacity=".28"><title>Ngày ${d.k}/9: ${M(d.ds)} · ${P(d.cp/d.ds)}</title></rect>`;pts.push([x+bw/2,yp(d.cp/d.ds)]);
+    if(d.k%5===1||d.k===30)g+=`<text x="${x+bw/2}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--muted)">${d.k}/9</text>`});
+  g+=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
+  const last=pts.at(-1);if(last)g+=`<circle cx="${last[0]}" cy="${last[1]}" r="3.5" fill="var(--ink)"/>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Doanh số và phần trăm chi phí ads theo ngày">${g}</svg>
+  <div class="muted" style="font-size:12px;display:flex;gap:16px;flex-wrap:wrap;margin-top:6px"><span><span class="dot" style="background:var(--accent);opacity:.5;border-radius:2px"></span> Doanh số ngày (trục trái)</span><span>— % chi phí ads (trục phải)</span></div>`;
+}
+function spark(list){const days=agg(list,r=>r.day).sort((a,b)=>a.k-b.k);const W=160,H=36,mx=Math.max(1,...days.map(d=>d.ds));const pts=days.map(d=>[(d.k-1)/29*W,H-2-(d.ds/mx)*(H-6)]);if(!pts.length)return '';
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polygon points="0,${H} ${pts.map(p=>p.join(',')).join(' ')} ${W},${H}" fill="var(--accent)" opacity=".12"/><polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="1.5"/><circle cx="${pts.at(-1)[0]}" cy="${pts.at(-1)[1]}" r="2.5" fill="var(--accent)"/></svg>`}
+
+function kpiBlock(a,extra=''){return `<div class="kpis">
+  <div class="kpi"><div class="l">Doanh số chốt</div><div class="v">${M(a.ds)}</div><div class="n">${N(a.ds/PHP)} ₱</div>${extra}</div>
+  <div class="kpi"><div class="l">Chi phí MKT</div><div class="v">${M(a.cp)}</div><div class="n">${N(a.cp/USD)} USD</div></div>
+  <div class="kpi"><div class="l">% chi phí ads</div><div class="v">${P(a.cp/a.ds,2)}</div><div class="n">giới hạn 30% · ${a.cp/a.ds>ADS_LIMIT?'<span class="neg">vượt</span>':'<span class="pos">trong ngưỡng</span>'}</div></div>
+  <div class="kpi"><div class="l">Số đơn</div><div class="v">${N(a.ord)}</div><div class="n">giá trị TB ${a.ord?N(a.ds/a.ord):'–'} đ</div></div>
+  <div class="kpi"><div class="l">Chi phí / đơn</div><div class="v">${a.ord?N(a.cp/a.ord):'–'} đ</div><div class="n">${a.ord?(a.cp/a.ord/PHP).toFixed(1).replace('.',','):'–'} ₱</div></div>
+  <div class="kpi"><div class="l">Tỷ lệ hoàn (đơn đã xong)</div><div class="v">${P(retRate(a))}</div><div class="n">${N(a.ship)} đơn đang giao</div></div>
+</div>`}
+
+function rankTable(list,keyFn,label,opts={}){
+  const g=agg(list,keyFn).sort((a,b)=>b.ds-a.ds);
+  const tt=tot(list);
+  return `<div class="tw"><table><thead><tr><th class="l">${label}</th>${opts.extraHead||''}<th>Doanh số</th><th>Chi phí MKT</th><th>% ads</th><th>Số đơn</th><th>CP/đơn</th><th>% hoàn</th>${opts.spark?'<th>30 ngày</th>':''}</tr></thead><tbody>
+  ${g.map(a=>`<tr class="${opts.click?'click':''}" ${opts.click?`data-go="${esc(opts.click(a.k))}"`:''}><td>${opts.name?opts.name(a.k):esc(a.k)}</td>${opts.extraCell?opts.extraCell(a.k):''}<td>${M(a.ds)}</td><td>${M(a.cp)}</td><td>${adsPill(a.cp/a.ds)}</td><td>${N(a.ord)}</td><td>${N(a.cp/a.ord)}</td><td>${P(retRate(a))}</td>${opts.spark?`<td>${spark(list.filter(r=>keyFn(r)===a.k))}</td>`:''}</tr>`).join('')}
+  </tbody><tfoot><tr><td>Tổng</td>${opts.extraHead?'<td></td>':''}<td>${M(tt.ds)}</td><td>${M(tt.cp)}</td><td>${adsPill(tt.cp/tt.ds)}</td><td>${N(tt.ord)}</td><td>${tt.ord?N(tt.cp/tt.ord):'–'}</td><td>${P(retRate(tt))}</td>${opts.spark?'<td></td>':''}</tr></tfoot></table></div>`;
+}
+
+// ---------- màn hình ----------
+const V={};
+const CHCOL={fb:'var(--fb)',gg:'var(--gg)',tiktok:'var(--tt)',shopee:'var(--sp)',lazada:'var(--lz)',khac:'var(--faint)'};
+V.tongquan=()=>{
+  const list=F(),a=tot(list);
+  const teamsIn=[...new Set(list.map(r=>r.team))];
+  const target=TEAMS.filter(t=>teamsIn.includes(t.id)).reduce((s,t)=>s+t.target,0);
+  const prog=target?`<div class="bar" title="Tiến độ so với target"><i style="width:${Math.min(100,a.ds/target*100)}%"></i></div><div class="n">${P(a.ds/target)} target ${M(target)}</div>`:'';
+  const grp=agg(list,r=>PM[r.code].grp).sort((x,y)=>y.ds-x.ds);
+  const chs=agg(list,r=>r.ch).sort((x,y)=>y.ds-x.ds);
+  return kpiBlock(a,prog)+`
+  <div class="grid2">
+    <div class="card"><h2>Doanh số và % ads theo ngày</h2><p class="hint">Rê chuột lên cột để xem số từng ngày.</p>${dailyChart(list,280)}</div>
+    <div class="card"><h2>Theo kênh</h2><p class="hint">Mọi kênh đều lấy đơn từ POS, chung một bảng.</p>
+      <div class="mix">${chs.map(c=>`<span style="width:${a.ds?c.ds/a.ds*100:0}%;background:${CHCOL[c.k]||'var(--faint)'}"></span>`).join('')}</div>
+      <div class="legend">${chs.map(c=>`<div class="row"><span class="k">${chTag(c.k)}</span><span>${M(c.ds)}</span><span class="s">${adsPill(c.cp/c.ds)}</span></div>`).join('')}</div>
+      <h2 style="margin-top:20px">Theo nhóm sản phẩm</h2><p class="hint">Nhóm 1/2/3 theo bảng PLTK.</p>
+      <div class="legend">${grp.map(c=>`<div class="row"><span class="k">${esc(c.k)}</span><span>${M(c.ds)}</span><span class="s">${adsPill(c.cp/c.ds)}</span></div>`).join('')}</div>
+    </div>
+  </div>
+  <div class="card"><h2>Các team</h2><p class="hint">Bấm vào một team để xem từng nhân sự.</p>
+  ${rankTable(list,r=>r.team,'Team',{name:teamName,click:k=>'team:'+k,spark:true,extraHead:'<th>Tiến độ target</th>',extraCell:k=>{const t=TEAMS.find(x=>x.id===k);const d=list.filter(r=>r.team===k).reduce((s,r)=>s+r.ds,0);return `<td>${t&&t.target?P(d/t.target,0):'–'}</td>`}})}</div>`;
+};
+let curTeam=store.get('team','phong');
+V.team=()=>{
+  const t=TEAMS.find(x=>x.id===curTeam)||TEAMS[0];curTeam=t.id;
+  const list=F().filter(r=>r.team===curTeam);
+  const a=tot(list);
+  const sel=`<div class="tools"><div class="chips">${TEAMS.map(x=>`<button class="chip ${x.id===curTeam?'on':''}" data-team="${x.id}">${x.name}</button>`).join('')}</div></div>`;
+  if(!list.length)return sel+`<div class="card"><p class="muted">${t.name} chưa có đơn ở kênh đang lọc.${t.id==='san'?' Thêm shop và gán vào team này ở màn Cài đặt.':''}</p></div>`;
+  return sel+kpiBlock(a,t.target?`<div class="bar"><i style="width:${Math.min(100,a.ds/t.target*100)}%"></i></div><div class="n">${P(a.ds/t.target)} target ${M(t.target)}</div>`:'')+
+  `<div class="card"><h2>Xếp hạng nhân sự · ${t.name}</h2><p class="hint">Bấm vào tên để xem chi tiết. Đỏ: % ads trên 35%, vàng: trên 30%.</p>
+  ${rankTable(list,r=>r.staff,'Nhân sự',{click:k=>'nhansu:'+k,spark:true,extraHead:'<th class="l">Kênh</th>',extraCell:k=>`<td class="l">${[...new Set(list.filter(r=>r.staff===k).map(r=>r.ch))].map(chTag).join(' ')}</td>`})}</div>
+  <div class="card"><h2>Doanh số và % ads theo ngày · ${t.name}</h2>${dailyChart(list,200)}</div>`;
+};
+let curStaff=store.get('staff','MINHNHAT');
+V.nhansu=()=>{
+  const all=F();const names=[...new Set(all.map(r=>r.staff))];
+  if(!names.length)return '<div class="card"><p class="muted">Chưa có dữ liệu ở kênh đang lọc.</p></div>';
+  if(!names.includes(curStaff))curStaff=names[0];
+  const list=all.filter(r=>r.staff===curStaff);const a=tot(list);
+  const tm=teamName(list[0].team);
+  const opts=TEAMS.map(t=>{const s=[...new Set(all.filter(r=>r.team===t.id).map(r=>r.staff))];return s.length?`<optgroup label="${t.name}">${s.map(n=>`<option ${n===curStaff?'selected':''}>${esc(n)}</option>`).join('')}</optgroup>`:''}).join('');
+  const shops=[...new Set(list.map(r=>r.shop).filter(Boolean))];
+  return `<div class="tools"><label for="staffSel" class="muted">Nhân sự</label><select id="staffSel">${opts}</select><span class="muted">${esc(tm)} · ${[...new Set(list.map(r=>r.ch))].map(chTag).join(' ')}${shops.length?' · shop: '+shops.map(esc).join(', '):''}</span></div>`+
+  kpiBlock(a)+
+  `<div class="grid2"><div class="card"><h2>Theo ngày</h2>${dailyChart(list,200)}</div>
+   <div class="card"><h2>Theo nhóm sản phẩm</h2><p class="hint">Giống tab nhân sự trong file team.</p><div class="legend">${agg(list,r=>PM[r.code].grp).sort((x,y)=>y.ds-x.ds).map(c=>`<div class="row"><span class="k">${esc(c.k)}</span><span>${M(c.ds)}</span><span class="s">${adsPill(c.cp/c.ds)}</span></div>`).join('')}</div></div></div>
+  <div class="card"><h2>Sản phẩm đã chạy</h2>${rankTable(list,r=>r.code,'Sản phẩm',{name:k=>`${esc(PM[k].vn)} <span class="muted">· ${esc(PM[k].en)}</span>`,extraHead:'<th class="l">Nhóm</th>',extraCell:k=>`<td class="l">${PM[k].grp}</td>`})}</div>`;
+};
+let pSort=store.get('psort','ds'),pGrp='all',pQ='';
+V.sanpham=()=>{
+  const list=F();
+  let g=agg(list,r=>r.code).map(a=>Object.assign(a,{p:PM[a.k],pct:a.cp/a.ds,rr:retRate(a)}));
+  if(pGrp!=='all')g=g.filter(a=>a.p.grp===pGrp);
+  if(pQ){const q=pQ.toLowerCase();g=g.filter(a=>(a.p.vn+' '+a.p.en+' '+a.p.code).toLowerCase().includes(q))}
+  const sf={ds:a=>-a.ds,pct:a=>-a.pct,rr:a=>-(a.rr||0),ord:a=>-a.ord,stock:a=>a.p.stock};
+  if(!sf[pSort])pSort='ds';
+  g.sort((x,y)=>sf[pSort](x)-sf[pSort](y));
+  const th=(k,l)=>`<th class="sort" data-sort="${k}">${l}${pSort===k?' ↓':''}</th>`;
+  return `<div class="tools"><input type="search" id="pq" placeholder="Tìm mã, tên VN hoặc EN" value="${esc(pQ)}"><div class="chips">${['all','Nhóm 1','Nhóm 2','Nhóm 3','Mới test'].map(x=>`<button class="chip ${pGrp===x?'on':''}" data-grp="${x}">${x==='all'?'Tất cả nhóm':x}</button>`).join('')}</div></div>
+  <div class="card"><h2>Danh mục và hiệu quả sản phẩm</h2><p class="hint">Thay cho PLTK, COST và tab Doanh Số - % Chi Phí NV. Bấm tiêu đề cột để sắp xếp.</p>
+  <div class="tw"><table><thead><tr><th class="l">Mã</th><th class="l">Sản phẩm</th><th class="l">Nhóm</th><th>Giá bán ₱</th><th>Giá vốn ₱</th>${th('ds','Doanh số')}<th>Chi phí</th>${th('pct','% ads')}${th('ord','Số đơn')}${th('rr','% hoàn')}${th('stock','Tồn kho')}</tr></thead><tbody>
+  ${g.map(a=>`<tr><td class="l mono">${a.p.code}</td><td class="l">${esc(a.p.vn)}<div class="muted" style="font-size:12px">${esc(a.p.en)}</div></td><td class="l">${a.p.grp}</td><td>${N(a.p.price)}</td><td>${a.p.cost.toFixed(2).replace('.',',')}</td><td>${M(a.ds)}</td><td>${M(a.cp)}</td><td>${adsPill(a.pct)}</td><td>${N(a.ord)}</td><td>${a.rr>.3?`<span class="pill p-warn">${P(a.rr)}</span>`:P(a.rr)}</td><td>${a.p.stock===0?'<span class="pill p-bad">Hết hàng</span>':a.p.stock<200?`<span class="pill p-warn">${N(a.p.stock)}</span>`:N(a.p.stock)}</td></tr>`).join('')||'<tr><td colspan="11" class="l muted">Không có sản phẩm khớp bộ lọc.</td></tr>'}
+  </tbody></table></div></div>`;
+};
+let oQ='',oSt='all',oPage=0;
+const stPill={'Đã giao':'p-good','Hoàn':'p-bad','Đang giao':'p-warn','Đã huỷ':'p-mute'};
+V.donhang=()=>{
+  let l=ORDERS.filter(o=>CH==='all'||o.ch===CH);
+  if(oSt!=='all')l=l.filter(o=>o.st===oSt);
+  if(oQ){const q=oQ.toLowerCase();l=l.filter(o=>(o.id+' '+o.wb+' '+o.staff+' '+o.shop+' '+PM[o.code].vn+' '+PM[o.code].en+' '+o.phone).toLowerCase().includes(q))}
+  const per=25,pages=Math.max(1,Math.ceil(l.length/per));if(oPage>=pages)oPage=pages-1;if(oPage<0)oPage=0;
+  const cnt=s=>ORDERS.filter(o=>(CH==='all'||o.ch===CH)&&(s==='all'||o.st===s)).length;
+  return `<div class="tools"><input type="search" id="oq" placeholder="Mã đơn, mã vận đơn, nhân sự, shop, sản phẩm" value="${esc(oQ)}"><div class="chips">${['all','Đã giao','Đang giao','Hoàn','Đã huỷ'].map(s=>`<button class="chip ${oSt===s?'on':''}" data-st="${s}">${s==='all'?'Tất cả':s} · ${cnt(s)}</button>`).join('')}</div></div>
+  <div class="card"><h2>Đơn hàng mọi kênh</h2><p class="hint">600 đơn mẫu. Bản thật lấy toàn bộ đơn từ POS, 15 phút một lần, thay cho DATA - GIP và Danh Sách Đơn Hàng.</p>
+  <div class="tw"><table><thead><tr><th class="l">Mã đơn POS</th><th class="l">Mã vận đơn</th><th class="l">Kênh / shop</th><th class="l">Ngày</th><th class="l">Nhân sự</th><th class="l">Sản phẩm</th><th>SL</th><th>COD ₱</th><th class="l">FFM</th><th class="l">Vùng</th><th class="l">SĐT</th><th class="l">Trạng thái</th></tr></thead><tbody>
+  ${l.slice(oPage*per,oPage*per+per).map(o=>`<tr><td class="l mono">${o.id}</td><td class="l mono">${o.wb||'<span class="muted">–</span>'}</td><td class="l">${chTag(o.ch)}${o.shop?`<div class="muted" style="font-size:12px">${esc(o.shop)}</div>`:''}</td><td class="l">${String(o.day).padStart(2,'0')}/09</td><td class="l">${esc(o.staff)}</td><td class="l">${esc(PM[o.code].en)}</td><td>${o.q}</td><td>${N(o.cod)}</td><td class="l">${esc(ffmName(o.ffm))}</td><td class="l">${o.region}</td><td class="l mono">${o.phone}</td><td class="l"><span class="pill ${stPill[o.st]}">${o.st}</span></td></tr>`).join('')||'<tr><td colspan="12" class="l muted">Không có đơn khớp bộ lọc.</td></tr>'}
+  </tbody></table></div>
+  <div class="pager"><span>${l.length?`${oPage*per+1}–${Math.min(l.length,oPage*per+per)} / ${N(l.length)}`:'0'}</span><button id="pPrev" ${oPage===0?'disabled':''}>Trước</button><button id="pNext" ${oPage>=pages-1?'disabled':''}>Sau</button></div></div>`;
+};
+
+// ---------- KQKD, tách theo đơn vị FFM ----------
+const ALLOC={test:.0070,vn:.0482,kho:.0255};
+function pl(list){
+  const a=tot(list);
+  const byF=FFMS.map(f=>{const s=tot(list.filter(r=>r.ffm===f.id));return {f,rev:s.okDs,ship:s.sent*(+f.shipPhp||0)*PHP,svc:s.okDs*(+f.feePct||0)/100,sent:s.sent,ok:s.ok,ret:s.ret,pend:s.ship}});
+  const none=tot(list.filter(r=>!FFMS.some(f=>f.id===r.ffm)));
+  const ship=byF.reduce((s,x)=>s+x.ship,0), svc=byF.reduce((s,x)=>s+x.svc,0);
+  const test=a.ds*ALLOC.test, vn=a.ds*ALLOC.vn, kho=a.ds*ALLOC.kho;
+  const cost=a.cogs+ship+svc+a.cp+test+vn+kho;
+  return {ds:a.ds,sent:a.sent/a.ord*a.ds||0,rev:a.okDs,byF,noneRev:none.okDs,cogs:a.cogs,ship,svc,mkt:a.cp,test,vn,kho,cost,lng:a.okDs-cost,pend:a.ship};
+}
+V.kqkd=()=>{
+  const list=F();const cols=[['Tổng',list]].concat(TEAMS.map(t=>[t.name,list.filter(r=>r.team===t.id)]).filter(c=>c[1].length));
+  const d=cols.map(c=>pl(c[1]));
+  const td=v=>`<td>${M(v)}</td>`;
+  const line=(lab,f,cls='')=>`<tr class="${cls}"><td class="${cls.includes('ind')?'ind':''}">${lab}</td>${d.map(x=>td(f(x))).join('')}</tr>`;
+  const ratio=(lab,f)=>`<tr><td class="ind">${lab}</td>${d.map(x=>`<td class="muted">${P(f(x))}</td>`).join('')}</tr>`;
+  const fRows=(lab,k)=>FFMS.map((f,i)=>line(`${lab} ${esc(f.name)}`,x=>x.byF[i][k],'ind')).join('');
+  const fx=pl(list);
+  return `<div class="card pl"><h2>Báo cáo kết quả kinh doanh · tháng 9/2026</h2><p class="hint">Doanh thu chỉ tính đơn đã giao thành công, tách theo đơn vị FFM. Đơn còn đang giao (${N(d[0].pend)} đơn) chưa vào doanh thu. Phí dịch vụ và cước lấy từ cài đặt FFM. Chi phí test, Việt Nam, kho Phil phân bổ theo % doanh số chốt như sheet KQKD (0,70% · 4,82% · 2,55%).</p>
+  <div class="tw"><table><thead><tr><th class="l">Chỉ tiêu (VNĐ)</th>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>
+  ${line('Doanh số chốt',x=>x.ds,'h')}${line('Doanh số gửi đi',x=>x.sent)}
+  <tr class="sec"><td>I. Doanh thu thực nhận (giao thành công)</td>${d.map(x=>td(x.rev)).join('')}</tr>
+  ${fRows('Doanh thu qua','rev')}${d.some(x=>x.noneRev>0)?line('Đơn chưa gán FFM',x=>x.noneRev,'ind'):''}
+  ${ratio('Tỷ lệ doanh thu / doanh số chốt',x=>x.rev/x.ds)}
+  <tr class="sec"><td>II. Chi phí</td>${d.map(x=>td(x.cost)).join('')}</tr>
+  ${line('Giá vốn hàng bán',x=>x.cogs,'ind')}${fRows('Cước vận chuyển','ship')}${fRows('Phí dịch vụ','svc')}${line('Chi phí MKT',x=>x.mkt,'ind')}${line('Chi phí test',x=>x.test,'ind')}${line('Chi phí Việt Nam',x=>x.vn,'ind')}${line('Chi phí vận hành kho Phil',x=>x.kho,'ind')}
+  <tr class="sec"><td>III. Lợi nhuận gộp (I − II)</td>${d.map(x=>`<td class="${x.lng<0?'neg':'pos'}">${M(x.lng)}</td>`).join('')}</tr>
+  ${ratio('% lợi nhuận / doanh số chốt',x=>x.lng/x.ds)}
+  </tbody></table></div></div>
+  <div class="card"><h2>Theo đơn vị FFM</h2><p class="hint">Tiền về dự kiến = doanh thu giao thành công − phí dịch vụ − cước. Thêm hoặc sửa đơn vị ở màn Cài đặt.</p>
+  <div class="tw"><table><thead><tr><th class="l">Đơn vị</th><th>Đơn gửi</th><th>Giao thành công</th><th>Hoàn</th><th>% hoàn</th><th>Đang giao</th><th>Doanh thu</th><th>Phí dịch vụ</th><th>Cước</th><th>Tiền về dự kiến</th></tr></thead><tbody>
+  ${fx.byF.map(x=>`<tr><td>${esc(x.f.name)} <span class="muted" style="font-size:12px">${PF(x.f.feePct)}% · ${PF(x.f.shipPhp)} ₱/đơn</span></td><td>${N(x.sent)}</td><td>${N(x.ok)}</td><td>${N(x.ret)}</td><td>${P(x.ret/((x.ok+x.ret)||1))}</td><td>${N(x.pend)}</td><td>${M(x.rev)}</td><td>${M(x.svc)}</td><td>${M(x.ship)}</td><td>${M(x.rev-x.svc-x.ship)}</td></tr>`).join('')||'<tr><td colspan="10" class="l muted">Chưa có đơn vị FFM nào. Thêm ở màn Cài đặt.</td></tr>'}
+  </tbody></table></div></div>
+  <div class="card" id="jt"><h2>Đối soát file J&amp;T / FFM</h2><p class="hint">Chạy được ngay với file thật: chọn đơn vị FFM, rồi tải file .xlsx hoặc .csv có các cột Mã vận đơn (hoặc Waybill Number), COD, Tên sản phẩm, Order Status, giống tab Nguồn. File chỉ đọc trong trình duyệt của cậu, không gửi đi đâu.</p>
+  <div class="tools"><label for="jtFfm" class="muted">File của đơn vị</label><select id="jtFfm">${FFMS.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}</select></div>
+  <div class="drop" id="drop"><input type="file" id="jtFile" accept=".xlsx,.xls,.csv" style="max-width:100%"><div style="margin-top:6px;font-size:12px">hoặc kéo thả file vào đây</div></div>
+  <div id="jtOut" style="margin-top:14px"></div></div>`;
+};
+function runJT(file){
+  const out=$('#jtOut');if(!out)return;out.innerHTML='<p class="muted">Đang đọc file…</p>';
+  const f=FFMS.find(x=>x.id===($('#jtFfm')||{}).value)||null;
+  if(typeof XLSX==='undefined'){out.innerHTML='<p class="neg">Không tải được thư viện đọc Excel. Thử lưu file thành .csv rồi tải lại.</p>';return}
+  const fr=new FileReader();
+  fr.onload=e=>{try{
+    const isCsv=/\.csv$/i.test(file.name);const wb=isCsv?XLSX.read(new TextDecoder('utf-8').decode(e.target.result).replace(/^﻿/,''),{type:'string'}):XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+    if(!data.length){out.innerHTML='<p class="neg">File không có dòng dữ liệu nào.</p>';return}
+    const keys=Object.keys(data[0]);const nk=k=>k.normalize('NFC').toLowerCase().replace(/\s+/g,' ').trim();const find=(...c)=>keys.find(k=>c.some(x=>nk(k).includes(x.normalize('NFC'))));
+    const kWb=find('waybill','mã vận đơn','ma van don'),kCod=find('cod'),kSt=find('order status','trạng thái','status'),kPr=find('tên sản phẩm','product','item');
+    if(!kCod||!kSt){out.innerHTML=`<p class="neg">Không tìm thấy cột COD hoặc Order Status. Các cột trong file: ${esc(keys.join(', '))}.</p>`;return}
+    const num=v=>{if(typeof v==='number')return v;const s=String(v).replace(/[^\d,.-]/g,'');return parseFloat(s.includes(',')&&!s.includes('.')?s.replace(',','.'):s.replace(/,/g,''))||0};
+    const by={};const prod={};const seen=new Set();let dup=0;
+    data.forEach(r=>{if(kWb){const w=String(r[kWb]).trim();if(w){if(seen.has(w)){dup++;return}seen.add(w)}}
+      const st=String(r[kSt]).trim()||'(trống)';const cod=num(r[kCod]);
+      (by[st]=by[st]||{n:0,cod:0});by[st].n++;by[st].cod+=cod;
+      if(kPr){const p=String(r[kPr]).trim()||'(không tên)';(prod[p]=prod[p]||{n:0,del:0,ret:0});prod[p].n++;if(/deliver|giao|signed/i.test(st))prod[p].del++;if(/return|hoàn/i.test(st))prod[p].ret++}});
+    const total=Object.values(by).reduce((s,x)=>s+x.n,0);
+    const del=Object.entries(by).filter(([k])=>/deliver|giao|signed/i.test(k)).reduce((s,[,x])=>({n:s.n+x.n,cod:s.cod+x.cod}),{n:0,cod:0});
+    const ret=Object.entries(by).filter(([k])=>/return|hoàn/i.test(k)).reduce((s,[,x])=>s+x.n,0);
+    const svc=f?del.cod*(+f.feePct||0)/100:0, ship=f?total*(+f.shipPhp||0):0, net=del.cod-svc-ship;
+    const tp=Object.entries(prod).sort((a,b)=>b[1].n-a[1].n).slice(0,15);
+    out.innerHTML=`<div class="kpis"><div class="kpi"><div class="l">Vận đơn</div><div class="v">${N(total)}</div><div class="n">${dup?N(dup)+' dòng trùng mã đã bỏ':'không có dòng trùng'}</div></div>
+      <div class="kpi"><div class="l">Giao thành công</div><div class="v">${N(del.n)}</div><div class="n">${P(del.n/total)}</div></div>
+      <div class="kpi"><div class="l">Hoàn</div><div class="v">${N(ret)}</div><div class="n">${P(ret/((del.n+ret)||1))} trên đơn đã xong</div></div>
+      <div class="kpi"><div class="l">COD đã giao</div><div class="v">${N(del.cod)} ₱</div><div class="n">≈ ${M(del.cod*PHP)}</div></div>
+      ${f?`<div class="kpi"><div class="l">Tiền về dự kiến · ${esc(f.name)}</div><div class="v">${N(net)} ₱</div><div class="n">trừ phí ${PF(f.feePct)}% và cước ${PF(f.shipPhp)} ₱/đơn · ≈ ${M(net*PHP)}</div></div>`:''}</div>
+      <div class="grid2"><div class="card" style="margin:0"><h2>Theo trạng thái</h2><div class="tw"><table><thead><tr><th class="l">Order Status</th><th>Số đơn</th><th>COD ₱</th></tr></thead><tbody>${Object.entries(by).sort((a,b)=>b[1].n-a[1].n).map(([k,x])=>`<tr><td class="l">${esc(k)}</td><td>${N(x.n)}</td><td>${N(x.cod)}</td></tr>`).join('')}</tbody></table></div></div>
+      ${kPr?`<div class="card" style="margin:0"><h2>Tỷ lệ hoàn theo sản phẩm</h2><p class="hint">15 sản phẩm nhiều đơn nhất.</p><div class="tw"><table><thead><tr><th class="l">Sản phẩm</th><th>Đơn</th><th>% hoàn</th></tr></thead><tbody>${tp.map(([k,x])=>{const r=x.ret/((x.del+x.ret)||1);return `<tr><td class="l" style="white-space:normal">${esc(k)}</td><td>${N(x.n)}</td><td>${r>.3?`<span class="pill p-warn">${P(r)}</span>`:P(r)}</td></tr>`}).join('')}</tbody></table></div></div>`:''}</div>`;
+  }catch(err){out.innerHTML=`<p class="neg">Không đọc được file: ${esc(err.message)}. Kiểm tra file là .xlsx hoặc .csv.</p>`}};
+  fr.onerror=()=>{out.innerHTML='<p class="neg">Không đọc được file. Thử chọn lại.</p>'};
+  fr.readAsArrayBuffer(file);
+}
+
+// ---------- cảnh báo ----------
+function alerts(){
+  const out=[];
+  agg(rows,r=>r.staff).forEach(a=>{const p=a.cp/a.ds;if(p>.35)out.push(['bad','Vượt ngưỡng ads',`${a.k}: ${P(p)} chi phí/doanh số (giới hạn 30%)`,'Báo leader']);else if(p>ADS_LIMIT)out.push(['warn','Gần ngưỡng ads',`${a.k}: ${P(p)} chi phí/doanh số`,'Theo dõi'])});
+  PRODUCTS.forEach(p=>{if(p.stock===0)out.push(['bad','Hết hàng',`${p.vn} (${p.code}) còn 0 trong kho Phil nhưng camp vẫn chạy`,'Tắt camp']);else if(p.stock<200)out.push(['warn','Sắp hết hàng',`${p.vn} (${p.code}) còn ${N(p.stock)} sản phẩm`,'Chuyển kho'])});
+  SHOPS.filter(s=>s.active!==false&&!(s.staff||'').trim()).forEach(s=>out.push(['warn','Shop chưa gán nhân sự',`${s.name} (${CHN[s.channel]||s.channel}): doanh số đang tính cho shop`,'Gán ở Cài đặt']));
+  SHOPS.filter(s=>s.active!==false&&!(s.posShopId||'').trim()).length&&out.push(['info','Shop chưa có Shop ID POS',`${SHOPS.filter(s=>s.active!==false&&!(s.posShopId||'').trim()).length} shop chưa điền Shop ID, chưa kéo được đơn thật`,'Điền ở Cài đặt']);
+  out.push(['bad','Tài khoản sắp hết tiền','TK agency PH-VUONG-07: còn 42 USD, chi tiêu trung bình 310 USD/ngày (ví dụ)','Nạp tiền']);
+  out.push(['warn','Camp đặt tên sai','3 camp không tách được mã SP + mã NV, ví dụ "test new 0109" (ví dụ)','Đổi tên']);
+  const ord={bad:0,warn:1,info:2};return out.sort((a,b)=>ord[a[0]]-ord[b[0]]);
+}
+V.canhbao=()=>{const a=alerts();return `<div class="card"><h2>${a.length} cảnh báo đang mở</h2><p class="hint">Bản thật tự gửi vào nhóm Telegram của từng team theo lịch. Cảnh báo ads, tồn kho và shop tính từ dữ liệu trên trang; các dòng ghi “ví dụ” là minh hoạ.</p>
+  <div class="alerts">${a.map(x=>`<div class="alert"><span class="stripe s-${x[0]}"></span><div><div class="t">${x[1]}</div><div class="m">${esc(x[2])}</div></div><span class="pill ${x[0]==='bad'?'p-bad':x[0]==='warn'?'p-warn':'p-mute'}">${x[3]}</span></div>`).join('')}</div></div>`};
+
+// ---------- cài đặt ----------
+let editShop=null, editFfm=null, delArm=null, formMsg={shop:'',ffm:''};
+const allStaff=()=>[...new Set(TEAMS.flatMap(t=>t.staff).concat(SHOPS.map(s=>s.staff).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,'vi'));
+function saveBadge(){
+  if(dbState==='ok')return '<span class="pill p-good">Đã lưu chung</span>';
+  if(dbState==='local')return '<span class="pill p-good">Đã lưu trên máy này</span>';
+  if(dbState==='loading')return '<span class="pill p-mute">Đang tải cài đặt…</span>';
+  return `<span class="pill p-warn">Chưa lưu được</span>`;
+}
+V.caidat=()=>{
+  const es=editShop?SHOPS.find(s=>s.id===editShop):null, ef=editFfm?FFMS.find(f=>f.id===editFfm):null;
+  const chOpts=['tiktok','shopee','lazada','khac'].map(c=>`<option value="${c}" ${es&&es.channel===c?'selected':''}>${CHN[c]}</option>`).join('');
+  const tmOpts=TEAMS.map(t=>`<option value="${t.id}" ${(es?es.team:'san')===t.id?'selected':''}>${t.name}</option>`).join('');
+  const dbNote=dbState==='ok'?'Cài đặt lưu chung cho mọi người mở trang này, áp dụng ngay vào báo cáo.':dbState==='loading'?'Đang tải cài đặt đã lưu…':dbState==='local'?'Cài đặt lưu trong trình duyệt này (localStorage), chỉ máy này thấy.':`Đang dùng cài đặt mặc định, thay đổi chỉ giữ đến khi tải lại trang${dbErr?' ('+esc(dbErr)+')':''}.`;
+  return `<div class="card"><div class="cardhead"><div><h2>Shop trên sàn</h2><p class="hint">Mỗi shop gắn với một team và một nhân sự. Đơn của shop tự tính doanh số cho người đó. Shop mới mở: thêm ở đây, điền Shop ID trên POS là xong.</p></div>${saveBadge()}</div>
+  <p class="hint" style="margin-top:-4px">${dbNote}</p>
+  <div class="tw"><table><thead><tr><th class="l">Kênh</th><th class="l">Tên shop</th><th class="l">Shop ID trên POS</th><th class="l">Team</th><th class="l">Nhân sự phụ trách</th><th class="l">Trạng thái</th><th></th></tr></thead><tbody>
+  ${SHOPS.map(s=>`<tr class="${editShop===s.id?'editing':''}"><td class="l">${chTag(s.channel)}</td><td class="l">${esc(s.name)}</td><td class="l mono">${s.posShopId?esc(s.posShopId):'<span class="pill p-warn">Chưa điền</span>'}</td><td class="l">${esc(teamName(s.team))}</td><td class="l">${(s.staff||'').trim()?esc(s.staff):'<span class="pill p-warn">Chưa gán</span>'}</td><td class="l">${s.active!==false?'<span class="pill p-good">Đang bán</span>':'<span class="pill p-mute">Tạm dừng</span>'}</td><td class="actions"><button class="lnk" data-edit-shop="${esc(s.id)}">Sửa</button><button class="lnk ${delArm==='s:'+s.id?'danger':''}" data-del-shop="${esc(s.id)}">${delArm==='s:'+s.id?'Bấm lần nữa để xoá':'Xoá'}</button></td></tr>`).join('')||'<tr><td colspan="7" class="l muted">Chưa có shop nào. Thêm shop đầu tiên bằng form bên dưới.</td></tr>'}
+  </tbody></table></div>
+  <form id="shopForm" class="editor" novalidate>
+    <div class="edtitle">${es?'Sửa shop: '+esc(es.name):'Thêm shop mới'}</div>
+    <div class="form">
+      <label for="sfCh">Kênh<select id="sfCh">${chOpts}</select></label>
+      <label for="sfName">Tên shop<input id="sfName" type="text" placeholder="VD: PH04 Cozy Nest PH" value="${es?esc(es.name):''}"></label>
+      <label for="sfPos">Shop ID trên POS<input id="sfPos" type="text" placeholder="Số trong link pos.pages.fm" value="${es?esc(es.posShopId):''}"></label>
+      <label for="sfTeam">Team<select id="sfTeam">${tmOpts}</select></label>
+      <label for="sfStaff">Nhân sự phụ trách<input id="sfStaff" type="text" list="staffList" placeholder="Gõ tên hoặc chọn" value="${es?esc(es.staff):''}"></label>
+      <label for="sfAct">Trạng thái<select id="sfAct"><option value="1" ${!es||es.active!==false?'selected':''}>Đang bán</option><option value="0" ${es&&es.active===false?'selected':''}>Tạm dừng</option></select></label>
+    </div>
+    <datalist id="staffList">${allStaff().map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+    <div class="formrow"><button class="btn" type="submit">${es?'Lưu thay đổi':'Thêm shop'}</button>${es?'<button class="btn ghost" type="button" id="sfCancel">Huỷ</button>':''}<span class="fmsg" id="shopMsg">${formMsg.shop}</span></div>
+  </form></div>
+
+  <div class="card"><div class="cardhead"><div><h2>Đơn vị FFM</h2><p class="hint">Mỗi đơn vị có kho riêng trên POS. Đơn xuất từ kho nào tính cho đơn vị đó. KQKD tách doanh thu, cước và phí dịch vụ theo từng đơn vị.</p></div>${saveBadge()}</div>
+  <div class="tw"><table><thead><tr><th class="l">Đơn vị</th><th class="l">Kho trên POS</th><th>Phí dịch vụ (% COD)</th><th>Cước / đơn gửi (₱)</th><th>Tỷ trọng mẫu</th><th class="l">Ghi chú</th><th></th></tr></thead><tbody>
+  ${FFMS.map(f=>`<tr class="${editFfm===f.id?'editing':''}"><td class="l"><b>${esc(f.name)}</b></td><td class="l">${esc(f.warehouse)}</td><td>${PF(f.feePct)}%</td><td>${PF(f.shipPhp)}</td><td>${PF(f.share)}%</td><td class="l muted" style="white-space:normal">${esc(f.note)}</td><td class="actions"><button class="lnk" data-edit-ffm="${esc(f.id)}">Sửa</button><button class="lnk ${delArm==='f:'+f.id?'danger':''}" data-del-ffm="${esc(f.id)}">${delArm==='f:'+f.id?'Bấm lần nữa để xoá':'Xoá'}</button></td></tr>`).join('')||'<tr><td colspan="7" class="l muted">Chưa có đơn vị FFM. Thêm GIP, GPX bằng form bên dưới.</td></tr>'}
+  </tbody></table></div>
+  <form id="ffmForm" class="editor" novalidate>
+    <div class="edtitle">${ef?'Sửa đơn vị: '+esc(ef.name):'Thêm đơn vị FFM'}</div>
+    <div class="form">
+      <label for="ffName">Tên đơn vị<input id="ffName" type="text" placeholder="VD: GIP" value="${ef?esc(ef.name):''}"></label>
+      <label for="ffWh">Kho trên POS<input id="ffWh" type="text" placeholder="Tên kho trong POS" value="${ef?esc(ef.warehouse):''}"></label>
+      <label for="ffFee">Phí dịch vụ (% COD)<input id="ffFee" type="number" step="0.1" min="0" value="${ef?esc(ef.feePct):''}"></label>
+      <label for="ffShip">Cước / đơn gửi (₱)<input id="ffShip" type="number" step="1" min="0" value="${ef?esc(ef.shipPhp):''}"></label>
+      <label for="ffShare">Tỷ trọng đơn (chỉ cho dữ liệu mẫu, %)<input id="ffShare" type="number" step="1" min="0" value="${ef?esc(ef.share):''}"></label>
+      <label for="ffNote">Ghi chú<input id="ffNote" type="text" value="${ef?esc(ef.note):''}"></label>
+    </div>
+    <div class="formrow"><button class="btn" type="submit">${ef?'Lưu thay đổi':'Thêm đơn vị'}</button>${ef?'<button class="btn ghost" type="button" id="ffCancel">Huỷ</button>':''}<span class="fmsg" id="ffmMsg">${formMsg.ffm}</span></div>
+  </form></div>
+
+  <div class="src">
+  <div class="card"><h2>POS Pancake</h2><div class="st"><span class="pill p-warn">Chưa kết nối</span></div><p class="hint" style="margin:0">Nguồn đơn duy nhất: Facebook và Google (qua Ladipage), TikTok, Shopee.</p><ul><li>Cần: API key + Shop ID từng shop</li><li>API key không lưu ở trang này; chỉ lưu trên server đồng bộ</li><li>Đồng bộ: 15 phút/lần</li></ul></div>
+  <div class="card"><h2>Facebook Ads</h2><div class="st"><span class="pill p-warn">Chưa kết nối</span></div><p class="hint" style="margin:0">Chi phí theo camp, CPM, CPC, CTR, số dư tài khoản.</p><ul><li>Cần: System User token của từng BM</li><li>Đồng bộ: mỗi giờ</li><li>Tên camp: MÃSP_MÃNV_ddmm_ghichú</li></ul></div>
+  <div class="card"><h2>Telegram</h2><div class="st"><span class="pill p-mute">Chưa cấu hình</span></div><p class="hint" style="margin:0">Báo cáo và cảnh báo tự động.</p><ul><li>Nhóm lãnh đạo: 8:00 và 18:00</li><li>Nhóm từng team: 18:00</li><li>Hết hàng, hết tiền: báo ngay</li></ul></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h2>Phân quyền</h2><div class="tw"><table><thead><tr><th class="l">Vai trò</th><th class="l">Xem</th><th class="l">Sửa</th></tr></thead><tbody>
+  <tr><td>Trưởng phòng (Vương)</td><td class="l">Tất cả</td><td class="l">Target, danh mục, shop, FFM</td></tr>
+  <tr><td>Kế toán / vận hành</td><td class="l">Tất cả</td><td class="l">Đối soát, giá vốn, FFM, chi phí phân bổ</td></tr>
+  <tr><td>Leader team</td><td class="l">Team của mình</td><td class="l">Kế hoạch, nhân sự team</td></tr>
+  <tr><td>Nhân viên MKT</td><td class="l">Số của mình</td><td class="l">Kế hoạch cá nhân</td></tr></tbody></table></div></div>`;
+};
+const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
+async function persist(col,id,data){
+  if(db){await db.collection(col).doc(id).set(data);return}
+  const arr=col==='shops'?SHOPS:FFMS;const i=arr.findIndex(x=>x.id===id);const rec=Object.assign({id},data);if(i>=0)arr[i]=rec;else arr.push(rec);saveLocal();refresh();
+}
+async function remove(col,id){
+  if(db){await db.collection(col).doc(id).delete();return}
+  const arr=col==='shops'?SHOPS:FFMS;const i=arr.findIndex(x=>x.id===id);if(i>=0)arr.splice(i,1);saveLocal();refresh();
+}
+function saveLocal(){store.set('shops',JSON.stringify(SHOPS));store.set('ffms',JSON.stringify(FFMS));if(dbState!=='ok')dbState=canLocal()?'local':'off'}
+function canLocal(){try{localStorage.setItem('tv__t','1');localStorage.removeItem('tv__t');return true}catch(e){return false}}
+function loadLocal(){try{const s=JSON.parse(store.get('shops','null')),f=JSON.parse(store.get('ffms','null'));if(Array.isArray(s)&&Array.isArray(f)){SHOPS=s;FFMS=f;return true}}catch(e){}return false}
+const newId=p=>p+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);
+async function submitShop(){
+  const name=val('sfName');
+  if(!name){formMsg.shop='<span class="neg">Nhập tên shop trước khi lưu.</span>';$('#shopMsg').innerHTML=formMsg.shop;$('#sfName').focus();return}
+  if(SHOPS.some(s=>s.id!==editShop&&s.name.toLowerCase()===name.toLowerCase())){formMsg.shop='<span class="neg">Đã có shop trùng tên này.</span>';$('#shopMsg').innerHTML=formMsg.shop;return}
+  const data={channel:val('sfCh'),name,posShopId:val('sfPos'),team:val('sfTeam'),staff:val('sfStaff'),active:val('sfAct')==='1'};
+  const id=editShop||newId('s');
+  try{await persist('shops',id,data);formMsg.shop=`<span class="pos">${editShop?'Đã lưu':'Đã thêm'} ${esc(name)}.</span>`;editShop=null;keep={};render()}
+  catch(e){formMsg.shop=`<span class="neg">Chưa lưu được: ${esc(e.message||e.code||e)}.</span>`;$('#shopMsg').innerHTML=formMsg.shop}
+}
+async function submitFfm(){
+  const name=val('ffName');
+  if(!name){formMsg.ffm='<span class="neg">Nhập tên đơn vị trước khi lưu.</span>';$('#ffmMsg').innerHTML=formMsg.ffm;$('#ffName').focus();return}
+  const fee=parseFloat(val('ffFee')),ship=parseFloat(val('ffShip')),share=parseFloat(val('ffShare'));
+  if(!(fee>=0)||!(ship>=0)){formMsg.ffm='<span class="neg">Điền phí dịch vụ và cước là số từ 0 trở lên.</span>';$('#ffmMsg').innerHTML=formMsg.ffm;return}
+  const data={name,warehouse:val('ffWh'),feePct:fee,shipPhp:ship,share:share>=0?share:0,note:val('ffNote')};
+  const id=editFfm||(name.toLowerCase().replace(/[^a-z0-9]+/g,'')||newId('f'));
+  if(!editFfm&&FFMS.some(f=>f.id===id)){formMsg.ffm='<span class="neg">Đã có đơn vị trùng tên này.</span>';$('#ffmMsg').innerHTML=formMsg.ffm;return}
+  try{await persist('ffm',id,data);formMsg.ffm=`<span class="pos">${editFfm?'Đã lưu':'Đã thêm'} ${esc(name)}.</span>`;editFfm=null;keep={};render()}
+  catch(e){formMsg.ffm=`<span class="neg">Chưa lưu được: ${esc(e.message||e.code||e)}.</span>`;$('#ffmMsg').innerHTML=formMsg.ffm}
+}
+
+// ---------- khung ----------
+const TITLES={tongquan:['Tổng quan','Toàn Team Vương · tháng 9/2026'],team:['Team','Từng team và nhân sự trong team'],nhansu:['Nhân sự','Chỉ số từng người và sản phẩm đã chạy'],sanpham:['Sản phẩm','Danh mục, giá vốn, hiệu quả và tồn kho'],donhang:['Đơn hàng','Tra cứu đơn mọi kênh'],kqkd:['KQKD','Lãi lỗ theo team, theo đơn vị FFM và đối soát file'],canhbao:['Cảnh báo','Việc cần xử lý ngay'],caidat:['Cài đặt','Shop trên sàn, đơn vị FFM, nguồn dữ liệu và phân quyền']};
+let view='tongquan', keep={};
+function snapForm(){const k={};document.querySelectorAll('#view input:not([type=file]),#view select').forEach(e=>{if(e.id)k[e.id]=e.value});k.__focus=document.activeElement&&document.activeElement.id;return k}
+function render(){
+  if(!V[view])view='tongquan';
+  const before=snapForm();
+  $('#title').textContent=TITLES[view][0];$('#subtitle').textContent=TITLES[view][1];
+  document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===view));
+  document.querySelectorAll('#chFilter .chip').forEach(b=>b.classList.toggle('on',b.dataset.ch===CH));
+  $('#chFilter').hidden=(view==='caidat'||view==='canhbao');
+  $('#view').innerHTML=V[view]();
+  if(keep.__view===view){Object.keys(before).forEach(id=>{if(id==='__focus'||id==='jtFfm'&&false)return;const e=document.getElementById(id);if(e&&e.tagName!=='BUTTON'&&!['pq','oq','staffSel'].includes(id))e.value=before[id]});const f=before.__focus&&document.getElementById(before.__focus);if(f)f.focus()}
+  keep={__view:view};
+  $('#alertCnt').textContent=alerts().filter(a=>a[0]==='bad').length;
+}
+function refresh(){build();render()}
+function go(v){view=v;keep={};delArm=null;try{history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
+document.addEventListener('click',e=>{
+  const n=e.target.closest('#nav a');if(n){e.preventDefault();go(n.dataset.v);return}
+  const c=e.target.closest('[data-ch]');if(c){CH=c.dataset.ch;store.set('ch',CH);oPage=0;render();return}
+  const t=e.target.closest('[data-team]');if(t){curTeam=t.dataset.team;store.set('team',curTeam);render();return}
+  const g=e.target.closest('[data-go]');if(g){const i=g.dataset.go.indexOf(':');const v=g.dataset.go.slice(0,i),k=g.dataset.go.slice(i+1);if(v==='team'){curTeam=k;store.set('team',k)}if(v==='nhansu'){curStaff=k;store.set('staff',k)}go(v);return}
+  const gr=e.target.closest('[data-grp]');if(gr){pGrp=gr.dataset.grp;render();return}
+  const so=e.target.closest('[data-sort]');if(so){pSort=so.dataset.sort;store.set('psort',pSort);render();return}
+  const st=e.target.closest('[data-st]');if(st){oSt=st.dataset.st;oPage=0;render();return}
+  if(e.target.id==='pPrev'){oPage--;render();return} if(e.target.id==='pNext'){oPage++;render();return}
+  const es=e.target.closest('[data-edit-shop]');if(es){editShop=es.dataset.editShop;delArm=null;formMsg.shop='';keep={};render();$('#shopForm').scrollIntoView({block:'center'});$('#sfName').focus();return}
+  const ef=e.target.closest('[data-edit-ffm]');if(ef){editFfm=ef.dataset.editFfm;delArm=null;formMsg.ffm='';keep={};render();$('#ffmForm').scrollIntoView({block:'center'});$('#ffName').focus();return}
+  if(e.target.id==='sfCancel'){editShop=null;formMsg.shop='';keep={};render();return}
+  if(e.target.id==='ffCancel'){editFfm=null;formMsg.ffm='';keep={};render();return}
+  const ds=e.target.closest('[data-del-shop]');if(ds){const id=ds.dataset.delShop;if(delArm==='s:'+id){delArm=null;const nm=(SHOPS.find(s=>s.id===id)||{}).name;remove('shops',id).then(()=>{formMsg.shop=`<span class="muted">Đã xoá ${esc(nm)}.</span>`;if(editShop===id)editShop=null;render()}).catch(err=>{formMsg.shop=`<span class="neg">Chưa xoá được: ${esc(err.message||err.code)}.</span>`;render()})}else{delArm='s:'+id;render()}return}
+  const df=e.target.closest('[data-del-ffm]');if(df){const id=df.dataset.delFfm;if(delArm==='f:'+id){delArm=null;const nm=(FFMS.find(f=>f.id===id)||{}).name;remove('ffm',id).then(()=>{formMsg.ffm=`<span class="muted">Đã xoá ${esc(nm)}.</span>`;if(editFfm===id)editFfm=null;render()}).catch(err=>{formMsg.ffm=`<span class="neg">Chưa xoá được: ${esc(err.message||err.code)}.</span>`;render()})}else{delArm='f:'+id;render()}return}
+});
+document.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='shopForm')submitShop();if(e.target.id==='ffmForm')submitFfm()});
+document.addEventListener('change',e=>{
+  if(e.target.id==='staffSel'){curStaff=e.target.value;store.set('staff',curStaff);render()}
+  if(e.target.id==='jtFile'&&e.target.files[0])runJT(e.target.files[0]);
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='sfName'||e.target.id==='ffName'){const m=document.getElementById(e.target.id==='sfName'?'shopMsg':'ffmMsg');if(m&&m.querySelector('.neg')){m.innerHTML='';formMsg[e.target.id==='sfName'?'shop':'ffm']=''}}
+});
+function liveSearch(id,set){document.addEventListener('input',e=>{if(e.target.id!==id)return;set(e.target.value);const pos=e.target.selectionStart;render();const el=$('#'+id);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(x){}}})}
+liveSearch('pq',v=>pQ=v);liveSearch('oq',v=>{oQ=v;oPage=0});
+['dragover','dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{const d=e.target.closest&&e.target.closest('#drop');if(!d)return;e.preventDefault();d.classList.toggle('over',ev==='dragover');if(ev==='drop'&&e.dataTransfer.files[0])runJT(e.dataTransfer.files[0])}));
+
+const h=(location.hash||'').slice(1);if(V[h])view=h;
+build();render();
+
+// ---------- nối db (cài đặt dùng chung) ----------
+(async()=>{
+  let ns=null;
+  try{ns=window.claude&&window.claude.use?await window.claude.use('db'):null}catch(e){ns=null}
+  if(!ns){loadLocal();dbState=canLocal()?'local':'off';refresh();return}
+  db=ns;
+  let gotS=false,gotF=false;
+  const apply=()=>{if(gotS&&gotF){dbState='ok';refresh()}};
+  db.collection('shops').onSnapshot(s=>{SHOPS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.channel+a.name).localeCompare(b.channel+b.name));gotS=true;apply()},err=>{dbState='off';dbErr=err.code||'';db=null;render()});
+  db.collection('ffm').onSnapshot(s=>{FFMS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(+b.share||0)-(+a.share||0));gotF=true;apply()},err=>{dbState='off';dbErr=err.code||'';db=null;render()});
+})();
+})();
+</script>
+
+</body></html>
