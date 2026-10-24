@@ -296,9 +296,33 @@
     const { data, error } = await q;
     if (error) { say($("#catMsg"), "Chưa lưu được: " + esc(error.code === "23505" ? "trùng tên với mục đã có" : error.message), "neg"); return; }
     if (!data.length) { say($("#catMsg"), "Không có quyền sửa mục này (quản lý chỉ sửa được trong dự án của mình).", "neg"); return; }
-    catMsg = `<span class="pos">${editing ? "Đã lưu" : "Đã thêm"} ${esc(row.name)}.${curCat === "staff" || curCat === "channels" ? " Đơn liên quan đã được tính lại." : ""}</span>`;
-    editing = null; await reloadCatalog(); renderCat(); refreshUnmappedCount();
+    catMsg = `<span class="pos">${editing ? "Đã lưu" : "Đã thêm"} ${esc(row.name)}.</span>`;
+    const affects = ["staff", "channels", "teams"].includes(curCat);
+    editing = null; await reloadCatalog(); renderCat();
+    if (affects) drainRecompute($("#catMsg"), () => { catMsg = $("#catMsg") ? $("#catMsg").innerHTML : catMsg; refreshUnmappedCount(); });
+    else refreshUnmappedCount();
   });
+
+  // ---------- tính lại phân bổ đơn theo đợt ----------
+  // Sửa nhân sự / team / kênh chỉ đánh dấu đơn cần tính lại; ở đây tính dần 2.000 đơn mỗi lượt (mỗi lượt ~1 giây,
+  // dưới giới hạn thời gian của Supabase). Đóng trang giữa chừng thì lịch 15 phút làm nốt.
+  let draining = false;
+  async function drainRecompute(el, then) {
+    if (draining) return; draining = true;
+    let done = 0, remaining = null;
+    try {
+      while (true) {
+        const { data, error } = await sb.rpc("recompute_batch", { p_limit: 2000 });
+        if (error) { if (!/recompute_batch/.test(error.message)) say(el, "Tính lại đơn lỗi: " + esc(error.message), "neg"); else say(el, "Chưa chạy SQL 20261025040000_recompute_batches.sql.", "neg"); break; }
+        const r = data && data[0]; if (!r) break;
+        done += Number(r.done) || 0; remaining = Number(r.remaining) || 0;
+        if (!remaining) { if (done) say(el, `Đã tính lại ${nf.format(done)} đơn.`, "pos"); break; }
+        const pct = done / (done + remaining) * 100;
+        say(el, `<span class="spin" aria-hidden="true"></span> Đang tính lại phân bổ đơn: ${nf.format(done)} / ${nf.format(done + remaining)} (${pct.toFixed(0)}%)<div class="bar" style="max-width:360px;margin-top:6px"><i style="width:${pct.toFixed(1)}%"></i></div>`, "muted");
+      }
+    } finally { draining = false; }
+    if (then) then();
+  }
 
   // ---------- chưa khai báo ----------
   let unmapped = [];
@@ -335,13 +359,13 @@
       const s = byId(C.staff, ms.value), name = ms.dataset.v;
       const { data, error } = await sb.from("staff").update({ pos_names: [...new Set([...(s.pos_names || []), ms.dataset.k])] }).eq("id", s.id).select("id");
       say($("#unmappedMsg"), error ? "Chưa gán được: " + esc(error.message) : !data.length ? "Không có quyền sửa nhân sự này." : `Đã gán “${esc(name)}” cho ${esc(s.name)}.`, error || !data.length ? "neg" : "pos");
-      await reloadCatalog(); loadUnmapped(); return;
+      await reloadCatalog(); if (!error && data.length) drainRecompute($("#unmappedMsg"), loadUnmapped); return;
     }
     const mc = e.target.closest(".mapCh"); if (mc && mc.value) {
       const c = byId(C.channels, mc.value), v = mc.dataset.v.toLowerCase();
       const { error } = await sb.from("channels").update({ keywords: [...new Set([...(c.keywords || []), v])] }).eq("id", c.id);
       say($("#unmappedMsg"), error ? "Chưa gán được: " + esc(error.message) : `Đã thêm “${esc(v)}” vào từ khoá của kênh ${esc(c.name)}.`, error ? "neg" : "pos");
-      await reloadCatalog(); loadUnmapped();
+      await reloadCatalog(); if (!error) drainRecompute($("#unmappedMsg"), loadUnmapped);
     }
   });
   $("#unmapped").addEventListener("click", (e) => {
@@ -355,11 +379,13 @@
   });
   $("#reloadUnmapped").onclick = loadUnmapped;
   $("#recompute").onclick = async () => {
-    say($("#unmappedMsg"), "Đang tính lại…", "muted");
-    const { data, error } = await sb.rpc("admin_recompute_orders");
-    say($("#unmappedMsg"), error ? "Lỗi: " + esc(error.message) : `Đã tính lại ${nf.format(data)} đơn.`, error ? "neg" : "pos"); loadUnmapped();
+    const { error } = await sb.rpc("admin_recompute_orders");
+    if (error) { say($("#unmappedMsg"), "Lỗi: " + esc(error.message), "neg"); return; }
+    drainRecompute($("#unmappedMsg"), loadUnmapped);
   };
   refreshUnmappedCount();
+  // Còn đơn chờ tính lại từ lần trước (đóng trang giữa chừng) thì làm tiếp.
+  drainRecompute($("#unmappedMsg"), refreshUnmappedCount);
 
   // ---------- tài khoản (chỉ admin) ----------
   const VIEW_NAMES = { tongquan: "Tổng quan", team: "Team", nhansu: "Nhân sự", sanpham: "Sản phẩm", donhang: "Đơn hàng", kqkd: "KQKD", canhbao: "Cảnh báo", caidat: "Cài đặt" };
@@ -515,8 +541,10 @@
   async function runSync(body, label) {
     if (looping) { say($("#shopsMsg"), "Đang có lượt đồng bộ chạy, bấm Dừng nếu muốn chạy lượt khác.", "neg"); return; }
     looping = true; stopLoop = false;
-    const sum = {}; let round = 0, last = null;
-    const status = () => say($("#shopsMsg"), `<span class="spin" aria-hidden="true"></span> ${label} · lượt ${round}${Object.keys(sum).length ? " · đã lưu " + nf.format(Object.values(sum).reduce((a, b) => a + b, 0)) + " đơn" : ""} <button class="lnk danger" type="button" id="stopSync">Dừng</button>`, "muted");
+    const sum = {}; let round = 0, last = null, busySince = null;
+    const ST = { ok: "xong", partial: "đang kéo dở", busy: "chờ lượt khác của shop này kết thúc", skipped: "chờ lượt sau", error: "lỗi" };
+    const detail = () => last ? " · " + (last.results || []).map((x) => `${esc(x.shop)}: ${ST[x.status] || esc(x.status)}${x.orders ? " +" + nf.format(x.orders) + " đơn" : ""}${x.error ? " (" + esc(x.error) + ")" : ""}`).join("; ") : "";
+    const status = () => say($("#shopsMsg"), `<span class="spin" aria-hidden="true"></span> ${label} · lượt ${round} · đã lưu ${nf.format(Object.values(sum).reduce((a, b) => a + b, 0))} đơn${detail()} <button class="lnk danger" type="button" id="stopSync">Dừng</button>`, "muted");
     loadShops();
     try {
       for (round = 1; round <= 300 && !stopLoop; round++) {
@@ -525,8 +553,12 @@
         (last.results || []).forEach((x) => (sum[x.shop] = (sum[x.shop] || 0) + (x.orders || 0)));
         const pending = (last.results || []).filter((x) => x.status === "partial" || x.status === "busy" || x.status === "skipped");
         if (!pending.length) break;
-        // Lượt khác (lịch 15 phút / người khác) đang kéo đúng shop đó thì chờ một chút.
-        if (pending.every((x) => x.status === "busy")) await new Promise((r) => setTimeout(r, 5000));
+        // Lượt khác (lịch 15 phút / người khác) đang kéo đúng shop đó thì chờ; khoá tự hết sau 3 phút.
+        if (pending.every((x) => x.status === "busy")) {
+          busySince = busySince || Date.now();
+          if (Date.now() - busySince > 240000) { say($("#shopsMsg"), "Shop vẫn bị một lượt khác giữ sau 4 phút. Kiểm tra đã chạy SQL 20261025030000_sync_progress.sql chưa, rồi bấm Đồng bộ lại.", "neg"); looping = false; loadShops(); return; }
+          status(); await new Promise((r) => setTimeout(r, 5000));
+        } else busySince = null;
         loadShops();
       }
       say($("#shopsMsg"), stopLoop ? "Đã dừng. Phần còn lại lịch 15 phút sẽ tự chạy tiếp, hoặc bấm Đồng bộ lần nữa." : `Xong sau ${round} lượt.`, stopLoop ? "muted" : "pos");
