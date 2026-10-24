@@ -11,23 +11,10 @@
 </head>
 <body>
 <div class="app">
-  <aside>
-    <div class="brand">Team Vương · Phil</div>
-    <div class="brand-sub">Quản trị hệ thống</div>
-    <nav>
-      <a href="index.html">← Bảng điều hành</a>
-      <a href="#danhmuc" data-tab="danhmuc">Danh mục</a>
-      <a href="#chuakhaibao" data-tab="chuakhaibao">Chưa khai báo <span class="cnt" id="unmappedCnt" hidden>0</span></a>
-      <a href="#taikhoan" data-tab="taikhoan">Tài khoản</a>
-      <a href="#pos" data-tab="pos">Kết nối POS</a>
-      <a href="#giavon" data-tab="giavon">Giá vốn</a>
-      <a href="#nhatky" data-tab="nhatky">Nhật ký đồng bộ</a>
-    </nav>
-    <div class="userbox"><span class="who" id="who"></span><span class="muted" id="whoRole"></span><div class="acts"><button class="lnk" id="logout">Đăng xuất</button></div></div>
-  </aside>
+  <aside></aside>
   <main>
-    <div class="topbar"><div><h1 id="title">Quản trị</h1><p class="sub" id="subtitle"></p></div></div>
-    <div id="denied" class="card" hidden><h2>Không có quyền</h2><p class="muted">Trang này dành cho admin và quản lý. <a href="index.html">Về bảng điều hành</a>.</p></div>
+    <header class="page-h"><div><h1 id="title">Quản trị</h1><p class="sub" id="subtitle"></p></div></header>
+    <div id="denied" class="card" hidden></div>
 
     <!-- ---------- danh mục ---------- -->
     <section id="tab-danhmuc" hidden>
@@ -47,10 +34,10 @@
     <!-- ---------- tài khoản ---------- -->
     <section id="tab-taikhoan" hidden>
       <div class="card">
-        <div class="cardhead"><div><h2>Tài khoản và phân quyền</h2><p class="hint"><b>Vai trò</b> quyết định thấy màn nào. <b>Phạm vi</b> quyết định thấy số của ai: toàn công ty, dự án, team, hay chỉ của mình (theo nhân sự được liên kết).</p></div><button class="btn ghost" id="reloadUsers">Tải lại</button></div>
-        <div class="tw"><table><thead><tr><th class="l">Email</th><th class="l">Họ tên</th><th class="l">Vai trò</th><th class="l">Phạm vi xem</th><th class="l">Trạng thái</th><th class="l">Đăng nhập gần nhất</th><th></th></tr></thead><tbody id="users"><tr><td colspan="7" class="l muted">Đang tải…</td></tr></tbody></table></div>
-        <div class="msg" id="usersMsg" role="status" style="margin-top:8px"></div>
-        <form id="userForm" class="editor" novalidate>
+        <div class="cardhead"><div><h2>Tài khoản và phân quyền</h2><p class="hint"><b>Vai trò</b> quyết định thấy màn nào. <b>Phạm vi</b> quyết định thấy số của ai: toàn công ty, dự án, team, hay chỉ của mình (theo nhân sự được liên kết).</p></div><div class="page-actions"><button class="btn ghost sm" id="reloadUsers">Tải lại</button><button class="btn sm" id="ufOpen" type="button">+ Tạo tài khoản</button></div></div>
+        <div class="tw"><table><thead><tr><th class="l">Email</th><th class="l">Họ tên</th><th class="l">Vai trò</th><th class="l">Phạm vi xem</th><th class="l">Trạng thái</th><th class="l">Đăng nhập gần nhất</th><th></th></tr></thead><tbody id="users"><tr><td colspan="7"><div class="skel" style="height:12px"></div></td></tr></tbody></table></div>
+        <div class="msg" id="usersMsg" role="status"></div>
+        <form id="userForm" class="editor" novalidate hidden>
           <div class="edtitle" id="ufTitle">Tạo tài khoản</div>
           <div class="form">
             <label>Email<input id="ufEmail" type="email" autocomplete="off"></label>
@@ -90,12 +77,12 @@
         </form>
       </div>
       <div class="card">
-        <div class="cardhead"><div><h2>Shop trên Pancake POS</h2><p class="hint">Mỗi shop bán cho một thị trường; kênh và team của từng đơn được nhận ra từ nguồn đơn và marketer. API key cất trong Supabase Vault, trang chỉ hiện 4 ký tự cuối.</p></div><button class="btn" id="syncAll">Đồng bộ tất cả ngay</button></div>
+        <div class="cardhead"><div><h2>Shop trên Pancake POS</h2><p class="hint">Mỗi shop bán cho một thị trường; kênh và team của từng đơn được nhận ra từ nguồn đơn và marketer. API key cất trong Supabase Vault, trang chỉ hiện 4 ký tự cuối.</p></div><div class="page-actions"><button class="btn ghost sm" id="kfOpen" type="button">Đặt API key</button><button class="btn ghost sm" id="sfOpen" type="button">+ Thêm shop</button><button class="btn sm" id="syncAll">Đồng bộ tất cả</button></div></div>
         <div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Shop ID POS</th><th class="l">Thị trường</th><th class="l">API key</th><th class="l">Đồng bộ gần nhất</th><th></th></tr></thead><tbody id="shops"><tr><td colspan="6" class="l muted">Đang tải…</td></tr></tbody></table></div>
         <div class="msg" id="shopsMsg" role="status" style="margin-top:8px"></div>
 
-        <form id="keyForm" class="editor" novalidate>
-          <div class="edtitle">Đặt API key</div>
+        <form id="keyForm" class="editor" novalidate hidden>
+          <div class="edtitle">Đặt API key <button class="lnk" type="button" id="kfClose">Đóng</button></div>
           <div class="form">
             <label>Shop<select id="kfShop"></select></label>
             <label>API key từ POS<input id="kfKey" type="password" autocomplete="off" placeholder="Dán key vào đây"></label>
@@ -104,7 +91,7 @@
           <p class="hint" style="margin:10px 0 0">Lấy key trên pos.pages.fm: Cấu hình → Cấu hình ứng dụng → API KEY → Thêm mới. Shop ID là dãy số trong link <code>pos.pages.fm/shop/&lt;số&gt;</code>.</p>
         </form>
 
-        <form id="shopForm" class="editor" novalidate>
+        <form id="shopForm" class="editor" novalidate hidden>
           <div class="edtitle" id="sfTitle">Thêm shop</div>
           <div class="form">
             <label>Tên shop<input id="sfName" type="text" placeholder="VD: POS Philippines 1"></label>
@@ -112,7 +99,7 @@
             <label>Thị trường<select id="sfMarket"></select></label>
             <label>Trạng thái<select id="sfAct"><option value="1">Đang bán</option><option value="0">Tạm dừng</option></select></label>
           </div>
-          <div class="formrow"><button class="btn" type="submit" id="sfSubmit">Thêm shop</button><button class="btn ghost" type="button" id="sfCancel" hidden>Huỷ</button><span class="fmsg" id="shopMsg"></span></div>
+          <div class="formrow"><button class="btn" type="submit" id="sfSubmit">Thêm shop</button><button class="btn ghost" type="button" id="sfCancel">Huỷ</button><span class="fmsg" id="shopMsg"></span></div>
         </form>
       </div>
       <div class="card" id="outCard" hidden><div class="cardhead"><h2 id="outTitle">Kết quả</h2><button class="lnk" id="outClose">Đóng</button></div><div id="out"></div></div>
@@ -164,6 +151,7 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/shell.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (async function () {
@@ -177,11 +165,9 @@
   const me = await Auth.requireAuth();
   const sb = Auth.sb;
   document.documentElement.classList.remove("auth-pending");
-  $("#who").textContent = me.full_name || me.email;
-  $("#whoRole").textContent = Auth.ROLES[me.role] || "Chưa có vai trò";
-  $("#logout").onclick = () => Auth.signOut();
+  Shell.render(me, "admin");
   const isAdmin = me.role === "admin", isQL = me.role === "quan_ly", isKT = me.role === "ke_toan";
-  if (!isAdmin && !isQL && !isKT) { $("#denied").hidden = false; document.querySelector("nav").querySelectorAll("a[data-tab]").forEach((a) => (a.hidden = true)); return; }
+  if (!isAdmin && !isQL && !isKT) { $("#denied").hidden = false; $("#denied").innerHTML = Shell.empty("lock", "Không có quyền", "Trang Quản trị dành cho admin, quản lý và kế toán.", '<a class="btn ghost sm" href="index.html">Về bảng điều hành</a>'); return; }
   document.querySelectorAll("[data-admin]").forEach((e) => (e.hidden = !isAdmin));
 
   // ---------- danh mục dùng chung ----------
@@ -280,9 +266,9 @@
     },
   };
   const catOrder = ["projects", "teams", "staff", "markets", "channels"];
-  let curCat = "teams", editing = null, armed = null, prefill = null, catMsg = "";
+  let curCat = "teams", editing = null, armed = null, prefill = null, catMsg = "", addOpen = false;
   $("#catTabs").innerHTML = catOrder.map((k) => `<button data-cat="${k}">${CAT[k].label}</button>`).join("");
-  $("#catTabs").addEventListener("click", (e) => { const b = e.target.closest("[data-cat]"); if (b) { curCat = b.dataset.cat; editing = null; armed = null; catMsg = ""; renderCat(); } });
+  $("#catTabs").addEventListener("click", (e) => { const b = e.target.closest("[data-cat]"); if (b) { curCat = b.dataset.cat; editing = null; armed = null; catMsg = ""; addOpen = false; renderCat(); } });
 
   function fieldInput(f, v) {
     const id = "cf_" + f.k;
@@ -297,20 +283,23 @@
     document.querySelectorAll("#catTabs button").forEach((b) => b.classList.toggle("on", b.dataset.cat === curCat));
     const rec = editing ? byId(rows, editing) : prefill;
     const shown = c.fields.filter((f) => f.type !== "bool" || true);
-    $("#catBody").innerHTML = `<div class="card"><h2>${c.label}</h2><p class="hint">${c.hint}</p>
+    const formOpen = canW && (editing || prefill || addOpen);
+    $("#catBody").innerHTML = `<div class="card"><div class="cardhead"><div><h2>${c.label} <span class="muted" style="font-weight:500">(${rows.length})</span></h2><p class="hint">${c.hint}</p></div>${canW && !formOpen ? `<button class="btn sm" type="button" id="catAdd">${Shell.icon("plus")} Thêm ${c.label.toLowerCase()}</button>` : ""}</div>
+      <div class="msg" id="catMsg">${catMsg}</div>
       <div class="tw"><table><thead><tr>${shown.map((f) => `<th class="l">${esc(f.label.split(" (")[0].split(",")[0])}</th>`).join("")}${(c.extra || []).map((x) => `<th>${x[0]}</th>`).join("")}<th></th></tr></thead><tbody>
       ${rows.map((r) => `<tr class="${editing === r.id ? "editing" : ""}">${shown.map((f) => `<td class="l" style="white-space:normal">${c.cell && c.cell[f.k] ? c.cell[f.k](r) : f.type === "bool" ? (r[f.k] !== false ? '<span class="pill p-good">Hoạt động</span>' : '<span class="pill p-mute">Ngừng</span>') : esc(r[f.k] ?? "")}</td>`).join("")}${(c.extra || []).map((x) => `<td>${x[1](r)}</td>`).join("")}
-        <td class="actions">${canW ? `<button class="lnk" data-edit="${esc(r.id)}">Sửa</button><button class="lnk ${armed === r.id ? "danger" : ""}" data-del="${esc(r.id)}">${armed === r.id ? "Bấm lần nữa để xoá" : "Xoá"}</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="${shown.length + (c.extra || []).length + 1}" class="l muted">Chưa có ${c.label.toLowerCase()} nào.</td></tr>`}
+        <td class="actions">${canW ? `<button class="lnk" data-edit="${esc(r.id)}">Sửa</button><button class="lnk ${armed === r.id ? "danger" : ""}" data-del="${esc(r.id)}">${armed === r.id ? "Bấm lần nữa để xoá" : "Xoá"}</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="${shown.length + (c.extra || []).length + 1}">${Shell.empty("folder", "Chưa có " + c.label.toLowerCase() + " nào", canW ? "Bấm “Thêm " + c.label.toLowerCase() + "” để tạo mục đầu tiên." : "")}</td></tr>`}
       </tbody></table></div>
-      ${canW ? `<form id="catForm" class="editor" novalidate><div class="edtitle">${editing ? "Sửa " + c.label.toLowerCase() + ": " + esc(rec?.name) : "Thêm " + c.label.toLowerCase()}</div>
+      ${formOpen ? `<form id="catForm" class="editor" novalidate><div class="edtitle">${editing ? "Sửa " + c.label.toLowerCase() + ": " + esc(rec?.name) : "Thêm " + c.label.toLowerCase()}</div>
         <div class="form">${c.fields.map((f) => `<label>${esc(f.label)}${fieldInput(f, rec ? rec[f.k] : f.type === "bool" ? true : undefined)}</label>`).join("")}</div>
-        <div class="formrow"><button class="btn" type="submit">${editing ? "Lưu thay đổi" : "Thêm"}</button>${editing || prefill ? '<button class="btn ghost" type="button" id="catCancel">Huỷ</button>' : ""}<span class="fmsg" id="catMsg">${catMsg}</span></div></form>` : '<p class="hint" style="margin-top:12px">Chỉ admin sửa được mục này.</p>'}</div>`;
+        <div class="formrow"><button class="btn" type="submit">${editing ? "Lưu thay đổi" : "Thêm"}</button><button class="btn ghost" type="button" id="catCancel">Huỷ</button></div></form>` : !canW ? '<p class="hint" style="margin:12px 0 0">Chỉ admin sửa được mục này.</p>' : ""}</div>`;
     prefill = null;
   }
   $("#catBody").addEventListener("click", async (e) => {
     const c = CAT[curCat];
     const ed = e.target.closest("[data-edit]"); if (ed) { editing = ed.dataset.edit; armed = null; catMsg = ""; renderCat(); $("#catForm").scrollIntoView({ block: "center" }); return; }
-    if (e.target.id === "catCancel") { editing = null; catMsg = ""; renderCat(); return; }
+    if (e.target.id === "catCancel") { editing = null; addOpen = false; catMsg = ""; renderCat(); return; }
+    if (e.target.closest("#catAdd")) { addOpen = true; editing = null; catMsg = ""; renderCat(); const f = $("#catForm input"); if (f) f.focus(); return; }
     const del = e.target.closest("[data-del]"); if (del) {
       const id = del.dataset.del; if (armed !== id) { armed = id; renderCat(); return; }
       armed = null;
@@ -337,7 +326,7 @@
     if (!data.length) { say($("#catMsg"), "Không có quyền sửa mục này (quản lý chỉ sửa được trong dự án của mình).", "neg"); return; }
     catMsg = `<span class="pos">${editing ? "Đã lưu" : "Đã thêm"} ${esc(row.name)}.</span>`;
     const affects = ["staff", "channels", "teams"].includes(curCat);
-    editing = null; await reloadCatalog(); renderCat();
+    editing = null; addOpen = false; await reloadCatalog(); renderCat();
     if (affects) drainRecompute($("#catMsg"), () => { catMsg = $("#catMsg") ? $("#catMsg").innerHTML : catMsg; refreshUnmappedCount(); });
     else refreshUnmappedCount();
   });
@@ -369,7 +358,7 @@
     const { data } = await sb.rpc("admin_unmapped");
     unmapped = data || [];
     const n = unmapped.filter((u) => u.kind === "marketer" || u.kind === "utm" || u.kind === "source").length;
-    $("#unmappedCnt").textContent = n; $("#unmappedCnt").hidden = !n;
+    Shell.badge("unmappedCnt", n);
   }
   async function loadUnmapped() {
     const { error } = await sb.rpc("admin_unmapped");
@@ -446,13 +435,16 @@
       <td class="l">${u.role ? esc(Auth.ROLES[u.role]) : '<span class="pill p-warn">Chưa cấp</span>'}</td><td class="l" style="white-space:normal">${u.role ? scopeText(u) : ""}</td>
       <td class="l">${u.banned ? '<span class="pill p-bad">Đã khoá</span>' : u.role ? '<span class="pill p-good">Hoạt động</span>' : '<span class="pill p-warn">Chờ cấp quyền</span>'}</td>
       <td class="l muted">${when(u.last_sign_in_at)}</td>
-      <td class="actions"><button class="lnk" data-act="edit">Sửa quyền</button><button class="lnk" data-act="pw">Đặt mật khẩu</button>${u.id === me.id ? "" : `<button class="lnk" data-act="${u.banned ? "unban" : "ban"}">${u.banned ? "Mở khoá" : "Khoá"}</button><button class="lnk ${uArmed === u.id ? "danger" : ""}" data-act="del">${uArmed === u.id ? "Bấm lần nữa để xoá" : "Xoá"}</button>`}</td></tr>`).join("") || '<tr><td colspan="7" class="l muted">Chưa có tài khoản.</td></tr>';
+      <td class="actions"><button class="lnk" data-act="edit">Sửa quyền</button>
+        <details class="more" ${uArmed === u.id ? "open" : ""}><summary aria-label="Thao tác khác">⋯</summary><div class="menu"><button data-act="pw">Đặt mật khẩu</button>${u.id === me.id ? "" : `<button data-act="${u.banned ? "unban" : "ban"}">${u.banned ? "Mở khoá" : "Khoá tài khoản"}</button><button class="danger" data-act="del">${uArmed === u.id ? "Bấm lần nữa để xoá" : "Xoá tài khoản"}</button>`}</div></details></td></tr>`).join("") || '<tr><td colspan="7" class="l muted">Chưa có tài khoản.</td></tr>';
   }
+  let userFormOpen = false;
   function fillUserForm(u) {
+    $("#userForm").hidden = !(u || userFormOpen); $("#ufOpen").hidden = !$("#userForm").hidden;
     uEdit = u ? u.id : null;
     $("#ufTitle").textContent = u ? "Sửa quyền: " + u.email : "Tạo tài khoản";
     $("#ufEmail").value = u ? u.email : ""; $("#ufEmail").disabled = !!u;
-    $("#ufName").value = u ? u.full_name : ""; $("#ufPwWrap").hidden = !!u; $("#genPw").hidden = !!u; $("#ufCancel").hidden = !u;
+    $("#ufName").value = u ? u.full_name : ""; $("#ufPwWrap").hidden = !!u; $("#genPw").hidden = !!u; $("#ufCancel").hidden = false;
     $("#ufSubmit").textContent = u ? "Lưu quyền" : "Tạo tài khoản";
     $("#ufRole").innerHTML = opts(Object.entries(Auth.ROLES), u ? u.role : "", "Chưa cấp");
     $("#ufScope").innerHTML = opts(Object.entries(Auth.SCOPES), u ? u.scope : "self");
@@ -470,7 +462,8 @@
   }
   $("#ufRole").addEventListener("change", () => { const r = $("#ufRole").value; if (r) $("#ufScope").value = Auth.DEFAULT_SCOPE[r]; scopeFields(); });
   $("#ufScope").addEventListener("change", scopeFields);
-  $("#ufCancel").onclick = () => fillUserForm(null);
+  $("#ufCancel").onclick = () => { userFormOpen = false; fillUserForm(null); };
+  $("#ufOpen").onclick = () => { userFormOpen = true; fillUserForm(null); $("#userForm").scrollIntoView({ block: "center" }); $("#ufEmail").focus(); };
   $("#users").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-act]"); if (!b) return;
     const id = b.closest("tr").dataset.id, u = users.find((x) => x.id === id), act = b.dataset.act;
@@ -502,12 +495,12 @@
     try {
       if (uEdit) {
         await Auth.callFn("admin-users", { action: "update", id: uEdit, ...payload });
-        say($("#usersMsg"), "Đã lưu quyền.", "pos"); fillUserForm(null);
+        say($("#usersMsg"), "Đã lưu quyền.", "pos"); userFormOpen = false; fillUserForm(null);
       } else {
         const email = $("#ufEmail").value.trim(), password = $("#ufPw").value;
         if (!email || password.length < 8) { say($("#userMsg"), "Cần email và mật khẩu từ 8 ký tự.", "neg"); return; }
         await Auth.callFn("admin-users", { action: "create", email, password, ...payload });
-        say($("#usersMsg"), `Đã tạo ${esc(email)}. Gửi email và mật khẩu cho người đó; họ đổi mật khẩu bằng “Quên mật khẩu” ở trang đăng nhập.`, "pos"); fillUserForm(null);
+        say($("#usersMsg"), `Đã tạo ${esc(email)}. Gửi email và mật khẩu cho người đó; họ đổi mật khẩu bằng “Quên mật khẩu” ở trang đăng nhập.`, "pos"); userFormOpen = false; fillUserForm(null);
       }
       await loadUsers();
     } catch (err) { say($("#userMsg"), "Chưa lưu được: " + esc(err.message), "neg"); }
@@ -517,9 +510,10 @@
   // ---------- POS (chỉ admin) ----------
   let shops = [], sEdit = null;
   const stPill = (s) => s === "ok" ? '<span class="pill p-good">ok</span>' : s === "error" ? '<span class="pill p-bad">lỗi</span>' : s === "partial" ? '<span class="pill p-warn">đang kéo dở</span>' : s ? `<span class="pill p-mute">${esc(s)}</span>` : '<span class="muted">chưa chạy</span>';
-  function shopForm(s) {
+  function shopForm(s, open) {
     sEdit = s ? s.id : null;
-    $("#sfTitle").textContent = s ? "Sửa shop: " + s.name : "Thêm shop"; $("#sfSubmit").textContent = s ? "Lưu thay đổi" : "Thêm shop"; $("#sfCancel").hidden = !s;
+    $("#shopForm").hidden = !(s || open);
+    $("#sfTitle").textContent = s ? "Sửa shop: " + s.name : "Thêm shop"; $("#sfSubmit").textContent = s ? "Lưu thay đổi" : "Thêm shop";
     $("#sfName").value = s ? s.name : ""; $("#sfPos").value = s ? s.pos_shop_id : ""; $("#sfAct").value = s && s.active === false ? "0" : "1";
     $("#sfMarket").innerHTML = opts(C.markets.map((m) => [m.id, m.name + " (" + m.currency + ")"]), s ? s.market_id : (C.markets[0] || {}).id, "Chọn thị trường");
   }
@@ -568,7 +562,8 @@
       <td class="l">${esc(byId(C.markets, s.market_id)?.name) || '<span class="pill p-warn">Chưa chọn</span>'}</td>
       <td class="l mono">${s.api_key_hint ? "••••" + esc(s.api_key_hint) : '<span class="pill p-warn">Chưa có</span>'}</td>
       <td class="l">${progressCell(s)}</td>
-      <td class="actions"><button class="lnk" data-act="editshop">Sửa</button><button class="lnk" data-act="key">Đặt key</button><button class="lnk" data-act="test">Thử kết nối</button><button class="lnk" data-act="sync">Đồng bộ</button><button class="lnk" data-act="sample">Xem đơn mẫu</button><button class="lnk" data-act="reset">Kéo lại từ mốc</button></td></tr>`).join("") || '<tr><td colspan="6" class="l muted">Chưa có shop. Thêm bằng form bên dưới.</td></tr>';
+      <td class="actions"><button class="lnk" data-act="sync">Đồng bộ</button><button class="lnk" data-act="test">Thử kết nối</button>
+        <details class="more"><summary aria-label="Thao tác khác">⋯</summary><div class="menu"><button data-act="editshop">Sửa shop</button><button data-act="key">Đặt API key</button><button data-act="sample">Xem đơn mẫu</button><button data-act="reset">Kéo lại từ mốc</button></div></details></td></tr>`).join("") || `<tr><td colspan="6">${Shell.empty("plug", "Chưa có shop nào", "Bấm “+ Thêm shop”, điền Shop ID trên POS, rồi đặt API key.")}</td></tr>`;
     const cur = $("#kfShop").value;
     $("#kfShop").innerHTML = shops.map((s) => `<option value="${esc(s.id)}" ${s.id === cur ? "selected" : ""}>${esc(s.name)}${s.api_key_hint ? " (đã có key)" : ""}</option>`).join("");
     schedulePoll();
@@ -617,8 +612,8 @@
   $("#shops").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-act]"); if (!b) return;
     const id = b.closest("tr").dataset.id, s = shops.find((x) => x.id === id), act = b.dataset.act;
-    if (act === "editshop") { shopForm(s); loadShops(); $("#shopForm").scrollIntoView({ block: "center" }); return; }
-    if (act === "key") { $("#kfShop").value = id; $("#keyForm").scrollIntoView({ block: "center" }); $("#kfKey").focus(); return; }
+    if (act === "editshop") { shopForm(s); loadShops(); $("#shopForm").scrollIntoView({ block: "center" }); $("#sfName").focus(); return; }
+    if (act === "key") { openKey(id); return; }
     if (act === "sync") return runSync({ action: "sync", shop: id }, "Đang đồng bộ " + esc(s.name));
     if (act === "reset") { if (!confirm(`Kéo lại toàn bộ đơn của ${s.name} từ mốc đồng bộ? Trang sẽ tự chạy nhiều lượt cho tới khi xong, có thanh tiến độ.`)) return; return runSync({ action: "sync", shop: id, reset: true }, "Đang kéo lại " + esc(s.name)); }
     say($("#shopsMsg"), (act === "test" ? "Đang thử kết nối " : "Đang lấy đơn mẫu của ") + esc(s.name) + "…", "muted");
@@ -637,7 +632,8 @@
     if (!key) { say($("#keyMsg"), "Dán API key vào ô.", "neg"); return; }
     const { error } = await sb.rpc("admin_set_pos_key", { p_shop: shop, p_key: key });
     if (error) { say($("#keyMsg"), "Chưa lưu được: " + esc(error.message), "neg"); return; }
-    $("#kfKey").value = ""; say($("#keyMsg"), "Đã lưu key vào Vault. Bấm “Thử kết nối” ở dòng của shop để kiểm tra.", "pos"); loadShops();
+    $("#kfKey").value = ""; $("#keyForm").hidden = true; say($("#keyMsg"), "", "");
+    say($("#shopsMsg"), `Đã lưu API key vào Vault. Bấm “Thử kết nối” ở dòng của shop để kiểm tra.`, "pos"); loadShops();
   });
   $("#kfClear").onclick = async () => {
     const shop = $("#kfShop").value, s = shops.find((x) => x.id === shop); if (!s) return;
@@ -646,14 +642,21 @@
     say($("#keyMsg"), error ? "Chưa xoá được: " + esc(error.message) : "Đã xoá key.", error ? "neg" : "muted"); loadShops();
   };
   $("#sfCancel").onclick = () => { shopForm(null); loadShops(); };
+  function openKey(id) { $("#keyForm").hidden = false; if (id) $("#kfShop").value = id; say($("#keyMsg"), "", ""); $("#keyForm").scrollIntoView({ block: "center" }); $("#kfKey").focus(); }
+  $("#kfOpen").onclick = () => openKey(null);
+  $("#kfClose").onclick = () => ($("#keyForm").hidden = true);
+  $("#sfOpen").onclick = () => { shopForm(null, true); $("#shopForm").scrollIntoView({ block: "center" }); $("#sfName").focus(); };
   $("#shopForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = $("#sfName").value.trim(); if (!name) { say($("#shopMsg"), "Nhập tên shop.", "neg"); return; }
     const market_id = $("#sfMarket").value; if (!market_id) { say($("#shopMsg"), "Chọn thị trường (thêm ở Danh mục → Thị trường).", "neg"); return; }
     const row = { name, pos_shop_id: $("#sfPos").value.trim(), market_id, active: $("#sfAct").value === "1" };
-    const { error } = sEdit ? await sb.from("pos_shops").update(row).eq("id", sEdit) : await sb.from("pos_shops").insert(row);
+    const wasEdit = sEdit;
+    const { data: saved, error } = sEdit ? await sb.from("pos_shops").update(row).eq("id", sEdit).select("id") : await sb.from("pos_shops").insert(row).select("id");
     if (error) { say($("#shopMsg"), "Chưa lưu được: " + esc(error.message), "neg"); return; }
-    say($("#shopMsg"), sEdit ? `Đã lưu ${esc(name)}.` : `Đã thêm ${esc(name)}. Giờ đặt API key cho shop ở form phía trên.`, "pos"); shopForm(null); loadShops();
+    say($("#shopMsg"), "", ""); shopForm(null); await loadShops();
+    say($("#shopsMsg"), wasEdit ? `Đã lưu ${esc(name)}.` : `Đã thêm ${esc(name)}. Dán API key của shop vào form bên dưới.`, "pos");
+    if (!wasEdit && saved && saved[0]) openKey(saved[0].id);
   });
   if (isAdmin) shopForm(null);
 

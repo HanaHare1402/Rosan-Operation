@@ -12,28 +12,16 @@
 <body>
 
 <div class="app">
-  <aside>
-    <div class="brand">Team Vương · Phil</div>
-    <div class="brand-sub">Bảng điều hành vận hành</div>
-    <nav id="nav">
-      <a href="#tongquan" data-v="tongquan">Tổng quan</a>
-      <a href="#team" data-v="team">Team</a>
-      <a href="#nhansu" data-v="nhansu">Nhân sự</a>
-      <a href="#sanpham" data-v="sanpham">Sản phẩm</a>
-      <a href="#donhang" data-v="donhang">Đơn hàng</a>
-      <a href="#kqkd" data-v="kqkd">KQKD</a>
-      <a href="#canhbao" data-v="canhbao">Cảnh báo <span class="cnt" id="alertCnt">0</span></a>
-      <a href="#caidat" data-v="caidat">Cài đặt</a>
-    </nav>
-    <div class="side-foot" id="sideFoot"></div>
-    <div class="userbox"><span class="who" id="who"></span><span class="muted" id="whoRole"></span><div class="acts"><a class="lnk" id="adminLink" href="admin.html" hidden>Quản trị</a><button class="lnk" id="logout">Đăng xuất</button></div></div>
-  </aside>
+  <aside></aside>
   <main>
-    <div class="topbar">
-      <div><h1 id="title">Tổng quan</h1><p class="sub" id="subtitle"></p><p class="fresh" id="fresh" role="status"></p></div>
-      <div class="filters" id="filters"></div>
+    <header class="page-h">
+      <div><h1 id="title">Tổng quan</h1><p class="sub" id="subtitle"></p></div>
+      <div class="page-actions"><div class="fresh" id="fresh" role="status"></div></div>
+    </header>
+    <div class="toolbar" id="toolbar">
+      <div class="row" id="filters"></div>
+      <div class="row" id="filters2"></div>
     </div>
-    <div class="filters" id="filters2" style="margin-bottom:16px"></div>
     <section id="view"></section>
   </main>
 </div>
@@ -43,6 +31,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/settings-db.js"></script>
+<script src="js/shell.js"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -51,13 +40,9 @@ if(!ME.role){location.replace('login.html');return}
 const ALLOWED=Auth.VIEWS[ME.role]||[];
 const sbc=Auth.sb;
 const $=s=>document.querySelector(s);
-document.querySelectorAll('#nav a').forEach(a=>{a.hidden=!ALLOWED.includes(a.dataset.v)});
-$('#who').textContent=ME.full_name||ME.email;
-$('#whoRole').textContent=Auth.ROLES[ME.role]+' · '+Auth.SCOPES[ME.scope||'self'];
-$('#adminLink').hidden=!['admin','quan_ly','ke_toan'].includes(ME.role);
+Shell.render(ME,'index');
 // Giá vốn, lãi gộp chỉ hiện cho admin, quản lý, kế toán (database cũng chỉ trả số cho các vai trò này).
 const SEE_COST=['admin','quan_ly','ke_toan'].includes(ME.role);
-$('#logout').addEventListener('click',()=>Auth.signOut());
 document.documentElement.classList.remove('auth-pending');
 
 // ---------- tiện ích ----------
@@ -109,13 +94,13 @@ function scopeLabel(){
   return '';
 }
 function renderFilters(){
-  const pSel=projOpts.length?`<select id="fProj" aria-label="Dự án"><option value="">${ME.scope==='all'?'Tất cả dự án':'Tất cả dự án của tôi'}</option>${projOpts.map(p=>`<option value="${esc(p.id)}" ${F.proj===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`:`<span class="pill p-mute">${scopeLabel()}</span>`;
+  const pSel=projOpts.length?`<span class="flabel">Dự án</span><select id="fProj" aria-label="Dự án"><option value="">${ME.scope==='all'?'Tất cả dự án':'Tất cả dự án của tôi'}</option>${projOpts.map(p=>`<option value="${esc(p.id)}" ${F.proj===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`:`<span class="pill p-info">${scopeLabel()}</span>`;
   const mSel=CAT.markets.length>1?`<select id="fMkt" aria-label="Thị trường"><option value="">Mọi thị trường</option>${CAT.markets.map(m=>`<option value="${esc(m.id)}" ${F.mkt===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select>`:'';
-  const rSel=`<select id="fRange" aria-label="Khoảng ngày">${Object.entries(RANGES).map(([k,v])=>`<option value="${k}" ${F.range===k?'selected':''}>${v}</option>`).join('')}</select>`;
-  $('#filters').innerHTML=pSel+mSel+rSel;
-  const hide=view==='caidat'||view==='canhbao';
-  $('#filters2').hidden=hide||!CAT.channels.length;
-  $('#filters2').innerHTML=`<div class="chips" role="group" aria-label="Lọc theo kênh"><button class="chip ${F.ch==='all'?'on':''}" data-ch="all">Tất cả kênh</button>${CAT.channels.map(c=>`<button class="chip ${F.ch===c.id?'on':''}" data-ch="${esc(c.id)}"><span class="ch"><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</span></button>`).join('')}</div>`;
+  const range=`<div class="seg" role="group" aria-label="Khoảng ngày">${Object.entries(RANGES).map(([k,v])=>`<button type="button" data-range="${k}" class="${F.range===k?'on':''}" aria-pressed="${F.range===k}">${v}</button>`).join('')}</div>`;
+  $('#filters').innerHTML=pSel+mSel+'<span class="sep"></span>'+range;
+  $('#toolbar').hidden=view==='caidat';
+  $('#filters2').hidden=view==='canhbao'||!CAT.channels.length;
+  $('#filters2').innerHTML=`<span class="flabel">Kênh</span><div class="chips" role="group" aria-label="Lọc theo kênh"><button class="chip ${F.ch==='all'?'on':''}" data-ch="all">Tất cả</button>${CAT.channels.map(c=>`<button class="chip ${F.ch===c.id?'on':''}" data-ch="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</button>`).join('')}</div>`;
 }
 
 // ---------- dữ liệu ----------
@@ -204,9 +189,18 @@ function legend(list,keyFn,nameFn,colorFn){
   <div class="legend">${g.map(c=>`<div class="row"><span class="k">${nameFn(c.k)}</span><span>${M(c.rev)}</span><span class="s">${N(c.ord)} đơn</span></div>`).join('')||'<span class="muted">–</span>'}</div>`;
 }
 function empty(){
-  if(loadErr)return `<div class="card"><p class="neg">Không tải được số liệu: ${esc(loadErr)}</p><p class="hint">Kiểm tra đã chạy file SQL 20261025000000_org_structure.sql trên Supabase chưa.</p></div>`;
-  if(loading&&!ROWS.length)return `<div class="card"><p class="muted"><span class="spin"></span> Đang tải số liệu…</p></div>`;
-  return `<div class="card"><h2>Chưa có đơn trong khoảng này</h2><p class="hint">${ME.scope==='self'&&!ME.staff_id?'Tài khoản chưa được liên kết với nhân sự nào, nhờ admin liên kết ở Quản trị → Tài khoản.':ME.scope==='all'?'Thử chọn khoảng ngày dài hơn, hoặc kiểm tra Quản trị → Kết nối POS đã có shop và key chưa.':'Thử chọn khoảng ngày dài hơn. Nếu vẫn trống, có thể marketer của cậu chưa được khai báo vào team (Quản trị → Chưa khai báo).'}</p></div>`;
+  if(loadErr)return `<div class="card">${Shell.empty('alert','Không tải được số liệu',esc(loadErr)+'<br>Kiểm tra đã chạy đủ các file SQL trên Supabase chưa.')}</div>`;
+  if(loading&&!ROWS.length)return skeleton();
+  const why=ME.scope==='self'&&!ME.staff_id?'Tài khoản của cậu chưa được liên kết với nhân sự nào. Nhờ admin liên kết ở Quản trị → Tài khoản.'
+    :ME.scope==='all'?'Thử chọn khoảng ngày dài hơn, hoặc kiểm tra Quản trị → Kết nối POS đã có shop, API key và đã đồng bộ chưa.'
+    :'Thử chọn khoảng ngày dài hơn. Nếu vẫn trống, có thể marketer chưa được khai báo vào team (Quản trị → Chưa khai báo).';
+  const acts=ME.role==='admin'?'<a class="btn ghost sm" href="admin.html#pos">Kết nối POS</a><a class="btn ghost sm" href="admin.html#chuakhaibao">Chưa khai báo</a>':'';
+  return `<div class="card">${Shell.empty('inbox','Chưa có đơn trong khoảng này',why,acts)}</div>`;
+}
+// Khung chờ khi đang tải lần đầu.
+function skeleton(){
+  const k='<div class="kpi"><div class="skel" style="height:12px;width:55%"></div><div class="skel" style="height:24px;width:70%;margin-top:10px"></div><div class="skel" style="height:10px;width:45%;margin-top:10px"></div></div>';
+  return `<div class="kpis">${k.repeat(6)}</div><div class="grid2"><div class="card"><div class="skel" style="height:14px;width:40%"></div><div class="skel" style="height:220px;margin-top:16px"></div></div><div class="card"><div class="skel" style="height:14px;width:50%"></div>${'<div class="skel" style="height:12px;margin-top:16px"></div>'.repeat(5)}</div></div>`;
 }
 
 // ---------- màn hình ----------
@@ -235,11 +229,11 @@ let curTeam=store.get('team','');
 V.team=()=>{
   const ids=[...new Set(ROWS.map(r=>r.team).filter(Boolean))];
   const inScope=CAT.teams.filter(t=>t.active!==false&&(ids.includes(t.id)||(F.proj?t.project_id===F.proj:ME.scope==='all'||(ME.scope==='project'&&(ME.project_ids||[]).includes(t.project_id))||(ME.scope==='team'&&t.id===ME.team_id))));
-  if(!inScope.length)return ROWS.length?`<div class="card"><p class="muted">Chưa có team nào trong phạm vi này. Admin thêm team ở Quản trị → Danh mục.</p></div>`:empty();
+  if(!inScope.length)return ROWS.length?`<div class="card">${Shell.empty('users','Chưa có team trong phạm vi này','Admin hoặc quản lý thêm team ở Quản trị → Danh mục.',ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin.html#danhmuc">Mở Danh mục</a>':'')}</div>`:empty();
   if(!inScope.some(t=>t.id===curTeam))curTeam=(inScope.find(t=>ids.includes(t.id))||inScope[0]).id;
   const t=byId(CAT.teams,curTeam),list=ROWS.filter(r=>r.team===curTeam),a=tot(list);
   const sel=inScope.length>1?`<div class="tools"><div class="chips">${inScope.map(x=>`<button class="chip ${x.id===curTeam?'on':''}" data-team="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div></div>`:'';
-  if(!list.length)return sel+`<div class="card"><p class="muted">${esc(t.name)} chưa có đơn trong khoảng và kênh đang lọc.</p></div>`;
+  if(!list.length)return sel+`<div class="card">${Shell.empty('inbox',esc(t.name)+' chưa có đơn','Không có đơn trong khoảng ngày và kênh đang lọc. Thử chọn khoảng dài hơn.')}</div>`;
   const tg=F.range==='month'&&+t.target_vnd?`<div class="bar"><i style="width:${Math.min(100,a.rev/t.target_vnd*100)}%"></i></div><div class="n">${P(a.rev/t.target_vnd)} target ${M(t.target_vnd)}</div>`:'';
   return sel+kpiBlock(a,tg)+
   `<div class="card"><h2>Xếp hạng nhân sự · ${esc(t.name)}</h2><p class="hint">Bấm vào tên để xem chi tiết. % hoàn tính trên đơn đã xong (giao thành công + hoàn).</p>
@@ -250,7 +244,7 @@ let curStaff=store.get('staff','');
 V.nhansu=()=>{
   if(!ROWS.length)return empty();
   const ids=[...new Set(ROWS.map(r=>r.staff).filter(Boolean))];
-  if(!ids.length)return `<div class="card"><p class="muted">Các đơn trong khoảng này chưa gán được cho nhân sự nào. Khai báo marketer ở Quản trị → Chưa khai báo.</p></div>`;
+  if(!ids.length)return `<div class="card">${Shell.empty('user','Chưa gán được đơn cho nhân sự nào','Các đơn trong khoảng này có marketer chưa được khai báo. Khai báo ở Quản trị → Chưa khai báo.',ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin.html#chuakhaibao">Khai báo marketer</a>':'')}</div>`;
   if(!ids.includes(curStaff))curStaff=ME.staff_id&&ids.includes(ME.staff_id)?ME.staff_id:ids[0];
   const list=ROWS.filter(r=>r.staff===curStaff),a=tot(list),s=byId(CAT.staff,curStaff)||{};
   const groups=new Map();ids.forEach(id=>{const st=byId(CAT.staff,id)||{};const k=st.team_id||'';if(!groups.has(k))groups.set(k,[]);groups.get(k).push(id)});
@@ -276,7 +270,7 @@ function prodTable(rows,withSearch){
 }
 let pSort=store.get('psort2','rev'),pQ='';
 V.sanpham=()=>{
-  if(!PRODS)return `<div class="card"><p class="muted"><span class="spin"></span> Đang tải sản phẩm…</p></div>`;
+  if(!PRODS)return `<div class="card"><div class="skel" style="height:14px;width:30%"></div>${'<div class="skel" style="height:12px;margin-top:16px"></div>'.repeat(6)}</div>`;
   if(PRODS.err)return `<div class="card"><p class="neg">${esc(PRODS.err)}</p></div>`;
   return `<div class="tools"><input type="search" id="pq" placeholder="Tìm mã hoặc tên sản phẩm" value="${esc(pQ)}"></div>
   <div class="card"><h2>Hiệu quả sản phẩm</h2><p class="hint">Tính từ dòng sản phẩm trong đơn POS. Doanh số theo giá bán từng dòng, quy về VNĐ. Bấm tiêu đề cột để sắp xếp.</p>${prodTable(PRODS.rows,true)}</div>`;
@@ -397,7 +391,7 @@ function alerts(){
   const o={bad:0,warn:1,info:2};return out.sort((a,b)=>o[a[0]]-o[b[0]]);
 }
 V.canhbao=()=>{const a=alerts();return `<div class="card"><h2>${a.length} cảnh báo đang mở</h2><p class="hint">Tính từ dữ liệu POS theo bộ lọc đang chọn. Tỷ lệ hoàn chỉ xét nhân sự có từ 20 đơn đã xong.</p>
-  <div class="alerts">${a.map(x=>`<div class="alert"><span class="stripe s-${x[0]}"></span><div><div class="t">${esc(x[1])}</div><div class="m">${esc(x[2])}</div></div><span class="pill ${x[0]==='bad'?'p-bad':x[0]==='warn'?'p-warn':'p-mute'}">${x[3]}</span></div>`).join('')||'<p class="muted">Không có cảnh báo.</p>'}</div></div>`};
+  <div class="alerts">${a.map(x=>`<div class="alert"><span class="stripe s-${x[0]}"></span><div><div class="t">${esc(x[1])}</div><div class="m">${esc(x[2])}</div></div><span class="pill ${x[0]==='bad'?'p-bad':x[0]==='warn'?'p-warn':'p-mute'}">${x[3]}</span></div>`).join('')||Shell.empty('check','Không có cảnh báo','Mọi thứ đang ổn trong khoảng đang lọc.')}</div></div>`};
 
 // ---------- cài đặt: đơn vị FFM ----------
 let db=null,dbState='loading',dbErr='',editFfm=null,delArm=null,formMsg={ffm:''};
@@ -437,7 +431,7 @@ async function submitFfm(){
 }
 
 // ---------- khung ----------
-const TITLES={tongquan:['Tổng quan','Doanh số, đơn, giao hàng và hoàn'],team:['Team','Từng team và nhân sự trong team'],nhansu:['Nhân sự','Chỉ số từng người và sản phẩm đã bán'],sanpham:['Sản phẩm','Hiệu quả từng sản phẩm'],donhang:['Đơn hàng','Tra cứu đơn từ POS'],kqkd:['KQKD','Doanh thu theo team / dự án và đối soát file FFM'],canhbao:['Cảnh báo','Việc cần xử lý ngay'],caidat:['Cài đặt','Tài khoản và đơn vị FFM']};
+const TITLES={tongquan:['Tổng quan','Doanh số, đơn, giao hàng và hoàn'],team:['Team','Từng team và nhân sự trong team'],nhansu:['Nhân sự','Chỉ số từng người và sản phẩm đã bán'],sanpham:['Sản phẩm','Hiệu quả từng sản phẩm'],donhang:['Đơn hàng','Tra cứu đơn từ POS'],kqkd:['Kết quả kinh doanh','Doanh thu, giá vốn, lợi nhuận gộp theo team / dự án'],canhbao:['Cảnh báo','Việc cần xử lý ngay'],caidat:['Cài đặt','Tài khoản và đơn vị FFM']};
 let view='tongquan',keep={};
 function snapForm(){const k={};document.querySelectorAll('#view input:not([type=file]),#view select').forEach(e=>{if(e.id)k[e.id]=e.value});k.__focus=document.activeElement&&document.activeElement.id;return k}
 function render(){
@@ -447,17 +441,18 @@ function render(){
   const [f,t]=rangeDates(F.range);const last=new Date(t);last.setDate(last.getDate()-1);
   $('#title').textContent=TITLES[view][0];
   $('#subtitle').textContent=(scopeTxt?scopeTxt+' · ':'')+(view==='caidat'?TITLES[view][1]:`${fmtD(f)}${+last!==+f?' – '+fmtD(last):''}`);
-  document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===view));
+  document.querySelectorAll('#nav a[data-v]').forEach(a=>a.classList.toggle('on',a.dataset.v===view));
   renderFilters();
-  $('#view').innerHTML=(catErr?`<div class="card"><p class="neg">Không đọc được danh mục: ${esc(catErr)}. Kiểm tra đã chạy file SQL 20261025000000_org_structure.sql chưa.</p></div>`:'')+V[view]();
+  $('#view').innerHTML=(catErr?`<div class="msg neg">Không đọc được danh mục: ${esc(catErr)}. Kiểm tra đã chạy đủ các file SQL trên Supabase chưa.</div>`:'')+V[view]();
   if(keep.__view===view){Object.keys(before).forEach(id=>{if(id==='__focus')return;const e=document.getElementById(id);if(e&&!['pq','oq','staffSel'].includes(id))e.value=before[id]});const fe=before.__focus&&document.getElementById(before.__focus);if(fe){fe.focus();if(fe.type==='search'||fe.type==='text')try{fe.setSelectionRange(fe.value.length,fe.value.length)}catch(x){}}}
   keep={__view:view};
-  $('#alertCnt').textContent=alerts().filter(a=>a[0]==='bad').length;
+  Shell.badge('alertCnt',alerts().filter(a=>a[0]==='bad').length);
 }
 function go(v){view=v;keep={};delArm=null;try{history.replaceState(null,'','#'+v)}catch(e){}if((v==='sanpham'||v==='nhansu'||(SEE_COST&&v==='canhbao'))&&!PRODS)loadProducts();render();window.scrollTo(0,0)}
 function setF(k,v){F[k]=v;store.set({proj:'proj',mkt:'mkt',ch:'ch2',range:'range'}[k],v);oPage=0;loadData()}
 document.addEventListener('click',e=>{
-  const n=e.target.closest('#nav a');if(n){e.preventDefault();go(n.dataset.v);return}
+  const n=e.target.closest('#nav a[data-v]');if(n){e.preventDefault();go(n.dataset.v);return}
+  const rg=e.target.closest('[data-range]');if(rg){setF('range',rg.dataset.range);return}
   const c=e.target.closest('[data-ch]');if(c){setF('ch',c.dataset.ch);return}
   const t=e.target.closest('[data-team]');if(t){curTeam=t.dataset.team;store.set('team',curTeam);render();return}
   const g=e.target.closest('[data-go]');if(g&&g.dataset.go){const i=g.dataset.go.indexOf(':');const v=g.dataset.go.slice(0,i),k=g.dataset.go.slice(i+1);if(v==='team'){curTeam=k;store.set('team',k)}if(v==='nhansu'){curStaff=k;store.set('staff',k)}if(ALLOWED.includes(v))go(v);return}
@@ -472,7 +467,6 @@ document.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='ffmF
 document.addEventListener('change',e=>{
   if(e.target.id==='fProj')setF('proj',e.target.value);
   if(e.target.id==='fMkt')setF('mkt',e.target.value);
-  if(e.target.id==='fRange')setF('range',e.target.value);
   if(e.target.id==='staffSel'){curStaff=e.target.value;store.set('staff',curStaff);render()}
   if(e.target.id==='jtFile'&&e.target.files[0])runJT(e.target.files[0]);
 });
@@ -497,10 +491,12 @@ let lastRefresh=0,refreshing=false,freshAt=null,freshErr='';
 const hhmm=t=>new Date(t).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 function showFresh(){
   const el=$('#fresh');if(!el)return;
-  const txt=refreshing?'<span class="spin" aria-hidden="true"></span>Đang lấy số mới nhất từ POS…'
-    :freshErr?`<span class="neg">Không cập nhật được: ${esc(freshErr)}</span>`
-    :freshAt?`Dữ liệu POS tính đến <b>${hhmm(freshAt)}</b>`:'Chưa có shop nào nối POS';
-  el.innerHTML=txt+(refreshing?'':' <button class="lnk" id="refreshNow">Cập nhật ngay</button>');
+  el.className='fresh'+(freshErr?' err':'');
+  el.title=freshErr?'Không cập nhật được: '+freshErr:'';
+  const txt=refreshing?'<span class="spin" aria-hidden="true"></span>Đang lấy số mới nhất…'
+    :freshErr?'<span class="dotlive"></span><span class="neg">Chưa cập nhật được từ POS</span>'
+    :freshAt?`<span class="dotlive"></span><span>Dữ liệu POS lúc <b>${hhmm(freshAt)}</b></span>`:'<span class="dotlive" style="background:var(--faint);box-shadow:none"></span><span>Chưa nối POS</span>';
+  el.innerHTML=txt+(refreshing?'':` <button class="lnk" id="refreshNow" title="Kéo đơn mới nhất từ POS">${Shell.icon('refresh',' style="width:13px;height:13px"')} Cập nhật</button>`);
 }
 async function refreshPOS(){
   if(refreshing)return;refreshing=true;showFresh();
@@ -509,7 +505,7 @@ async function refreshPOS(){
   lastRefresh=Date.now();refreshing=false;showFresh();
   loadData();
 }
-document.addEventListener('click',e=>{if(e.target.id==='refreshNow')refreshPOS()});
+document.addEventListener('click',e=>{if(e.target.closest('#refreshNow'))refreshPOS()});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-lastRefresh>60000)refreshPOS()});
 setInterval(()=>{if(document.visibilityState==='visible')refreshPOS()},120000);
 refreshPOS();
