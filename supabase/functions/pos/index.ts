@@ -110,9 +110,10 @@ async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger:
     // Lần đầu (chưa đồng bộ xong lần nào): lọc theo NGÀY TẠO trong [mốc, end], chỉ đơn trong khoảng, không phí
     // thời gian vào đơn cũ vừa đổi trạng thái. Sau đó: lọc theo ngày cập nhật để bắt đơn đổi trạng thái.
     const backfill = !shop.last_synced_at;
+    // include_removed=1: lấy cả đơn đã xoá trên POS để web đánh dấu "Đã xoá" (mặc định POS ẩn đơn đã xoá).
     const params: Record<string, string | number> = backfill
-      ? { updateStatus: "inserted_at", startDateTime: Math.floor(+start / 1000), endDateTime: Math.floor(+end / 1000) }
-      : { updateStatus: "updated_at", startDateTime: Math.floor(+start / 1000), endDateTime: Math.floor(+end / 1000), option_sort: "last_updated_order_asc" };
+      ? { updateStatus: "inserted_at", startDateTime: Math.floor(+start / 1000), endDateTime: Math.floor(+end / 1000), include_removed: 1 }
+      : { updateStatus: "updated_at", startDateTime: Math.floor(+start / 1000), endDateTime: Math.floor(+end / 1000), option_sort: "last_updated_order_asc", include_removed: 1 };
     let total: number | null = shop.sync_window_start ? (shop.sync_total ?? null) : null, totalPages = 0;
 
     while (true) {
