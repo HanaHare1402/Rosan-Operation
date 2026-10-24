@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="vi" class="auth-pending">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quản trị · Team Vương</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">Team Vương · Phil</div>
+    <div class="brand-sub">Quản trị hệ thống</div>
+    <nav>
+      <a href="index.html">← Bảng điều hành</a>
+      <a href="#taikhoan" data-tab="taikhoan">Tài khoản</a>
+      <a href="#pos" data-tab="pos">Kết nối POS</a>
+      <a href="#nhatky" data-tab="nhatky">Nhật ký đồng bộ</a>
+    </nav>
+    <div class="userbox"><span class="who" id="who"></span><span class="muted" id="whoRole"></span><div class="acts"><button class="lnk" id="logout">Đăng xuất</button></div></div>
+  </aside>
+  <main>
+    <div class="topbar"><div><h1 id="title">Tài khoản</h1><p class="sub" id="subtitle"></p></div></div>
+    <div id="denied" class="card" hidden><h2>Không có quyền</h2><p class="muted">Trang này chỉ dành cho admin. <a href="index.html">Về bảng điều hành</a>.</p></div>
+
+    <!-- ---------- tài khoản ---------- -->
+    <section id="tab-taikhoan" hidden>
+      <div class="card">
+        <div class="cardhead"><div><h2>Tài khoản và phân quyền</h2><p class="hint">Mỗi người một vai trò. Vai trò quyết định màn nào của bảng điều hành người đó thấy. Người chưa có vai trò đăng nhập được nhưng không xem được gì.</p></div><button class="btn ghost" id="reloadUsers">Tải lại</button></div>
+        <div class="tw"><table><thead><tr><th class="l">Email</th><th class="l">Họ tên</th><th class="l">Vai trò</th><th class="l">Team</th><th class="l">Trạng thái</th><th class="l">Đăng nhập gần nhất</th><th></th></tr></thead><tbody id="users"><tr><td colspan="7" class="l muted">Đang tải…</td></tr></tbody></table></div>
+        <div class="msg" id="usersMsg" role="status" style="margin-top:8px"></div>
+        <form id="userForm" class="editor" novalidate>
+          <div class="edtitle">Tạo tài khoản</div>
+          <div class="form">
+            <label>Email<input id="ufEmail" type="email" autocomplete="off"></label>
+            <label>Họ tên<input id="ufName" type="text" autocomplete="off"></label>
+            <label>Mật khẩu (từ 8 ký tự)<input id="ufPw" type="text" autocomplete="off"></label>
+            <label>Vai trò<select id="ufRole"></select></label>
+            <label>Team<select id="ufTeam"></select></label>
+          </div>
+          <div class="formrow"><button class="btn" type="submit">Tạo tài khoản</button><button class="btn ghost" type="button" id="genPw">Tạo mật khẩu ngẫu nhiên</button><span class="fmsg" id="userMsg"></span></div>
+        </form>
+      </div>
+      <div class="card"><h2>Vai trò xem được gì</h2><div class="tw"><table><thead><tr><th class="l">Vai trò</th><th class="l">Màn hình</th><th class="l">Được sửa</th></tr></thead><tbody id="roleMatrix"></tbody></table></div></div>
+    </section>
+
+    <!-- ---------- POS ---------- -->
+    <section id="tab-pos" hidden>
+      <div class="card">
+        <div class="cardhead"><div><h2>Shop trên Pancake POS</h2><p class="hint">API key cất trong Supabase Vault. Trang chỉ hiện 4 ký tự cuối, không ai đọc lại được key, kể cả admin. Muốn đổi thì dán key mới đè lên.</p></div><button class="btn" id="syncAll">Đồng bộ tất cả ngay</button></div>
+        <div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Shop ID POS</th><th class="l">Team</th><th class="l">API key</th><th class="l">Đồng bộ gần nhất</th><th></th></tr></thead><tbody id="shops"><tr><td colspan="6" class="l muted">Đang tải…</td></tr></tbody></table></div>
+        <div class="msg" id="shopsMsg" role="status" style="margin-top:8px"></div>
+
+        <form id="keyForm" class="editor" novalidate>
+          <div class="edtitle">Đặt API key</div>
+          <div class="form">
+            <label>Shop<select id="kfShop"></select></label>
+            <label>API key từ POS<input id="kfKey" type="password" autocomplete="off" placeholder="Dán key vào đây"></label>
+          </div>
+          <div class="formrow"><button class="btn" type="submit">Lưu key</button><button class="btn ghost" type="button" id="kfClear">Xoá key của shop này</button><span class="fmsg" id="keyMsg"></span></div>
+          <p class="hint" style="margin:10px 0 0">Lấy key trên pos.pages.fm: Cấu hình → Cấu hình ứng dụng → API KEY → Thêm mới. Một shop một key. Shop ID là dãy số trong link <code>pos.pages.fm/shop/&lt;số&gt;</code>.</p>
+        </form>
+
+        <form id="shopForm" class="editor" novalidate>
+          <div class="edtitle">Thêm shop</div>
+          <div class="form">
+            <label>Tên shop<input id="sfName" type="text" placeholder="VD: Facebook – Team Phong"></label>
+            <label>Kênh<select id="sfCh"></select></label>
+            <label>Shop ID POS<input id="sfPos" type="text" inputmode="numeric"></label>
+            <label>Team<select id="sfTeam"></select></label>
+          </div>
+          <div class="formrow"><button class="btn" type="submit">Thêm shop</button><span class="fmsg" id="shopMsg"></span></div>
+          <p class="hint" style="margin:10px 0 0">Sửa nhân sự phụ trách, tạm dừng hay xoá shop ở màn Cài đặt của bảng điều hành.</p>
+        </form>
+      </div>
+      <div class="card" id="outCard" hidden><div class="cardhead"><h2 id="outTitle">Kết quả</h2><button class="lnk" id="outClose">Đóng</button></div><div id="out"></div></div>
+    </section>
+
+    <!-- ---------- nhật ký ---------- -->
+    <section id="tab-nhatky" hidden>
+      <div class="card"><div class="cardhead"><div><h2>50 lần đồng bộ gần nhất</h2><p class="hint">Lịch tự chạy 15 phút một lần (nếu đã cài cron.sql). “partial” nghĩa là chưa kéo hết, lần sau làm tiếp.</p></div><button class="btn ghost" id="reloadRuns">Tải lại</button></div>
+      <div class="tw"><table><thead><tr><th class="l">Bắt đầu</th><th class="l">Shop</th><th class="l">Người / lịch</th><th>Trang</th><th>Đơn</th><th class="l">Kết quả</th><th class="l">Lỗi</th></tr></thead><tbody id="runs"></tbody></table></div></div>
+    </section>
+  </main>
+</div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script>
+(async function () {
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const say = (el, html, cls) => { el.className = (el.classList.contains("fmsg") ? "fmsg " : "msg ") + (cls || ""); el.innerHTML = html; };
+  const when = (t) => t ? new Date(t).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "–";
+  const opts = (map, sel, blank) => (blank != null ? `<option value="">${blank}</option>` : "") + Object.entries(map).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${esc(v)}</option>`).join("");
+
+  const me = await Auth.requireAuth();
+  const sb = Auth.sb;
+  document.documentElement.classList.remove("auth-pending");
+  $("#who").textContent = me.full_name || me.email;
+  $("#whoRole").textContent = Auth.ROLES[me.role] || "Chưa có vai trò";
+  $("#logout").onclick = () => Auth.signOut();
+  if (me.role !== "admin") { $("#denied").hidden = false; $("#title").textContent = "Quản trị"; return; }
+
+  // ---------- điều hướng tab ----------
+  const TABS = { taikhoan: ["Tài khoản", "Tạo tài khoản, cấp vai trò, khoá tài khoản"], pos: ["Kết nối POS", "Shop, API key Pancake POS và đồng bộ đơn"], nhatky: ["Nhật ký đồng bộ", "Lịch sử kéo đơn từ POS"] };
+  function go(t) {
+    if (!TABS[t]) t = "taikhoan";
+    Object.keys(TABS).forEach((k) => ($("#tab-" + k).hidden = k !== t));
+    document.querySelectorAll("nav a[data-tab]").forEach((a) => a.classList.toggle("on", a.dataset.tab === t));
+    $("#title").textContent = TABS[t][0]; $("#subtitle").textContent = TABS[t][1];
+    history.replaceState(null, "", "#" + t);
+    if (t === "taikhoan") loadUsers(); if (t === "pos") loadShops(); if (t === "nhatky") loadRuns();
+  }
+  document.querySelectorAll("nav a[data-tab]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); go(a.dataset.tab); }));
+
+  // ---------- tài khoản ----------
+  const VIEW_NAMES = { tongquan: "Tổng quan", team: "Team", nhansu: "Nhân sự", sanpham: "Sản phẩm", donhang: "Đơn hàng", kqkd: "KQKD", canhbao: "Cảnh báo", caidat: "Cài đặt" };
+  const EDITS = { admin: "Mọi thứ, tài khoản, API key", quan_ly: "Shop, FFM, chạy đồng bộ", ke_toan: "Đơn vị FFM", marketing: "–", van_don: "–", kho: "–", sale: "–" };
+  $("#roleMatrix").innerHTML = Object.entries(Auth.ROLES).map(([k, v]) => `<tr><td>${v}</td><td class="l" style="white-space:normal">${Auth.VIEWS[k].map((x) => VIEW_NAMES[x]).join(", ")}${k === "admin" ? ", Quản trị" : ""}</td><td class="l">${EDITS[k]}</td></tr>`).join("");
+  $("#ufRole").innerHTML = opts(Auth.ROLES, "", "Chưa cấp");
+  $("#ufTeam").innerHTML = opts(Auth.TEAMS, "", "Không thuộc team");
+
+  let users = [], armed = null;
+  async function loadUsers() {
+    try { users = (await Auth.callFn("admin-users", { action: "list" })).users; renderUsers(); }
+    catch (e) { $("#users").innerHTML = `<tr><td colspan="7" class="l neg">Không tải được: ${esc(e.message)}. Kiểm tra đã deploy function admin-users chưa.</td></tr>`; }
+  }
+  function renderUsers() {
+    $("#users").innerHTML = users.map((u) => `<tr data-id="${u.id}">
+      <td class="l">${esc(u.email)}${u.id === me.id ? ' <span class="pill p-mute">bạn</span>' : ""}</td>
+      <td class="l"><input type="text" class="uName" value="${esc(u.full_name)}" style="width:150px"></td>
+      <td class="l"><select class="uRole">${opts(Auth.ROLES, u.role || "", "Chưa cấp")}</select></td>
+      <td class="l"><select class="uTeam">${opts(Auth.TEAMS, u.team || "", "–")}</select></td>
+      <td class="l">${u.banned ? '<span class="pill p-bad">Đã khoá</span>' : u.role ? '<span class="pill p-good">Hoạt động</span>' : '<span class="pill p-warn">Chờ cấp quyền</span>'}</td>
+      <td class="l muted">${when(u.last_sign_in_at)}</td>
+      <td class="actions"><button class="lnk" data-act="save">Lưu</button><button class="lnk" data-act="pw">Đặt mật khẩu</button>${u.id === me.id ? "" : `<button class="lnk" data-act="${u.banned ? "unban" : "ban"}">${u.banned ? "Mở khoá" : "Khoá"}</button><button class="lnk ${armed === u.id ? "danger" : ""}" data-act="del">${armed === u.id ? "Bấm lần nữa để xoá" : "Xoá"}</button>`}</td></tr>`).join("") || '<tr><td colspan="7" class="l muted">Chưa có tài khoản.</td></tr>';
+  }
+  $("#users").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    const tr = b.closest("tr"), id = tr.dataset.id, u = users.find((x) => x.id === id), act = b.dataset.act;
+    try {
+      if (act === "save") {
+        await Auth.callFn("admin-users", { action: "update", id, full_name: tr.querySelector(".uName").value.trim(), role: tr.querySelector(".uRole").value, team: tr.querySelector(".uTeam").value });
+        say($("#usersMsg"), `Đã lưu ${esc(u.email)}.`, "pos");
+      } else if (act === "pw") {
+        const pw = prompt(`Mật khẩu mới cho ${u.email} (từ 8 ký tự):`); if (!pw) return;
+        await Auth.callFn("admin-users", { action: "set_password", id, password: pw });
+        say($("#usersMsg"), `Đã đặt mật khẩu mới cho ${esc(u.email)}.`, "pos"); return;
+      } else if (act === "ban" || act === "unban") {
+        await Auth.callFn("admin-users", { action: act, id });
+        say($("#usersMsg"), `${act === "ban" ? "Đã khoá" : "Đã mở khoá"} ${esc(u.email)}.`, "pos");
+      } else if (act === "del") {
+        if (armed !== id) { armed = id; renderUsers(); return; }
+        armed = null; await Auth.callFn("admin-users", { action: "delete", id });
+        say($("#usersMsg"), `Đã xoá ${esc(u.email)}.`, "muted");
+      }
+      await loadUsers();
+    } catch (err) { say($("#usersMsg"), "Chưa làm được: " + esc(err.message), "neg"); }
+  });
+  $("#reloadUsers").onclick = loadUsers;
+  $("#genPw").onclick = () => { const a = crypto.getRandomValues(new Uint8Array(12)); $("#ufPw").value = Array.from(a, (x) => "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"[x % 55]).join(""); };
+  $("#userForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("#ufEmail").value.trim(), password = $("#ufPw").value;
+    if (!email || password.length < 8) { say($("#userMsg"), "Cần email và mật khẩu từ 8 ký tự.", "neg"); return; }
+    try {
+      await Auth.callFn("admin-users", { action: "create", email, password, full_name: $("#ufName").value.trim(), role: $("#ufRole").value, team: $("#ufTeam").value });
+      say($("#userMsg"), `Đã tạo ${esc(email)}. Gửi email và mật khẩu cho người đó; họ đổi mật khẩu bằng “Quên mật khẩu” ở trang đăng nhập.`, "pos");
+      $("#userForm").reset(); await loadUsers();
+    } catch (err) { say($("#userMsg"), "Chưa tạo được: " + esc(err.message), "neg"); }
+  });
+
+  // ---------- POS ----------
+  $("#sfCh").innerHTML = opts(Auth.CHANNELS, "fb");
+  $("#sfTeam").innerHTML = opts(Auth.TEAMS, "", "–");
+  let shops = [];
+  const stPill = (s) => s === "ok" ? '<span class="pill p-good">ok</span>' : s === "error" ? '<span class="pill p-bad">lỗi</span>' : s === "partial" ? '<span class="pill p-warn">đang kéo dở</span>' : s ? `<span class="pill p-mute">${esc(s)}</span>` : '<span class="muted">chưa chạy</span>';
+  async function loadShops() {
+    const { data, error } = await sb.from("pos_shops").select("*").order("channel").order("name");
+    if (error) { $("#shops").innerHTML = `<tr><td colspan="6" class="l neg">Không tải được: ${esc(error.message)}. Kiểm tra đã chạy file migration chưa.</td></tr>`; return; }
+    shops = data;
+    $("#shops").innerHTML = shops.map((s) => `<tr data-id="${esc(s.id)}">
+      <td class="l"><span class="ch"><span class="dot d-${esc(s.channel)}"></span>${esc(s.name)}</span>${s.active ? "" : ' <span class="pill p-mute">tạm dừng</span>'}</td>
+      <td class="l mono">${s.pos_shop_id ? esc(s.pos_shop_id) : '<span class="pill p-warn">Chưa điền</span>'}</td>
+      <td class="l">${esc(Auth.TEAMS[s.team] || s.team || "–")}</td>
+      <td class="l mono">${s.api_key_hint ? "••••" + esc(s.api_key_hint) : '<span class="pill p-warn">Chưa có</span>'}</td>
+      <td class="l">${stPill(s.last_sync_status)} <span class="muted">${when(s.last_synced_at)}${s.last_sync_count != null ? " · " + s.last_sync_count + " đơn" : ""}</span>${s.last_sync_error ? `<div class="neg" style="font-size:12px;white-space:normal;max-width:320px">${esc(s.last_sync_error)}</div>` : ""}</td>
+      <td class="actions"><button class="lnk" data-act="key">Đặt key</button><button class="lnk" data-act="test">Thử kết nối</button><button class="lnk" data-act="sync">Đồng bộ</button><button class="lnk" data-act="sample">Xem đơn mẫu</button><button class="lnk" data-act="reset">Kéo lại 90 ngày</button></td></tr>`).join("") || '<tr><td colspan="6" class="l muted">Chưa có shop. Thêm bằng form bên dưới.</td></tr>';
+    const cur = $("#kfShop").value;
+    $("#kfShop").innerHTML = shops.map((s) => `<option value="${esc(s.id)}" ${s.id === cur ? "selected" : ""}>${esc(s.name)}${s.api_key_hint ? " (đã có key)" : ""}</option>`).join("");
+  }
+  function showOut(title, html) { $("#outTitle").textContent = title; $("#out").innerHTML = html; $("#outCard").hidden = false; $("#outCard").scrollIntoView({ block: "nearest" }); }
+  $("#outClose").onclick = () => ($("#outCard").hidden = true);
+  function syncResult(r) {
+    return `<div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Kết quả</th><th>Trang</th><th>Đơn</th><th class="l">Lỗi</th></tr></thead><tbody>${(r.results || []).map((x) => `<tr><td class="l">${esc(x.shop)}</td><td class="l">${stPill(x.status)}</td><td>${x.pages ?? "–"}</td><td>${x.orders ?? "–"}</td><td class="l neg" style="white-space:normal">${esc(x.error || "")}</td></tr>`).join("") || '<tr><td colspan="5" class="l muted">Không có shop nào đủ điều kiện (đang bán và đã có key).</td></tr>'}</tbody></table></div>`;
+  }
+  async function runSync(body, label) {
+    say($("#shopsMsg"), `${label}… có thể mất tới 2 phút.`, "muted");
+    try { const r = await Auth.callFn("pos", body); say($("#shopsMsg"), "", ""); showOut("Kết quả đồng bộ", syncResult(r)); }
+    catch (err) { say($("#shopsMsg"), "Đồng bộ lỗi: " + esc(err.message), "neg"); }
+    loadShops();
+  }
+  $("#shops").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    const id = b.closest("tr").dataset.id, s = shops.find((x) => x.id === id), act = b.dataset.act;
+    if (act === "key") { $("#kfShop").value = id; $("#keyForm").scrollIntoView({ block: "center" }); $("#kfKey").focus(); return; }
+    if (act === "sync") return runSync({ action: "sync", shop: id }, "Đang đồng bộ " + esc(s.name));
+    if (act === "reset") { if (!confirm(`Kéo lại toàn bộ đơn 90 ngày gần nhất của ${s.name}? Shop lớn có thể cần vài lần chạy mới xong (lịch 15 phút sẽ tự làm tiếp).`)) return; return runSync({ action: "sync", shop: id, reset: true, backfill_days: 90 }, "Đang kéo lại " + esc(s.name)); }
+    say($("#shopsMsg"), (act === "test" ? "Đang thử kết nối " : "Đang lấy đơn mẫu của ") + esc(s.name) + "…", "muted");
+    try {
+      const r = await Auth.callFn("pos", { action: act, shop: id });
+      say($("#shopsMsg"), "", "");
+      if (act === "test") showOut("Kết nối " + s.name, `<p class="pos">Kết nối được. Tổng số đơn trên POS: <b>${r.total_orders ?? "không rõ"}</b>.</p><p class="hint">Kho trên POS (dùng để gán đơn vị FFM ở màn Cài đặt):</p><ul>${(r.warehouses || []).map((w) => `<li>${esc(w.name)} <span class="muted mono">#${esc(w.id)}</span></li>`).join("") || "<li class='muted'>Không có kho</li>"}</ul>`);
+      else showOut("Đơn mẫu · " + s.name, `<p class="hint">Đơn mới nhất, đúng như POS trả về. Gửi phần này cho người phát triển để khớp đúng các trường (nhân sự, sản phẩm, kho…). Số điện thoại và tên khách đã được che.</p><pre class="raw">${esc(JSON.stringify(mask(r.order), null, 2))}</pre>`);
+    } catch (err) { say($("#shopsMsg"), (act === "test" ? "Kết nối lỗi: " : "Lỗi: ") + esc(err.message), "neg"); }
+  });
+  // Che thông tin khách trước khi hiện / sao chép đơn mẫu.
+  function mask(o) {
+    if (Array.isArray(o)) return o.map(mask);
+    if (!o || typeof o !== "object") return o;
+    const out = {};
+    for (const [k, v] of Object.entries(o)) {
+      if (/phone|full_name|^name$|address|email/i.test(k) && typeof v === "string" && v) out[k] = v.slice(0, 2) + "•••" + v.slice(-2);
+      else out[k] = mask(v);
+    }
+    return out;
+  }
+  $("#syncAll").onclick = () => runSync({ action: "sync" }, "Đang đồng bộ tất cả shop");
+  $("#keyForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const shop = $("#kfShop").value, key = $("#kfKey").value.trim();
+    if (!shop) { say($("#keyMsg"), "Thêm shop trước.", "neg"); return; }
+    if (!key) { say($("#keyMsg"), "Dán API key vào ô.", "neg"); return; }
+    const { error } = await sb.rpc("admin_set_pos_key", { p_shop: shop, p_key: key });
+    if (error) { say($("#keyMsg"), "Chưa lưu được: " + esc(error.message), "neg"); return; }
+    $("#kfKey").value = ""; say($("#keyMsg"), "Đã lưu key vào Vault. Bấm “Thử kết nối” ở dòng của shop để kiểm tra.", "pos"); loadShops();
+  });
+  $("#kfClear").onclick = async () => {
+    const shop = $("#kfShop").value, s = shops.find((x) => x.id === shop); if (!s) return;
+    if (!confirm(`Xoá API key của ${s.name}? Shop sẽ ngừng đồng bộ.`)) return;
+    const { error } = await sb.rpc("admin_set_pos_key", { p_shop: shop, p_key: "" });
+    say($("#keyMsg"), error ? "Chưa xoá được: " + esc(error.message) : "Đã xoá key.", error ? "neg" : "muted"); loadShops();
+  };
+  $("#shopForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = $("#sfName").value.trim(); if (!name) { say($("#shopMsg"), "Nhập tên shop.", "neg"); return; }
+    const { error } = await sb.from("pos_shops").insert({ name, channel: $("#sfCh").value, pos_shop_id: $("#sfPos").value.trim(), team: $("#sfTeam").value, active: true });
+    if (error) { say($("#shopMsg"), "Chưa thêm được: " + esc(error.message), "neg"); return; }
+    $("#shopForm").reset(); say($("#shopMsg"), `Đã thêm ${esc(name)}. Giờ đặt API key cho shop ở form phía trên.`, "pos"); loadShops();
+  });
+
+  // ---------- nhật ký ----------
+  async function loadRuns() {
+    const { data, error } = await sb.from("sync_runs").select("*, pos_shops(name)").order("started_at", { ascending: false }).limit(50);
+    if (error) { $("#runs").innerHTML = `<tr><td colspan="7" class="l neg">${esc(error.message)}</td></tr>`; return; }
+    $("#runs").innerHTML = data.map((r) => `<tr><td class="l">${when(r.started_at)}</td><td class="l">${esc(r.pos_shops?.name || r.shop_id)}</td><td class="l muted">${esc(r.trigger)}</td><td>${r.pages ?? "–"}</td><td>${r.orders ?? "–"}</td><td class="l">${stPill(r.status)}</td><td class="l neg" style="white-space:normal">${esc(r.error || "")}</td></tr>`).join("") || '<tr><td colspan="7" class="l muted">Chưa có lần đồng bộ nào.</td></tr>';
+  }
+  $("#reloadRuns").onclick = loadRuns;
+
+  go((location.hash || "").slice(1));
+})();
+</script>
+</body>
+</html>

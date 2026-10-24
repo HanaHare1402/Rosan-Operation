@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" class="auth-pending">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -7,140 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<style>
-/* Layout: sidebar điều hướng trái + vùng làm việc; mỗi màn hình = tóm tắt trước, chi tiết sau */
-:root{
-  --bg:#f5f6f3; --panel:#ffffff; --sunk:#eceee8; --line:#dcdfd6; --ink:#1b211d; --muted:#5f685f; --faint:#8a9289;
-  --accent:#0f6e5a; --accent-soft:#dcefe8; --accent-ink:#0a4f40;
-  --good:#2f7d32; --good-soft:#e2f1e2; --warn:#a86400; --warn-soft:#fbefd9; --bad:#b3261e; --bad-soft:#fbe4e2;
-  --fb:#3461c1; --gg:#1e8e5a; --tt:#1b211d; --sp:#d4582a; --lz:#7a3fb0;
-  --font:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
-}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#121614; --panel:#1a1f1c; --sunk:#232925; --line:#2f3732; --ink:#e7ebe6; --muted:#a3ada4; --faint:#7b857c;
-  --accent:#4cc3a4; --accent-soft:#183b32; --accent-ink:#9be4cf;
-  --good:#6cc070; --good-soft:#1e3320; --warn:#e9a845; --warn-soft:#3a2c14; --bad:#f08079; --bad-soft:#3d1d1b;
-  --fb:#7d9ef0; --gg:#5cc58f; --tt:#e7ebe6; --sp:#f08a5f; --lz:#b98be6; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#121614; --panel:#1a1f1c; --sunk:#232925; --line:#2f3732; --ink:#e7ebe6; --muted:#a3ada4; --faint:#7b857c;
-  --accent:#4cc3a4; --accent-soft:#183b32; --accent-ink:#9be4cf;
-  --good:#6cc070; --good-soft:#1e3320; --warn:#e9a845; --warn-soft:#3a2c14; --bad:#f08079; --bad-soft:#3d1d1b;
-  --fb:#7d9ef0; --gg:#5cc58f; --tt:#e7ebe6; --sp:#f08a5f; --lz:#b98be6; color-scheme:dark}
-*{box-sizing:border-box}
-[hidden]{display:none!important}
-html,body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.45}
-.app{display:grid;grid-template-columns:224px minmax(0,1fr);min-height:100vh}
-aside{background:var(--panel);border-right:1px solid var(--line);padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;position:sticky;top:0;height:100vh;overflow:auto}
-.brand{font-weight:700;font-size:15px;letter-spacing:-.01em;margin:0 8px 2px}
-.brand-sub{color:var(--muted);font-size:12px;margin:0 8px 20px}
-nav{display:flex;flex-direction:column;gap:2px}
-nav a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:8px;color:var(--ink);text-decoration:none;font-weight:500}
-nav a:hover{background:var(--sunk)}
-nav a.on{background:var(--accent-soft);color:var(--accent-ink)}
-nav .cnt{font-family:var(--mono);font-size:11px;background:var(--bad-soft);color:var(--bad);padding:1px 7px;border-radius:99px}
-.side-foot{margin-top:24px;padding:12px 10px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
-main{min-width:0;padding-block:20px 48px;padding-left:28px;padding-right:max(16px,env(safe-area-inset-right,0px))}
-.topbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
-h1{font-size:22px;letter-spacing:-.02em;margin:0;text-wrap:balance}
-.sub{color:var(--muted);margin:2px 0 0}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:99px;font:500 13px var(--font);cursor:pointer}
-.chip:hover{border-color:var(--faint)}
-.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.chip:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,nav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.demo{display:flex;gap:10px;align-items:flex-start;background:var(--warn-soft);color:var(--ink);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:13px}
-.demo b{color:var(--warn)}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:18px}
-.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
-.kpi .l{color:var(--muted);font-size:12px;letter-spacing:.02em}
-.kpi .v{font-size:22px;font-weight:600;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.kpi .n{font-size:12px;color:var(--muted);margin-top:2px}
-.bar{height:6px;background:var(--sunk);border-radius:99px;margin-top:8px;overflow:hidden}
-.bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
-.grid2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;margin-bottom:14px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0;margin-bottom:14px}
-.grid2 .card{margin-bottom:0}
-.card h2{font-size:15px;margin:0 0 2px;letter-spacing:-.01em}
-.card .hint{color:var(--muted);font-size:12px;margin:0 0 12px}
-.tw{overflow-x:auto;margin:0 -4px}
-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
-th{font-size:11.5px;font-weight:600;color:var(--muted);text-align:right;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap;letter-spacing:.02em}
-th:first-child,td:first-child{text-align:left}
-th.l,td.l{text-align:left}
-th.sort{cursor:pointer;user-select:none}
-th.sort:hover{color:var(--ink)}
-td{padding:8px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
-tr:last-child td{border-bottom:0}
-tbody tr.click{cursor:pointer}
-tbody tr.click:hover td{background:var(--sunk)}
-tfoot td{font-weight:600;border-top:1px solid var(--line);border-bottom:0}
-.mono{font-family:var(--mono);font-size:12.5px}
-.pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11.5px;font-weight:600;white-space:nowrap}
-.p-good{background:var(--good-soft);color:var(--good)} .p-warn{background:var(--warn-soft);color:var(--warn)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-mute{background:var(--sunk);color:var(--muted)}
-.ch{display:inline-flex;align-items:center;gap:6px}
-.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
-.d-fb{background:var(--fb)} .d-gg{background:var(--gg)} .d-tiktok{background:var(--tt)} .d-shopee{background:var(--sp)} .d-lazada{background:var(--lz)} .d-khac{background:var(--faint)}
-.cardhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
-.editor{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--sunk)}
-.edtitle{font-weight:600;margin-bottom:10px}
-.editor input,.editor select{width:100%}
-.formrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
-.fmsg{font-size:12.5px}
-.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
-.lnk{background:none;border:0;padding:2px 6px;color:var(--accent);font:600 12.5px var(--font);cursor:pointer;border-radius:6px}
-.lnk:hover{background:var(--accent-soft)}
-.lnk.danger{color:var(--bad);background:var(--bad-soft)}
-td.actions{white-space:nowrap}
-tr.editing td{background:var(--accent-soft)}
-.mix{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--sunk);margin:8px 0 12px}
-.mix span{display:block;height:100%}
-.legend{display:flex;flex-direction:column;gap:8px}
-.legend .row{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:baseline;font-variant-numeric:tabular-nums}
-.legend .row .k{display:flex;align-items:center;gap:8px}
-.legend .row .s{color:var(--muted);font-size:12px;min-width:56px;text-align:right}
-.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
-select,input[type=search],input[type=text],input[type=number]{font:500 13px var(--font);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
-input[type=search]{min-width:0;flex:1 1 200px;max-width:320px}
-svg text{font-family:var(--font)}
-.chart{width:100%;height:auto;display:block}
-.alerts{display:flex;flex-direction:column;gap:8px}
-.alert{display:grid;grid-template-columns:4px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px 10px 0;overflow:hidden}
-.alert .stripe{align-self:stretch}
-.alert .t{font-weight:600}
-.alert .m{color:var(--muted);font-size:12.5px}
-.s-bad{background:var(--bad)} .s-warn{background:var(--warn)} .s-info{background:var(--accent)}
-.src{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
-.src .card{margin:0}
-.src .st{margin:8px 0}
-.src ul{margin:6px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px}
-.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
-.form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-.drop{border:1.5px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted)}
-.drop.over{border-color:var(--accent);background:var(--accent-soft)}
-.btn{font:600 13px var(--font);background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
-:root[data-theme="dark"] .btn{color:#0b1a15}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn{color:#0b1a15}}
-.muted{color:var(--muted)} .neg{color:var(--bad)} .pos{color:var(--good)}
-.pl td:first-child{white-space:normal}
-.pl tr.h td{font-weight:600}
-.pl tr.sec td{background:var(--sunk);font-weight:700}
-.pl td.ind{padding-left:24px;color:var(--muted)}
-.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px;color:var(--muted);font-size:12.5px}
-.pager button{font:500 12.5px var(--font);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:5px 10px;cursor:pointer}
-.pager button:disabled{opacity:.4;cursor:default}
-@media (max-width:900px){
-  .app{grid-template-columns:minmax(0,1fr)}
-  aside{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;height:auto;padding-block:10px;padding-right:max(16px,env(safe-area-inset-right,0px));border-right:0;border-bottom:1px solid var(--line)}
-  .brand-sub,.side-foot{display:none}
-  .brand{margin:0 0 8px}
-  nav{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:2px}
-  nav a{white-space:nowrap;padding:6px 10px}
-  main{padding-left:max(16px,env(safe-area-inset-left,0px))}
-  .grid2{grid-template-columns:minmax(0,1fr)}
-  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
-}
-@media (prefers-reduced-motion:no-preference){.bar i{transition:width .4s ease}}
-</style>
+<link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 <div class="app">
@@ -158,6 +25,7 @@ svg text{font-family:var(--font)}
       <a href="#caidat" data-v="caidat">Cài đặt</a>
     </nav>
     <div class="side-foot">Tháng 9/2026<br>Tỷ giá: 1 USD = 27.000 đ · 1 ₱ = 403 đ</div>
+    <div class="userbox"><span class="who" id="who"></span><span class="muted" id="whoRole"></span><div class="acts"><a class="lnk" id="adminLink" href="admin.html" hidden>Quản trị</a><button class="lnk" id="logout">Đăng xuất</button></div></div>
   </aside>
   <main>
     <div class="topbar">
@@ -170,14 +38,30 @@ svg text{font-family:var(--font)}
         <button class="chip" data-ch="shopee"><span class="ch"><span class="dot d-shopee"></span>Shopee</span></button>
       </div>
     </div>
-    <div class="demo"><div><b>Dữ liệu mẫu.</b> Số Facebook được mô phỏng theo tổng tháng 9 trong sheet (24,76 tỷ doanh số, 6,92 tỷ chi phí, 156.770 đơn). Số Google, TikTok, Shopee là giả định. Khi nối API POS và Facebook, trang dùng dữ liệu thật. Chạy thật ngay: cài đặt shop và đơn vị FFM (lưu chung), ô đối soát file J&amp;T ở màn KQKD.</div></div>
+    <div class="demo"><div><b>Dữ liệu mẫu.</b> Số Facebook được mô phỏng theo tổng tháng 9 trong sheet (24,76 tỷ doanh số, 6,92 tỷ chi phí, 156.770 đơn). Số Google, TikTok, Shopee là giả định. Đã chạy thật: cài đặt shop và đơn vị FFM (lưu chung trên Supabase), ô đối soát file J&amp;T ở màn KQKD<span id="realNote">, và màn Đơn hàng khi admin đã nối POS</span>.</div></div>
     <section id="view"></section>
   </main>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/settings-db.js"></script>
 <script>
-(function(){
+(async function(){
+// ---------- đăng nhập và quyền ----------
+const ME=await Auth.requireAuth();
+if(!ME.role){location.replace('login.html');return}
+const ALLOWED=Auth.VIEWS[ME.role]||[];
+const sbc=Auth.sb;
+document.querySelectorAll('#nav a').forEach(a=>{a.hidden=!ALLOWED.includes(a.dataset.v)});
+document.querySelector('#who').textContent=ME.full_name||ME.email;
+document.querySelector('#whoRole').textContent=Auth.ROLES[ME.role];
+document.querySelector('#adminLink').hidden=ME.role!=='admin';
+document.querySelector('#logout').addEventListener('click',()=>Auth.signOut());
+document.documentElement.classList.remove('auth-pending');
+
 const USD=27000, PHP=403, ADS_LIMIT=0.30;
 function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 
@@ -258,7 +142,7 @@ function build(){
     tr.forEach(r=>{r.ord*=t.orders/sOrd;r.ffm=ffmPick(r.fu);finish(r)});
   });
   // đơn sàn: mỗi shop đang bật sinh ~570 triệu/tháng, tính cho nhân sự phụ trách (chưa gán thì tính cho shop)
-  SHOPS.filter(s=>s.active!==false).forEach((s,si)=>{
+  SHOPS.filter(s=>s.active!==false&&s.channel!=='fb'&&s.channel!=='gg').forEach((s,si)=>{
     const r2=rng(500+si*97+String(s.name).length);
     const pool=PRODUCTS.slice().sort(()=>r2()-.5).slice(0,4);
     const tr=[];
@@ -405,7 +289,7 @@ V.sanpham=()=>{
 };
 let oQ='',oSt='all',oPage=0;
 const stPill={'Đã giao':'p-good','Hoàn':'p-bad','Đang giao':'p-warn','Đã huỷ':'p-mute'};
-V.donhang=()=>{
+const demoOrders=()=>{
   let l=ORDERS.filter(o=>CH==='all'||o.ch===CH);
   if(oSt!=='all')l=l.filter(o=>o.st===oSt);
   if(oQ){const q=oQ.toLowerCase();l=l.filter(o=>(o.id+' '+o.wb+' '+o.staff+' '+o.shop+' '+PM[o.code].vn+' '+PM[o.code].en+' '+o.phone).toLowerCase().includes(q))}
@@ -418,6 +302,49 @@ V.donhang=()=>{
   </tbody></table></div>
   <div class="pager"><span>${l.length?`${oPage*per+1}–${Math.min(l.length,oPage*per+per)} / ${N(l.length)}`:'0'}</span><button id="pPrev" ${oPage===0?'disabled':''}>Trước</button><button id="pNext" ${oPage>=pages-1?'disabled':''}>Sau</button></div></div>`;
 };
+
+// ---------- đơn thật từ POS (bảng orders trên Supabase) ----------
+// Mã trạng thái theo tài liệu POS; 6, 7 là huỷ/xoá theo cách POS thường đánh số.
+const POS_ST={0:'Mới',1:'Đã xác nhận',2:'Đã gửi hàng',3:'Đã nhận',4:'Đang hoàn',5:'Đã hoàn',6:'Đã huỷ',7:'Đã xoá',8:'Đang đóng hàng',9:'Chờ chuyển hàng',11:'Chờ hàng',12:'Chờ in',13:'Đã in',15:'Hoàn 1 phần',16:'Đã thu tiền',20:'Đã đặt hàng'};
+const REAL_GROUPS={'Chờ xử lý':[0,1,8,9,11,12,13,20],'Đang giao':[2],'Đã giao':[3,16],'Hoàn':[4,5,15],'Đã huỷ':[6,7]};
+const REAL_PILL={'Chờ xử lý':'p-mute','Đang giao':'p-warn','Đã giao':'p-good','Hoàn':'p-bad','Đã huỷ':'p-mute'};
+const realGroup=st=>Object.keys(REAL_GROUPS).find(g=>REAL_GROUPS[g].includes(st))||'Chờ xử lý';
+const maskPhone=ME.role==='marketing';
+let REAL={total:0,rows:[],count:0,key:'',loading:false,err:'',timer:null};
+async function realCount(){
+  const {count,error}=await sbc.from('orders').select('pos_order_id',{count:'exact',head:true});
+  if(error){REAL.err=error.message;return}
+  REAL.total=count||0;
+  const n=document.getElementById('realNote');if(n)n.textContent=REAL.total?`, và màn Đơn hàng (đơn thật từ POS: ${N(REAL.total)} đơn)`:', và màn Đơn hàng khi admin đã nối POS';
+}
+async function realFetch(key){
+  const per=25;
+  let q=sbc.from('orders').select('pos_order_id,status,status_name,inserted_at,cod,total_price,bill_full_name,bill_phone_number,province,tracking,seller,warehouse,items,pos_shops!inner(name,channel)',{count:'exact'});
+  if(CH!=='all')q=q.eq('pos_shops.channel',CH);
+  if(oSt!=='all'&&REAL_GROUPS[oSt])q=q.in('status',REAL_GROUPS[oSt]);
+  const term=oQ.trim().replace(/[%,()*]/g,' ').trim();
+  if(term)q=q.or(['pos_order_id','bill_phone_number','tracking','bill_full_name'].map(c=>`${c}.ilike.*${term}*`).join(','));
+  const {data,error,count}=await q.order('inserted_at',{ascending:false,nullsFirst:false}).range(oPage*per,oPage*per+per-1);
+  if(key!==REAL.key)return;
+  REAL.loading=false;
+  if(error){REAL.err=error.message;REAL.rows=[];REAL.count=0}else{REAL.err='';REAL.rows=data;REAL.count=count||0}
+  if(view==='donhang')render();
+}
+const realOrders=()=>{
+  const key=JSON.stringify([CH,oSt,oQ,oPage]);
+  if(key!==REAL.key){REAL.key=key;REAL.loading=true;clearTimeout(REAL.timer);REAL.timer=setTimeout(()=>realFetch(key),oQ?300:0)}
+  const per=25,pages=Math.max(1,Math.ceil(REAL.count/per));
+  const items=o=>(o.items||[]).map(i=>`${esc(i.name||i.code||'?')}${i.quantity>1?' ×'+i.quantity:''}`).join('<br>')||'<span class="muted">–</span>';
+  const phone=p=>!p?'<span class="muted">–</span>':maskPhone?esc(String(p).slice(0,3)+'•••'+String(p).slice(-3)):esc(p);
+  return `<div class="tools"><input type="search" id="oq" placeholder="Mã đơn, SĐT, mã vận đơn, tên khách" value="${esc(oQ)}"><div class="chips">${['all'].concat(Object.keys(REAL_GROUPS)).map(s=>`<button class="chip ${oSt===s?'on':''}" data-st="${s}">${s==='all'?'Tất cả':s}</button>`).join('')}</div></div>
+  <div class="card"><h2>Đơn hàng từ POS</h2><p class="hint">Dữ liệu thật, đồng bộ 15 phút một lần. Tổng ${N(REAL.total)} đơn đã kéo về.${REAL.loading?' Đang tải…':''}</p>
+  ${REAL.err?`<p class="neg">Không tải được đơn: ${esc(REAL.err)}</p>`:''}
+  <div class="tw"><table><thead><tr><th class="l">Mã đơn POS</th><th class="l">Mã vận đơn</th><th class="l">Kênh / shop</th><th class="l">Ngày tạo</th><th class="l">Khách</th><th class="l">SĐT</th><th class="l">Sản phẩm</th><th>COD</th><th class="l">Người phụ trách</th><th class="l">Kho</th><th class="l">Trạng thái</th></tr></thead><tbody>
+  ${REAL.rows.map(o=>{const g=realGroup(o.status);return `<tr><td class="l mono">${esc(o.pos_order_id)}</td><td class="l mono">${o.tracking?esc(o.tracking):'<span class="muted">–</span>'}</td><td class="l">${chTag(o.pos_shops.channel)}<div class="muted" style="font-size:12px">${esc(o.pos_shops.name)}</div></td><td class="l">${o.inserted_at?new Date(o.inserted_at).toLocaleString('vi-VN',{dateStyle:'short',timeStyle:'short'}):'–'}</td><td class="l">${esc(o.bill_full_name||'')}</td><td class="l mono">${phone(o.bill_phone_number)}</td><td class="l" style="white-space:normal;min-width:160px">${items(o)}</td><td>${o.cod!=null?N(o.cod):'–'}</td><td class="l">${esc(o.seller||'')}</td><td class="l">${esc(o.warehouse||'')}</td><td class="l"><span class="pill ${REAL_PILL[g]}" title="${esc(o.status_name||POS_ST[o.status]||'')}">${esc(o.status_name||POS_ST[o.status]||g)}</span></td></tr>`}).join('')||`<tr><td colspan="11" class="l muted">${REAL.loading?'Đang tải…':'Không có đơn khớp bộ lọc.'}</td></tr>`}
+  </tbody></table></div>
+  <div class="pager"><span>${REAL.count?`${oPage*per+1}–${Math.min(REAL.count,oPage*per+per)} / ${N(REAL.count)}`:'0'}</span><button id="pPrev" ${oPage===0?'disabled':''}>Trước</button><button id="pNext" ${oPage>=pages-1?'disabled':''}>Sau</button></div></div>`;
+};
+V.donhang=()=>REAL.total>0?realOrders():demoOrders();
 
 // ---------- KQKD, tách theo đơn vị FFM ----------
 const ALLOC={test:.0070,vn:.0482,kho:.0255};
@@ -512,15 +439,14 @@ let editShop=null, editFfm=null, delArm=null, formMsg={shop:'',ffm:''};
 const allStaff=()=>[...new Set(TEAMS.flatMap(t=>t.staff).concat(SHOPS.map(s=>s.staff).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,'vi'));
 function saveBadge(){
   if(dbState==='ok')return '<span class="pill p-good">Đã lưu chung</span>';
-  if(dbState==='local')return '<span class="pill p-good">Đã lưu trên máy này</span>';
   if(dbState==='loading')return '<span class="pill p-mute">Đang tải cài đặt…</span>';
   return `<span class="pill p-warn">Chưa lưu được</span>`;
 }
 V.caidat=()=>{
   const es=editShop?SHOPS.find(s=>s.id===editShop):null, ef=editFfm?FFMS.find(f=>f.id===editFfm):null;
-  const chOpts=['tiktok','shopee','lazada','khac'].map(c=>`<option value="${c}" ${es&&es.channel===c?'selected':''}>${CHN[c]}</option>`).join('');
+  const chOpts=['fb','gg','tiktok','shopee','lazada','khac'].map(c=>`<option value="${c}" ${es&&es.channel===c?'selected':''}>${CHN[c]}</option>`).join('');
   const tmOpts=TEAMS.map(t=>`<option value="${t.id}" ${(es?es.team:'san')===t.id?'selected':''}>${t.name}</option>`).join('');
-  const dbNote=dbState==='ok'?'Cài đặt lưu chung cho mọi người mở trang này, áp dụng ngay vào báo cáo.':dbState==='loading'?'Đang tải cài đặt đã lưu…':dbState==='local'?'Cài đặt lưu trong trình duyệt này (localStorage), chỉ máy này thấy.':`Đang dùng cài đặt mặc định, thay đổi chỉ giữ đến khi tải lại trang${dbErr?' ('+esc(dbErr)+')':''}.`;
+  const dbNote=dbState==='ok'?'Cài đặt lưu chung trên Supabase cho mọi tài khoản, áp dụng ngay vào báo cáo. API key của shop đặt ở trang Quản trị (chỉ admin).':dbState==='loading'?'Đang tải cài đặt đã lưu…':`Không tải được cài đặt từ Supabase${dbErr?' ('+esc(dbErr)+')':''}. Kiểm tra đã chạy file migration chưa. Đang dùng cài đặt mặc định, thay đổi không được lưu.`;
   return `<div class="card"><div class="cardhead"><div><h2>Shop trên sàn</h2><p class="hint">Mỗi shop gắn với một team và một nhân sự. Đơn của shop tự tính doanh số cho người đó. Shop mới mở: thêm ở đây, điền Shop ID trên POS là xong.</p></div>${saveBadge()}</div>
   <p class="hint" style="margin-top:-4px">${dbNote}</p>
   <div class="tw"><table><thead><tr><th class="l">Kênh</th><th class="l">Tên shop</th><th class="l">Shop ID trên POS</th><th class="l">Team</th><th class="l">Nhân sự phụ trách</th><th class="l">Trạng thái</th><th></th></tr></thead><tbody>
@@ -558,28 +484,21 @@ V.caidat=()=>{
   </form></div>
 
   <div class="src">
-  <div class="card"><h2>POS Pancake</h2><div class="st"><span class="pill p-warn">Chưa kết nối</span></div><p class="hint" style="margin:0">Nguồn đơn duy nhất: Facebook và Google (qua Ladipage), TikTok, Shopee.</p><ul><li>Cần: API key + Shop ID từng shop</li><li>API key không lưu ở trang này; chỉ lưu trên server đồng bộ</li><li>Đồng bộ: 15 phút/lần</li></ul></div>
+  <div class="card"><h2>POS Pancake</h2><div class="st">${REAL.total>0?`<span class="pill p-good">Đã có ${N(REAL.total)} đơn thật</span>`:'<span class="pill p-warn">Chưa có đơn</span>'}</div><p class="hint" style="margin:0">Nguồn đơn duy nhất: Facebook và Google (qua Ladipage), TikTok, Shopee.</p><ul><li>API key từng shop cất trong Supabase Vault, admin đặt ở trang Quản trị</li><li>Đồng bộ: 15 phút/lần</li>${ME.role==='admin'?'<li><a href="admin.html#pos">Mở Kết nối POS</a></li>':''}</ul></div>
   <div class="card"><h2>Facebook Ads</h2><div class="st"><span class="pill p-warn">Chưa kết nối</span></div><p class="hint" style="margin:0">Chi phí theo camp, CPM, CPC, CTR, số dư tài khoản.</p><ul><li>Cần: System User token của từng BM</li><li>Đồng bộ: mỗi giờ</li><li>Tên camp: MÃSP_MÃNV_ddmm_ghichú</li></ul></div>
   <div class="card"><h2>Telegram</h2><div class="st"><span class="pill p-mute">Chưa cấu hình</span></div><p class="hint" style="margin:0">Báo cáo và cảnh báo tự động.</p><ul><li>Nhóm lãnh đạo: 8:00 và 18:00</li><li>Nhóm từng team: 18:00</li><li>Hết hàng, hết tiền: báo ngay</li></ul></div>
   </div>
-  <div class="card" style="margin-top:14px"><h2>Phân quyền</h2><div class="tw"><table><thead><tr><th class="l">Vai trò</th><th class="l">Xem</th><th class="l">Sửa</th></tr></thead><tbody>
-  <tr><td>Trưởng phòng (Vương)</td><td class="l">Tất cả</td><td class="l">Target, danh mục, shop, FFM</td></tr>
-  <tr><td>Kế toán / vận hành</td><td class="l">Tất cả</td><td class="l">Đối soát, giá vốn, FFM, chi phí phân bổ</td></tr>
-  <tr><td>Leader team</td><td class="l">Team của mình</td><td class="l">Kế hoạch, nhân sự team</td></tr>
-  <tr><td>Nhân viên MKT</td><td class="l">Số của mình</td><td class="l">Kế hoạch cá nhân</td></tr></tbody></table></div></div>`;
+  <div class="card" style="margin-top:14px"><h2>Phân quyền</h2><p class="hint">Cậu đang đăng nhập với vai trò <b>${esc(Auth.ROLES[ME.role])}</b>. Tài khoản và vai trò do admin quản lý ở trang Quản trị.${ME.role==='admin'?' <a href="admin.html#taikhoan">Mở Quản trị</a>.':''}</p></div>`;
 };
 const val=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
 async function persist(col,id,data){
   if(db){await db.collection(col).doc(id).set(data);return}
-  const arr=col==='shops'?SHOPS:FFMS;const i=arr.findIndex(x=>x.id===id);const rec=Object.assign({id},data);if(i>=0)arr[i]=rec;else arr.push(rec);saveLocal();refresh();
+  const arr=col==='shops'?SHOPS:FFMS;const i=arr.findIndex(x=>x.id===id);const rec=Object.assign({id},data);if(i>=0)arr[i]=rec;else arr.push(rec);refresh();
 }
 async function remove(col,id){
   if(db){await db.collection(col).doc(id).delete();return}
-  const arr=col==='shops'?SHOPS:FFMS;const i=arr.findIndex(x=>x.id===id);if(i>=0)arr.splice(i,1);saveLocal();refresh();
+  const arr=col==='shops'?SHOPS:FFMS;const i=arr.findIndex(x=>x.id===id);if(i>=0)arr.splice(i,1);refresh();
 }
-function saveLocal(){store.set('shops',JSON.stringify(SHOPS));store.set('ffms',JSON.stringify(FFMS));if(dbState!=='ok')dbState=canLocal()?'local':'off'}
-function canLocal(){try{localStorage.setItem('tv__t','1');localStorage.removeItem('tv__t');return true}catch(e){return false}}
-function loadLocal(){try{const s=JSON.parse(store.get('shops','null')),f=JSON.parse(store.get('ffms','null'));if(Array.isArray(s)&&Array.isArray(f)){SHOPS=s;FFMS=f;return true}}catch(e){}return false}
 const newId=p=>p+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);
 async function submitShop(){
   const name=val('sfName');
@@ -607,14 +526,14 @@ const TITLES={tongquan:['Tổng quan','Toàn Team Vương · tháng 9/2026'],tea
 let view='tongquan', keep={};
 function snapForm(){const k={};document.querySelectorAll('#view input:not([type=file]),#view select').forEach(e=>{if(e.id)k[e.id]=e.value});k.__focus=document.activeElement&&document.activeElement.id;return k}
 function render(){
-  if(!V[view])view='tongquan';
+  if(!V[view]||!ALLOWED.includes(view))view=ALLOWED[0];
   const before=snapForm();
   $('#title').textContent=TITLES[view][0];$('#subtitle').textContent=TITLES[view][1];
   document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===view));
   document.querySelectorAll('#chFilter .chip').forEach(b=>b.classList.toggle('on',b.dataset.ch===CH));
   $('#chFilter').hidden=(view==='caidat'||view==='canhbao');
   $('#view').innerHTML=V[view]();
-  if(keep.__view===view){Object.keys(before).forEach(id=>{if(id==='__focus'||id==='jtFfm'&&false)return;const e=document.getElementById(id);if(e&&e.tagName!=='BUTTON'&&!['pq','oq','staffSel'].includes(id))e.value=before[id]});const f=before.__focus&&document.getElementById(before.__focus);if(f)f.focus()}
+  if(keep.__view===view){Object.keys(before).forEach(id=>{if(id==='__focus'||id==='jtFfm'&&false)return;const e=document.getElementById(id);if(e&&e.tagName!=='BUTTON'&&!['pq','oq','staffSel'].includes(id))e.value=before[id]});const f=before.__focus&&document.getElementById(before.__focus);if(f){f.focus();if(f.type==='search'||f.type==='text')try{f.setSelectionRange(f.value.length,f.value.length)}catch(x){}}}
   keep={__view:view};
   $('#alertCnt').textContent=alerts().filter(a=>a[0]==='bad').length;
 }
@@ -648,15 +567,13 @@ function liveSearch(id,set){document.addEventListener('input',e=>{if(e.target.id
 liveSearch('pq',v=>pQ=v);liveSearch('oq',v=>{oQ=v;oPage=0});
 ['dragover','dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{const d=e.target.closest&&e.target.closest('#drop');if(!d)return;e.preventDefault();d.classList.toggle('over',ev==='dragover');if(ev==='drop'&&e.dataTransfer.files[0])runJT(e.dataTransfer.files[0])}));
 
-const h=(location.hash||'').slice(1);if(V[h])view=h;
+const h=(location.hash||'').slice(1);if(V[h])view=h;if(!ALLOWED.includes(view))view=ALLOWED[0];if(h!==view)try{history.replaceState(null,'','#'+view)}catch(e){}
 build();render();
+realCount().then(()=>{if(REAL.total)render()});
 
 // ---------- nối db (cài đặt dùng chung) ----------
 (async()=>{
-  let ns=null;
-  try{ns=window.claude&&window.claude.use?await window.claude.use('db'):null}catch(e){ns=null}
-  if(!ns){loadLocal();dbState=canLocal()?'local':'off';refresh();return}
-  db=ns;
+  db=SettingsDB(sbc);
   let gotS=false,gotF=false;
   const apply=()=>{if(gotS&&gotF){dbState='ok';refresh()}};
   db.collection('shops').onSnapshot(s=>{SHOPS=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.channel+a.name).localeCompare(b.channel+b.name));gotS=true;apply()},err=>{dbState='off';dbErr=err.code||'';db=null;render()});
