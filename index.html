@@ -68,64 +68,93 @@ const chTag=id=>`<span class="ch"><span class="dot" style="background:${esc(chCo
 $('#sideFoot').innerHTML=CAT.markets.map(m=>`${esc(m.name)}: 1 ${esc(m.currency)} = ${N(m.rate_vnd)} đ`).join('<br>');
 
 // ---------- bộ lọc ----------
-const fmtD=d=>d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'});
+// Ngày luôn dạng dd/mm và dd/mm/yyyy, không phụ thuộc trình duyệt.
+const p2=n=>String(n).padStart(2,'0');
+const fmtD=d=>p2(d.getDate())+'/'+p2(d.getMonth()+1);
+const fmtDY=d=>fmtD(d)+'/'+d.getFullYear();
+const isoD=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 function sod(d){const x=new Date(d);x.setHours(0,0,0,0);return x}
-const RANGES={today:'Hôm nay',yesterday:'Hôm qua','7d':'7 ngày',month:'Tháng này',lastmonth:'Tháng trước','30d':'30 ngày','90d':'90 ngày'};
+const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const RANGES={today:'Hôm nay',yesterday:'Hôm qua','7d':'7 ngày',month:'Tháng này',lastmonth:'Tháng trước','30d':'30 ngày',custom:'Tuỳ chọn'};
 function rangeDates(k){
-  const t=sod(new Date()),add=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
-  if(k==='today')return [t,add(t,1)];
-  if(k==='yesterday')return [add(t,-1),t];
-  if(k==='7d')return [add(t,-6),add(t,1)];
-  if(k==='30d')return [add(t,-29),add(t,1)];
-  if(k==='90d')return [add(t,-89),add(t,1)];
+  k=k||F.range;const t=sod(new Date());
+  if(k==='today')return [t,addD(t,1)];
+  if(k==='yesterday')return [addD(t,-1),t];
+  if(k==='7d')return [addD(t,-6),addD(t,1)];
+  if(k==='30d')return [addD(t,-29),addD(t,1)];
+  if(k==='90d')return [addD(t,-89),addD(t,1)];
   if(k==='lastmonth')return [new Date(t.getFullYear(),t.getMonth()-1,1),new Date(t.getFullYear(),t.getMonth(),1)];
-  return [new Date(t.getFullYear(),t.getMonth(),1),add(t,1)];
+  if(k==='custom'&&F.from&&F.to){const a=sod(new Date(F.from+'T00:00:00')),b=sod(new Date(F.to+'T00:00:00'));return a<=b?[a,addD(b,1)]:[b,addD(a,1)]}
+  return [new Date(t.getFullYear(),t.getMonth(),1),addD(t,1)];
 }
+// Kỳ so sánh: tháng này ↔ cùng số ngày đầu tháng trước; tháng trước ↔ tháng trước nữa; còn lại ↔ đúng bằng ấy ngày ngay trước.
+function prevDates(){
+  const [f,t]=rangeDates(),n=Math.round((t-f)/864e5);
+  if(F.range==='month'){const pf=new Date(f.getFullYear(),f.getMonth()-1,1),pe=new Date(f.getFullYear(),f.getMonth(),1);return [pf,addD(pf,n)>pe?pe:addD(pf,n)]}
+  if(F.range==='lastmonth')return [new Date(f.getFullYear(),f.getMonth()-1,1),f];
+  return [addD(f,-n),f];
+}
+function cmpLabel(){return {month:'cùng kỳ tháng trước',lastmonth:'tháng trước đó',today:'hôm qua',yesterday:'hôm kia','7d':'7 ngày trước đó','30d':'30 ngày trước đó'}[F.range]||'kỳ trước'}
+function rangeLabel(){const [f,t]=rangeDates();const l=addD(t,-1);return +l===+f?fmtDY(f):`${fmtD(f)} – ${fmtDY(l)}`}
 // Dự án người này được chọn: toàn công ty thấy hết; theo dự án thấy dự án được gán.
 const projOpts=ME.scope==='all'?CAT.projects:ME.scope==='project'?CAT.projects.filter(p=>(ME.project_ids||[]).includes(p.id)):[];
-const F={proj:store.get('proj',''),mkt:store.get('mkt',''),ch:store.get('ch2','all'),range:store.get('range','month')};
+// Bộ lọc nằm trong đường link (#tongquan?r=month&p=…) để gửi link là mở đúng màn; không có thì lấy lần dùng trước.
+const HP=new URLSearchParams((location.hash.split('?')[1])||'');
+const F={proj:HP.get('p')??store.get('proj',''),mkt:HP.get('m')??store.get('mkt',''),ch:HP.get('c')??store.get('ch2','all'),
+  range:HP.get('r')??store.get('range',ME.scope==='self'?'today':'month'),from:HP.get('f')??store.get('from',''),to:HP.get('t')??store.get('to',''),cmp:(HP.get('cmp')??store.get('cmp','1'))!=='0'};
 if(F.proj&&!projOpts.some(p=>p.id===F.proj))F.proj='';
-if(!RANGES[F.range])F.range='month';
+if(!RANGES[F.range]&&F.range!=='90d')F.range='month';
+if(F.range==='custom'&&!(F.from&&F.to))F.range='month';
 if(F.ch!=='all'&&!byId(CAT.channels,F.ch))F.ch='all';
 if(F.mkt&&!byId(CAT.markets,F.mkt))F.mkt='';
+function hashFor(v){
+  const q=new URLSearchParams();if(F.proj)q.set('p',F.proj);if(F.mkt)q.set('m',F.mkt);if(F.ch!=='all')q.set('c',F.ch);
+  if(F.range!=='month')q.set('r',F.range);if(F.range==='custom'){q.set('f',F.from);q.set('t',F.to)}if(!F.cmp)q.set('cmp','0');
+  const s=q.toString();return '#'+v+(s?'?'+s:'');
+}
 function scopeLabel(){
   if(ME.scope==='team')return 'Team '+esc(teamName(ME.team_id).replace(/^Team /,''));
   if(ME.scope==='self')return 'Số của '+esc(staffName(ME.staff_id));
   return '';
 }
+const isDefault=()=>!F.proj&&!F.mkt&&F.ch==='all'&&F.range===(ME.scope==='self'?'today':'month');
 function renderFilters(){
   const pSel=projOpts.length?`<span class="flabel">Dự án</span><select id="fProj" aria-label="Dự án"><option value="">${ME.scope==='all'?'Tất cả dự án':'Tất cả dự án của tôi'}</option>${projOpts.map(p=>`<option value="${esc(p.id)}" ${F.proj===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`:`<span class="pill p-info">${scopeLabel()}</span>`;
   const mSel=CAT.markets.length>1?`<select id="fMkt" aria-label="Thị trường"><option value="">Mọi thị trường</option>${CAT.markets.map(m=>`<option value="${esc(m.id)}" ${F.mkt===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select>`:'';
   const range=`<div class="seg" role="group" aria-label="Khoảng ngày">${Object.entries(RANGES).map(([k,v])=>`<button type="button" data-range="${k}" class="${F.range===k?'on':''}" aria-pressed="${F.range===k}">${v}</button>`).join('')}</div>`;
-  $('#filters').innerHTML=pSel+mSel+'<span class="sep"></span>'+range;
+  const custom=F.range==='custom'?`<span class="drange"><input type="date" id="fFrom" value="${esc(F.from)}" aria-label="Từ ngày"> → <input type="date" id="fTo" value="${esc(F.to)}" aria-label="Đến ngày"></span>`:'';
+  const cmp=`<label class="toggle" title="Hiện mức tăng / giảm so với ${cmpLabel()}"><input type="checkbox" id="fCmp" ${F.cmp?'checked':''}> So với ${cmpLabel()}</label>`;
+  $('#filters').innerHTML=pSel+mSel+'<span class="sep"></span>'+range+custom+'<span class="grow"></span>'+cmp;
   $('#toolbar').hidden=view==='caidat';
   $('#filters2').hidden=view==='canhbao'||!CAT.channels.length;
-  $('#filters2').innerHTML=`<span class="flabel">Kênh</span><div class="chips" role="group" aria-label="Lọc theo kênh"><button class="chip ${F.ch==='all'?'on':''}" data-ch="all">Tất cả</button>${CAT.channels.map(c=>`<button class="chip ${F.ch===c.id?'on':''}" data-ch="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</button>`).join('')}</div>`;
+  $('#filters2').innerHTML=`<span class="flabel">Kênh</span><div class="chips" role="group" aria-label="Lọc theo kênh"><button class="chip ${F.ch==='all'?'on':''}" data-ch="all">Tất cả</button>${CAT.channels.map(c=>`<button class="chip ${F.ch===c.id?'on':''}" data-ch="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</button>`).join('')}</div>${isDefault()?'':'<span class="grow"></span><button class="lnk" type="button" id="fReset">Xoá bộ lọc</button>'}`;
 }
 
 // ---------- dữ liệu ----------
-// ROWS: đơn gộp theo ngày × team × nhân sự × kênh × thị trường × shop × nhóm trạng thái (dash_orders).
-let ROWS=[],PRODS=null,loading=false,loadErr='',loadSeq=0;
+// ROWS: đơn gộp theo ngày × team × nhân sự × kênh × thị trường × shop × nhóm trạng thái (dash_orders). PREV: cùng cấu trúc, kỳ so sánh.
+let ROWS=[],PREV=[],PRODS=null,loading=false,loadErr='',loadSeq=0;
+const mapRow=r=>({day:r.day,proj:r.project_id,team:r.team_id,staff:r.staff_id,mk:r.marketer,ch:r.channel_id,mkt:r.market_id,shop:r.shop_id,g:r.st_group,n:+r.orders,rev:+r.revenue_vnd,cogs:+r.cogs_vnd||0,miss:+r.cogs_missing||0});
 async function loadData(){
   const seq=++loadSeq;loading=true;loadErr='';render();
-  const [from,to]=rangeDates(F.range);
-  const args={p_from:from.toISOString(),p_to:to.toISOString(),p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch};
-  const {data,error}=await sbc.rpc('dash_orders',args);
+  const base={p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch};
+  const [from,to]=rangeDates(),[pf,pt]=prevDates();
+  const [cur,prev]=await Promise.all([sbc.rpc('dash_orders',{...base,p_from:from.toISOString(),p_to:to.toISOString()}),
+    F.cmp?sbc.rpc('dash_orders',{...base,p_from:pf.toISOString(),p_to:pt.toISOString()}):Promise.resolve({data:[]})]);
   if(seq!==loadSeq)return;
   loading=false;
-  if(error){loadErr=error.message;ROWS=[]}
-  else ROWS=data.map(r=>({day:r.day,proj:r.project_id,team:r.team_id,staff:r.staff_id,mk:r.marketer,ch:r.channel_id,mkt:r.market_id,shop:r.shop_id,g:r.st_group,n:+r.orders,rev:+r.revenue_vnd,cogs:+r.cogs_vnd||0,miss:+r.cogs_missing||0}));
+  if(cur.error){loadErr=cur.error.message;ROWS=[]}else ROWS=cur.data.map(mapRow);
+  PREV=prev.error?[]:(prev.data||[]).map(mapRow);
   PRODS=null;
   if(view==='sanpham'||view==='nhansu'||(SEE_COST&&view==='canhbao'))loadProducts();
   render();
 }
 async function loadProducts(){
-  const [from,to]=rangeDates(F.range);
+  const [from,to]=rangeDates();
   const {data,error}=await sbc.rpc('dash_products',{p_from:from.toISOString(),p_to:to.toISOString(),p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch});
   PRODS=error?{err:error.message,rows:[]}:{rows:data.map(r=>({code:r.code,name:r.name,team:r.team_id,staff:r.staff_id,g:r.st_group,n:+r.orders,qty:+r.qty,rev:+r.revenue_vnd,cogs:+r.cogs_vnd||0,unit:r.unit_cost_vnd==null?null:+r.unit_cost_vnd}))};
   if(view==='sanpham'||view==='nhansu'||view==='canhbao')render();
 }
-// Gộp: ord/rev = đơn chốt (trừ huỷ); ok = giao thành công; ret = hoàn; ship = đang giao; neu = chờ xử lý.
+// Gộp: ord/rev = đơn đặt (trừ huỷ); ok = đã giao; ret = hoàn; ship = đang giao; neu = chờ xử lý.
 function agg(list,key){
   const m=new Map();
   list.forEach(r=>{const k=key(r);let a=m.get(k);if(!a){a={k,ord:0,rev:0,ok:0,okRev:0,okCogs:0,okMiss:0,ret:0,retRev:0,ship:0,shipRev:0,neu:0,cancel:0};m.set(k,a)}
@@ -137,93 +166,180 @@ function agg(list,key){
 const ZERO={ord:0,rev:0,ok:0,okRev:0,okCogs:0,okMiss:0,ret:0,retRev:0,ship:0,shipRev:0,neu:0,cancel:0};
 const tot=list=>agg(list,()=>'all')[0]||Object.assign({},ZERO);
 const retRate=a=>(a.ok+a.ret)>0?a.ret/(a.ok+a.ret):NaN;
-const retPill=r=>!isFinite(r)?'–':r>.35?`<span class="pill p-bad">${P(r)}</span>`:r>.25?`<span class="pill p-warn">${P(r)}</span>`:`<span class="pill p-good">${P(r)}</span>`;
-function days(){const [f,t]=rangeDates(F.range);const out=[];for(let d=new Date(f);d<t;d.setDate(d.getDate()+1))out.push(new Date(d));return out}
-const dkey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const gp=a=>a.okRev-a.okCogs;
+// Tỷ lệ hoàn: dưới 25% tốt, 25–35% cần để ý, trên 35% xấu. Có chữ, không chỉ dựa vào màu.
+const retPill=r=>!isFinite(r)?'<span class="muted">–</span>':r>.35?`<span class="pill p-bad" title="Cao">${P(r)}</span>`:r>.25?`<span class="pill p-warn" title="Cần để ý">${P(r)}</span>`:`<span class="pill p-good" title="Tốt">${P(r)}</span>`;
+function days(){const [f,t]=rangeDates();const out=[];for(let d=new Date(f);d<t;d.setDate(d.getDate()+1))out.push(new Date(d));return out}
+function prevDays(){const [f,t]=prevDates();const out=[];for(let d=new Date(f);d<t;d.setDate(d.getDate()+1))out.push(new Date(d));return out}
+const dkey=d=>isoD(d);
+
+// ---------- giải thích chỉ số ----------
+const DEF={
+  rev:'Tổng tiền các đơn đặt trong khoảng ngày (sau giảm giá, quy ra VNĐ), không tính đơn huỷ / đã xoá.',
+  ord:'Số đơn đặt trong khoảng ngày, không tính đơn huỷ / đã xoá.',
+  ret:'Đơn hoàn ÷ (đơn đã giao + đơn hoàn). Đơn đang giao chưa tính vì chưa biết kết quả.',
+  gp:'Tiền các đơn đã giao trừ giá vốn (giá nhập gần nhất tính đến ngày đặt). Chưa trừ chi phí ads, vận chuyển.',
+  ok:'Tiền các đơn khách đã nhận hàng (POS báo đã giao / đã thu tiền).',
+  aov:'Doanh số ÷ số đơn.',
+  ship:'Đơn đã gửi cho đơn vị vận chuyển, chưa có kết quả giao.',
+  neu:'Đơn mới, đã xác nhận, đang đóng gói… chưa gửi đi.',
+  target:'Target doanh số tháng của các team (khai báo ở Quản trị → Danh mục → Team).',
+};
+const tip=k=>`<span class="tip" tabindex="0" role="note" aria-label="${esc(DEF[k]||k)}" data-tip="${esc(DEF[k]||k)}">?</span>`;
+// Mức thay đổi so với kỳ trước: mũi tên + chữ + màu theo hướng tốt / xấu của chỉ số.
+function delta(cur,prev,o={}){
+  if(!F.cmp)return '';
+  if(!isFinite(cur)||!isFinite(prev))return `<span class="delta flat">– so với ${cmpLabel()}</span>`;
+  let d,txt;
+  if(o.pp){d=cur-prev;txt=(Math.abs(d)*100).toFixed(1).replace('.',',')+' điểm %'}
+  else{if(!prev)return cur?`<span class="delta flat">mới so với ${cmpLabel()}</span>`:'';d=(cur-prev)/Math.abs(prev);txt=(Math.abs(d)*100).toFixed(Math.abs(d)<.1?1:0).replace('.',',')+'%'}
+  if(Math.abs(d)<.0005)return `<span class="delta flat">= ${cmpLabel()}</span>`;
+  const up=d>0,good=o.lowerBetter?!up:up;
+  return `<span class="delta ${good?'good':'bad'}" title="${good?'Tốt hơn':'Kém hơn'} ${cmpLabel()}"><span>${up?'▲':'▼'} ${txt}</span>${o.short?'':` <span class="muted">so với ${cmpLabel()}</span>`}</span>`;
+}
 
 // ---------- biểu đồ ----------
-function dailyChart(list,h=220){
-  const ds=days();if(ds.length<2)return '<p class="muted">Chọn khoảng từ 7 ngày trở lên để xem biểu đồ theo ngày.</p>';
-  const by=new Map(agg(list,r=>r.day).map(a=>[a.k,a]));
-  const pts=ds.map(d=>by.get(dkey(d))||Object.assign({k:dkey(d)},ZERO));
-  const W=720,H=h,L=52,Rr=44,T=16,B=28,iw=W-L-Rr,ih=H-T-B,bw=iw/pts.length;
-  const maxR=Math.max(1,...pts.map(p=>p.rev)),maxO=Math.max(1,...pts.map(p=>p.ord));
-  const step=Math.pow(10,Math.floor(Math.log10(maxR)));const nice=[1,2,2.5,5,10].map(x=>x*step).find(x=>maxR/x<=5)||step*10;const top=Math.ceil(maxR/nice)*nice;
-  const oStep=Math.max(1,Math.ceil(maxO/4));const oTop=oStep*4;
-  const y=v=>T+ih-(v/top)*ih,yo=v=>T+ih-(v/oTop)*ih;
+// Chuỗi theo ngày của một chỉ số, khớp đúng các ngày của khoảng đang xem.
+function series(list,ds,fn){const by=new Map(agg(list,r=>r.day).map(a=>[a.k,a]));return ds.map(d=>{const a=by.get(dkey(d));return a?fn(a):0})}
+const METRICS={rev:['Doanh số',a=>a.rev,M],ord:['Số đơn',a=>a.ord,N],ret:['Tỷ lệ hoàn',a=>{const r=retRate(a);return isFinite(r)?r:0},v=>P(v)]};
+let chartMetric=store.get('cmetric','rev');if(!METRICS[chartMetric])chartMetric='rev';
+function trendChart(list,prevList,h=240,W=720){
+  const ds=days();if(ds.length<2)return `<div class="muted" style="padding:24px 0;text-align:center">Chọn khoảng từ 2 ngày trở lên để xem xu hướng theo ngày.</div>`;
+  const [lab,fn,fmt]=METRICS[chartMetric];
+  const cur=series(list,ds,fn),prev=F.cmp?series(prevList,prevDays(),fn).slice(0,ds.length):[];
+  const H=h,L=56,Rr=12,T=14,B=28,iw=W-L-Rr,ih=H-T-B,bw=iw/ds.length;
+  const mx=Math.max(chartMetric==='ret'?.05:1,...cur,...prev);
+  const step=chartMetric==='ret'?[.05,.1,.2,.25].find(x=>mx/x<=5)||.25:(()=>{const s=Math.pow(10,Math.floor(Math.log10(mx)));return [1,2,2.5,5,10].map(x=>x*s).find(x=>mx/x<=5)||s*10})();
+  const top=Math.ceil(mx/step)*step,y=v=>T+ih-(v/top)*ih;
+  const axis=v=>chartMetric==='ret'?Math.round(v*100)+'%':chartMetric==='ord'?N(v):v>=1e9?(v/1e9).toLocaleString('vi-VN',{maximumFractionDigits:1})+' tỷ':v>=1e6?Math.round(v/1e6)+' tr':v>0?Math.round(v/1e3)+'k':'0';
   let g='';
-  for(let v=0;v<=top+1;v+=nice)g+=`<line x1="${L}" x2="${W-Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${v>=1e9?(v/1e9).toLocaleString('vi-VN',{maximumFractionDigits:1})+' tỷ':v>=1e6?Math.round(v/1e6)+' tr':v>0?Math.round(v/1e3)+'k':'0'}</text>`;
-  for(let i=0;i<=4;i++)g+=`<text x="${W-Rr+8}" y="${yo(i*oStep)+4}" font-size="11" fill="var(--muted)">${N(i*oStep)}</text>`;
-  const lp=[],every=Math.ceil(pts.length/8);
-  pts.forEach((p,i)=>{const x=L+i*bw;const d=ds[i];
-    g+=`<rect x="${x+bw*.15}" y="${y(p.rev)}" width="${Math.max(1,bw*.7)}" height="${T+ih-y(p.rev)}" rx="2" fill="var(--accent)" opacity=".3"><title>${fmtD(d)}: ${M(p.rev)} · ${N(p.ord)} đơn · hoàn ${P(retRate(p))}</title></rect>`;
-    lp.push([x+bw/2,yo(p.ord)]);
-    if(i%every===0||i===pts.length-1)g+=`<text x="${x+bw/2}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--muted)">${fmtD(d)}</text>`});
-  g+=`<polyline points="${lp.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
-  const last=lp.at(-1);g+=`<circle cx="${last[0]}" cy="${last[1]}" r="3.5" fill="var(--ink)"/>`;
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Doanh số và số đơn theo ngày">${g}</svg>
-  <div class="muted" style="font-size:12px;display:flex;gap:16px;flex-wrap:wrap;margin-top:6px"><span><span class="dot" style="background:var(--accent);opacity:.5;border-radius:2px"></span> Doanh số chốt (trục trái)</span><span>— Số đơn (trục phải)</span></div>`;
+  for(let v=0;v<=top+1e-9;v+=step)g+=`<line x1="${L}" x2="${W-Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${axis(v)}</text>`;
+  const every=Math.ceil(ds.length/8);
+  ds.forEach((d,i)=>{const x=L+i*bw,v=cur[i];
+    g+=`<rect x="${x+bw*.14}" y="${y(v)}" width="${Math.max(1,bw*.72)}" height="${Math.max(0,T+ih-y(v))}" rx="2" fill="var(--accent)" opacity="${i===ds.length-1?'.9':'.55'}"><title>${fmtD(d)}: ${fmt(v)}${prev.length?' · kỳ trước '+fmt(prev[i]||0):''}</title></rect>`;
+    if(i%every===0||i===ds.length-1)g+=`<text x="${x+bw/2}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--muted)">${fmtD(d)}</text>`});
+  if(prev.length>1)g+=`<polyline points="${prev.map((v,i)=>[L+i*bw+bw/2,y(v)].join(',')).join(' ')}" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="4 3"/>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${lab} theo ngày">${g}</svg>
+  <div class="chart-legend"><span><i class="sw" style="background:var(--accent)"></i>${lab} kỳ này</span>${prev.length>1?`<span><i class="sw dash"></i>${cmpLabel()}</span>`:''}</div>`;
 }
-function spark(list){const ds=days();if(ds.length<2)return '';const by=new Map(agg(list,r=>r.day).map(a=>[a.k,a.rev]));const v=ds.map(d=>by.get(dkey(d))||0);const W=140,H=32,mx=Math.max(1,...v);const pts=v.map((x,i)=>[i/(v.length-1)*W,H-2-(x/mx)*(H-6)]);
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polygon points="0,${H} ${pts.map(p=>p.join(',')).join(' ')} ${W},${H}" fill="var(--accent)" opacity=".12"/><polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="1.5"/></svg>`}
+function spark(vals,color){if(vals.length<2)return '';const W=120,H=30,mx=Math.max(1e-9,...vals);const pts=vals.map((x,i)=>[(i/(vals.length-1)*W).toFixed(1),(H-2-(x/mx)*(H-6)).toFixed(1)]);
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,${H} ${pts.map(p=>p.join(',')).join(' ')} ${W},${H}" fill="${color||'var(--accent)'}" opacity=".12"/><polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${color||'var(--accent)'}" stroke-width="1.6"/></svg>`}
 
-function kpiBlock(a,extra=''){return `<div class="kpis">
-  <div class="kpi"><div class="l">Doanh số chốt</div><div class="v">${M(a.rev)}</div><div class="n">${N(a.ord)} đơn (không tính huỷ)</div>${extra}</div>
-  <div class="kpi"><div class="l">Giá trị TB / đơn</div><div class="v">${a.ord?N(a.rev/a.ord):'–'} đ</div><div class="n">${(()=>{const m=byId(CAT.markets,F.mkt)||(CAT.markets.length===1?CAT.markets[0]:null);return a.ord&&m?N(a.rev/a.ord/m.rate_vnd)+' '+esc(m.currency):''})()}</div></div>
-  <div class="kpi"><div class="l">Giao thành công</div><div class="v">${N(a.ok)}</div><div class="n">${M(a.okRev)} · ${P(a.ok/((a.ok+a.ret)||NaN))} đơn đã xong</div></div>
-  <div class="kpi"><div class="l">Tỷ lệ hoàn</div><div class="v">${P(retRate(a))}</div><div class="n">${N(a.ret)} đơn · ${M(a.retRev)}</div></div>
-  <div class="kpi"><div class="l">Đang giao</div><div class="v">${N(a.ship)}</div><div class="n">${M(a.shipRev)} · ${N(a.neu)} chờ xử lý</div></div>
-  <div class="kpi"><div class="l">Huỷ</div><div class="v">${N(a.cancel)}</div><div class="n">${P(a.cancel/((a.ord+a.cancel)||NaN))} tổng đơn</div></div>
-</div>`}
-
-function rankTable(list,keyFn,label,o={}){
-  const g=agg(list,keyFn).sort((a,b)=>b.rev-a.rev),tt=tot(list);
-  const head=`<th class="l">${label}</th>${o.extraHead||''}<th>Doanh số</th><th>Số đơn</th><th>TB/đơn</th><th>Giao TC</th><th>% hoàn</th><th>Đang giao</th>${o.spark?'<th>Theo ngày</th>':''}`;
-  return `<div class="tw"><table><thead><tr>${head}</tr></thead><tbody>
-  ${g.map(a=>`<tr class="${o.click?'click':''}" ${o.click?`data-go="${esc(o.click(a.k))}"`:''}><td>${o.name?o.name(a.k):esc(a.k)}</td>${o.extraCell?o.extraCell(a.k,a):''}<td>${M(a.rev)}</td><td>${N(a.ord)}</td><td>${a.ord?N(a.rev/a.ord):'–'}</td><td>${N(a.ok)}</td><td>${retPill(retRate(a))}</td><td>${N(a.ship)}</td>${o.spark?`<td>${spark(list.filter(r=>keyFn(r)===a.k))}</td>`:''}</tr>`).join('')||`<tr><td colspan="9" class="l muted">Chưa có đơn trong khoảng này.</td></tr>`}
-  </tbody>${g.length>1?`<tfoot><tr><td>Tổng</td>${o.extraHead?'<td></td>'.repeat((o.extraHead.match(/<th/g)||[]).length):''}<td>${M(tt.rev)}</td><td>${N(tt.ord)}</td><td>${tt.ord?N(tt.rev/tt.ord):'–'}</td><td>${N(tt.ok)}</td><td>${retPill(retRate(tt))}</td><td>${N(tt.ship)}</td>${o.spark?'<td></td>':''}</tr></tfoot>`:''}</table></div>`;
+// ---------- ô chỉ số ----------
+// 4 chỉ số chính, mỗi ô: giá trị, so với kỳ trước, xu hướng theo ngày. Dưới là dải số phụ.
+function kpiCards(list,prevList){
+  const a=tot(list),p=tot(prevList),ds=days();
+  const four=[
+    ['rev','Doanh số',M(a.rev),delta(a.rev,p.rev),series(list,ds,x=>x.rev)],
+    ['ord','Số đơn',N(a.ord),delta(a.ord,p.ord),series(list,ds,x=>x.ord)],
+    ['ret','Tỷ lệ hoàn',P(retRate(a)),delta(retRate(a),retRate(p),{pp:1,lowerBetter:1}),null,`${N(a.ret)} đơn hoàn · ${N(a.ok)} đã giao`],
+    SEE_COST?['gp','Lợi nhuận gộp',M(gp(a)),delta(gp(a),gp(p)),null,a.okRev?`${P(gp(a)/a.okRev)} trên tiền đã giao`:'Chưa có đơn đã giao']
+           :['ok','Tiền đã giao',M(a.okRev),delta(a.okRev,p.okRev),null,`${N(a.ok)} đơn đã giao`],
+  ];
+  const aov=a.ord?a.rev/a.ord:NaN,paov=p.ord?p.rev/p.ord:NaN;
+  return `<div class="kpis kpis4">${four.map(([k,l,v,d,sp,sub],i)=>`<div class="kpi${i===0?' primary':''}"><div class="l">${l} ${tip(k)}</div><div class="v">${v}</div><div class="n">${d||''}${sub?`<div>${sub}</div>`:''}</div>${sp&&ds.length>1?spark(sp):''}</div>`).join('')}</div>
+  <div class="statstrip">
+    <div><span class="l">Giá trị TB / đơn ${tip('aov')}</span><b>${isFinite(aov)?N(aov)+' ₫':'–'}</b>${delta(aov,paov,{short:1})}</div>
+    <div><span class="l">Đang giao ${tip('ship')}</span><b>${N(a.ship)}</b><span class="muted">${M(a.shipRev)}</span></div>
+    <div><span class="l">Chờ xử lý ${tip('neu')}</span><b>${N(a.neu)}</b></div>
+    <div><span class="l">Huỷ / đã xoá</span><b>${N(a.cancel)}</b><span class="muted">${P(a.cancel/((a.ord+a.cancel)||NaN))} tổng đơn</span></div>
+  </div>`;
 }
+// Tiến độ target tháng: đã đạt, đã qua bao nhiêu thời gian, dự kiến cuối tháng.
+function targetBlock(list,target){
+  if(!target||F.range!=='month')return '';
+  const a=tot(list),t=new Date(),dim=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();
+  const elapsed=Math.min(1,(t.getDate()-1+t.getHours()/24)/dim),done=a.rev/target,proj=elapsed>0?a.rev/elapsed:0,pr=proj/target;
+  const st=pr>=1?['p-good','Đúng tiến độ']:pr>=.85?['p-warn','Hơi chậm']:['p-bad','Chậm tiến độ'];
+  return `<div class="card target"><div class="cardhead"><div><h2>Tiến độ target tháng ${tip('target')}</h2><p class="hint">Đã đạt <b>${M(a.rev)}</b> / ${M(target)} · đã qua ${P(elapsed,0)} thời gian của tháng</p></div><span class="pill ${st[0]}">${st[1]}</span></div>
+    <div class="tbar" role="img" aria-label="Đạt ${P(done)} target, đã qua ${P(elapsed,0)} tháng"><i style="width:${Math.min(100,done*100).toFixed(1)}%"></i><b style="left:${(elapsed*100).toFixed(1)}%" title="Hôm nay"></b></div>
+    <div class="tlegend"><span><b>${P(done)}</b> target đã đạt</span><span>Dự kiến cuối tháng: <b>${M(proj)}</b> (${P(pr,0)} target)</span></div></div>`;
+}
+// Việc cần chú ý: 3 cảnh báo quan trọng nhất, có nút đi tới chỗ xử lý.
+function attention(){
+  const a=alerts();if(!a.length)return '';
+  return `<div class="card attn"><div class="cardhead"><div><h2>Cần chú ý</h2></div>${a.length>3?`<button class="lnk" data-go="canhbao:">Xem tất cả ${a.length}</button>`:''}</div>
+    <div class="alerts">${a.slice(0,3).map(x=>`<div class="alert"><span class="stripe s-${x[0]}"></span><div><div class="t">${esc(x[1])}</div><div class="m">${esc(x[2])}</div></div><span>${x[3]}</span></div>`).join('')}</div></div>`;
+}
+
+// ---------- bảng: sắp xếp, xuất Excel ----------
+// cols: [{k, label, l (căn trái), fmt(row) → html, val(row) → số/chuỗi để sắp xếp và xuất, tip}]
+const SORT={},TBL={};
+function dataTable(id,cols,rows,o={}){
+  const s=SORT[id]||(SORT[id]={k:o.sortKey||cols[1].k,dir:-1});
+  const c=cols.find(x=>x.k===s.k)||cols[1];
+  const sorted=rows.slice().sort((a,b)=>{const x=c.val(a),y=c.val(b);return (typeof x==='string'?String(x).localeCompare(String(y),'vi'):(isFinite(x)?x:-Infinity)-(isFinite(y)?y:-Infinity))*s.dir});
+  TBL[id]={cols,rows:sorted,name:o.name||id};
+  const th=x=>`<th class="${x.l?'l ':''}sort" data-sortt="${id}:${x.k}" aria-sort="${s.k===x.k?(s.dir>0?'ascending':'descending'):'none'}" title="Bấm để sắp xếp">${x.label}${x.tip?' '+tip(x.tip):''}${s.k===x.k?`<span class="sarr">${s.dir>0?'↑':'↓'}</span>`:''}</th>`;
+  return `<div class="tw"><table id="${id}"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>
+  ${sorted.map(r=>`<tr class="${o.click&&o.click(r)?'click':''}" ${o.click&&o.click(r)?`data-go="${esc(o.click(r))}" tabindex="0"`:''}>${cols.map(x=>`<td class="${x.l?'l':''}">${x.fmt(r)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}">${Shell.empty('inbox','Không có dữ liệu','Thử đổi bộ lọc hoặc khoảng ngày.')}</td></tr>`}
+  </tbody>${o.foot&&sorted.length>1?`<tfoot><tr>${cols.map(x=>`<td class="${x.l?'l':''}">${o.foot[x.k]??''}</td>`).join('')}</tr></tfoot>`:''}</table></div>`;
+}
+const exportBtn=id=>`<button class="btn ghost sm" type="button" data-export="${id}" title="Tải bảng về dạng CSV (mở bằng Excel)">Xuất Excel</button>`;
+function exportTable(id){
+  const t=TBL[id];if(!t)return;
+  const cell=v=>{if(typeof v==='number'&&!isFinite(v))return '';const s=String(v??'').replace(/<[^>]+>/g,'');return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+  const lines=[t.cols.map(c=>cell(c.label.replace(/<[^>]+>/g,''))).join(',')].concat(t.rows.map(r=>t.cols.map(c=>cell(c.val(r))).join(',')));
+  const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${t.name} ${rangeLabel().replace(/[\/ –]+/g,'-')}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+// Bảng xếp hạng theo nhóm (team / nhân sự / kênh): cột ít, có so với kỳ trước, tiến độ target nếu có.
+function rankRows(list,prevList,keyFn){const pm=new Map(agg(prevList,keyFn).map(a=>[a.k,a]));return agg(list,keyFn).map(a=>Object.assign(a,{p:pm.get(a.k)||ZERO}))}
+function rankCols(label,nameFn,o={}){
+  const cols=[{k:'name',label,l:1,fmt:r=>nameFn(r.k,r),val:r=>String(nameFn(r.k,r)).replace(/<[^>]+>/g,'')},
+    {k:'rev',label:'Doanh số',tip:'rev',fmt:r=>`<div class="num2"><b>${M(r.rev)}</b>${delta(r.rev,r.p.rev,{short:1})}</div>`,val:r=>r.rev},
+    {k:'ord',label:'Số đơn',fmt:r=>N(r.ord),val:r=>r.ord},
+    {k:'ret',label:'Tỷ lệ hoàn',tip:'ret',fmt:r=>retPill(retRate(r)),val:r=>retRate(r)}];
+  if(SEE_COST&&o.gp)cols.push({k:'gp',label:'Lợi nhuận gộp',tip:'gp',fmt:r=>r.ok?M(gp(r)):'<span class="muted">–</span>',val:r=>gp(r)});
+  if(o.target)cols.push({k:'tg',label:'Tiến độ target',fmt:r=>{const t=o.target(r.k);return t?`<div class="minibar" title="${P(r.rev/t)} target ${M(t)}"><i style="width:${Math.min(100,r.rev/t*100).toFixed(0)}%"></i><span>${P(r.rev/t,0)}</span></div>`:'<span class="muted">–</span>'},val:r=>{const t=o.target(r.k);return t?r.rev/t:NaN}});
+  if(o.extra)cols.push(...o.extra);
+  return cols;
+}
+const totFoot=(list)=>{const a=tot(list);return {name:'<b>Tổng</b>',rev:`<b>${M(a.rev)}</b>`,ord:N(a.ord),ret:retPill(retRate(a)),gp:SEE_COST?M(gp(a)):''}};
 function legend(list,keyFn,nameFn,colorFn){
   const a=tot(list),g=agg(list,keyFn).sort((x,y)=>y.rev-x.rev);
-  return `${colorFn?`<div class="mix">${g.map(c=>`<span style="width:${a.rev?c.rev/a.rev*100:0}%;background:${esc(colorFn(c.k))}"></span>`).join('')}</div>`:''}
-  <div class="legend">${g.map(c=>`<div class="row"><span class="k">${nameFn(c.k)}</span><span>${M(c.rev)}</span><span class="s">${N(c.ord)} đơn</span></div>`).join('')||'<span class="muted">–</span>'}</div>`;
+  return `${colorFn?`<div class="mix">${g.map(c=>`<span style="width:${a.rev?c.rev/a.rev*100:0}%;background:${esc(colorFn(c.k))}" title="${esc(String(nameFn(c.k)).replace(/<[^>]+>/g,''))}: ${P(a.rev?c.rev/a.rev:0)}"></span>`).join('')}</div>`:''}
+  <div class="legend">${g.map(c=>`<div class="row"><span class="k">${nameFn(c.k)}</span><span>${M(c.rev)}</span><span class="s">${P(a.rev?c.rev/a.rev:0,0)}</span></div>`).join('')||'<span class="muted">–</span>'}</div>`;
 }
+const crumbs=items=>`<div class="crumbs" role="navigation" aria-label="Vị trí">${items.map(([l,go],i)=>i<items.length-1?`<button class="lnk" data-go="${esc(go)}">${esc(l)}</button><span aria-hidden="true">›</span>`:`<span>${esc(l)}</span>`).join('')}</div>`;
 function empty(){
   if(loadErr)return `<div class="card">${Shell.empty('alert','Không tải được số liệu',esc(loadErr)+'<br>Kiểm tra đã chạy đủ các file SQL trên Supabase chưa.')}</div>`;
   if(loading&&!ROWS.length)return skeleton();
   const why=ME.scope==='self'&&!ME.staff_id?'Tài khoản của cậu chưa được liên kết với nhân sự nào. Nhờ admin liên kết ở Quản trị → Tài khoản.'
     :ME.scope==='all'?'Thử chọn khoảng ngày dài hơn, hoặc kiểm tra Quản trị → Kết nối POS đã có shop, API key và đã đồng bộ chưa.'
     :'Thử chọn khoảng ngày dài hơn. Nếu vẫn trống, có thể marketer chưa được khai báo vào team (Quản trị → Chưa khai báo).';
-  const acts=ME.role==='admin'?'<a class="btn ghost sm" href="admin.html#pos">Kết nối POS</a><a class="btn ghost sm" href="admin.html#chuakhaibao">Chưa khai báo</a>':'';
+  const acts=(F.range==='today'||F.range==='yesterday'?'<button class="btn ghost sm" data-range="month">Xem cả tháng này</button>':'')+(ME.role==='admin'?'<a class="btn ghost sm" href="admin.html#pos">Kết nối POS</a><a class="btn ghost sm" href="admin.html#chuakhaibao">Chưa khai báo</a>':'');
   return `<div class="card">${Shell.empty('inbox','Chưa có đơn trong khoảng này',why,acts)}</div>`;
 }
 // Khung chờ khi đang tải lần đầu.
 function skeleton(){
-  const k='<div class="kpi"><div class="skel" style="height:12px;width:55%"></div><div class="skel" style="height:24px;width:70%;margin-top:10px"></div><div class="skel" style="height:10px;width:45%;margin-top:10px"></div></div>';
-  return `<div class="kpis">${k.repeat(6)}</div><div class="grid2"><div class="card"><div class="skel" style="height:14px;width:40%"></div><div class="skel" style="height:220px;margin-top:16px"></div></div><div class="card"><div class="skel" style="height:14px;width:50%"></div>${'<div class="skel" style="height:12px;margin-top:16px"></div>'.repeat(5)}</div></div>`;
+  const k='<div class="kpi"><div class="skel" style="height:12px;width:55%"></div><div class="skel" style="height:26px;width:70%;margin-top:10px"></div><div class="skel" style="height:10px;width:45%;margin-top:10px"></div></div>';
+  return `<div class="kpis kpis4">${k.repeat(4)}</div><div class="grid2"><div class="card"><div class="skel" style="height:14px;width:40%"></div><div class="skel" style="height:220px;margin-top:16px"></div></div><div class="card"><div class="skel" style="height:14px;width:50%"></div>${'<div class="skel" style="height:12px;margin-top:16px"></div>'.repeat(5)}</div></div>`;
 }
+// Xem một ngày thì không có xu hướng để vẽ: bỏ hẳn khung biểu đồ.
+const chartCard=(title,list,prevList,wide)=>days().length<2?'':`<div class="card"><div class="cardhead"><div><h2>${title}</h2><p class="hint">Cột: kỳ này${F.cmp?' · nét đứt: '+cmpLabel():''}. Rê chuột / chạm vào cột để xem số.</p></div>
+  <div class="seg" role="group" aria-label="Chỉ số biểu đồ">${Object.entries(METRICS).map(([k,[l]])=>`<button type="button" data-metric="${k}" class="${chartMetric===k?'on':''}" aria-pressed="${chartMetric===k}">${l}</button>`).join('')}</div></div>${trendChart(list,prevList,240,wide?1080:720)}</div>`;
 
 // ---------- màn hình ----------
 const V={};
 V.tongquan=()=>{
   if(!ROWS.length)return empty();
-  const a=tot(ROWS);
   const teamIds=[...new Set(ROWS.map(r=>r.team).filter(Boolean))];
-  const target=F.range==='month'?CAT.teams.filter(t=>teamIds.includes(t.id)).reduce((s,t)=>s+(+t.target_vnd||0),0):0;
-  const prog=target?`<div class="bar" title="Tiến độ so với target tháng"><i style="width:${Math.min(100,a.rev/target*100)}%"></i></div><div class="n">${P(a.rev/target)} target ${M(target)}</div>`:'';
+  const target=CAT.teams.filter(t=>teamIds.includes(t.id)).reduce((s,t)=>s+(+t.target_vnd||0),0);
   const multiProj=!F.proj&&new Set(ROWS.map(r=>r.proj)).size>1;
-  return kpiBlock(a,prog)+`
-  <div class="grid2">
-    <div class="card"><h2>Doanh số và số đơn theo ngày</h2><p class="hint">Rê chuột lên cột để xem số từng ngày.</p>${dailyChart(ROWS,280)}</div>
-    <div class="card"><h2>Theo kênh</h2><p class="hint">Nhận ra từ nguồn đơn trên POS.</p>${legend(ROWS,r=>r.ch,chTag,chColor)}
-      ${multiProj?`<h2 style="margin-top:20px">Theo dự án</h2><div style="margin-top:8px">${legend(ROWS,r=>r.proj,k=>esc(projName(k)))}</div>`:''}
-      ${CAT.markets.length>1?`<h2 style="margin-top:20px">Theo thị trường</h2><div style="margin-top:8px">${legend(ROWS,r=>r.mkt,k=>esc((byId(CAT.markets,k)||{name:'–'}).name))}</div>`:''}
+  const tgt=k=>{const t=byId(CAT.teams,k);return F.range==='month'&&t?+t.target_vnd||0:0};
+  const cols=rankCols('Team',(k)=>k?`${esc(teamName(k))}${multiProj?`<div class="sub2">${esc(projName((byId(CAT.teams,k)||{}).project_id))}</div>`:''}`:'<span class="muted">Chưa gán team</span>',{gp:1,target:tgt});
+  const tb=targetBlock(ROWS,target),at=attention();
+  return `${kpiCards(ROWS,PREV)}${tb&&at?`<div class="grid2 even">${tb}${at}</div>`:tb+at}
+  <div class="${days().length<2?'grid2 even':'grid2'}">
+    ${chartCard('Xu hướng theo ngày',ROWS,PREV)}
+    <div class="card"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn trên POS.</p>${legend(ROWS,r=>r.ch,chTag,chColor)}
+      ${multiProj?`<h2 style="margin-top:22px">Theo dự án</h2><div style="margin-top:8px">${legend(ROWS,r=>r.proj,k=>esc(projName(k)))}</div>`:''}
+      ${CAT.markets.length>1?`<h2 style="margin-top:22px">Theo thị trường</h2><div style="margin-top:8px">${legend(ROWS,r=>r.mkt,k=>esc((byId(CAT.markets,k)||{name:'–'}).name))}</div>`:''}
     </div>
   </div>
-  <div class="card"><h2>Các team</h2><p class="hint">Bấm vào một team để xem từng nhân sự.${ROWS.some(r=>!r.team)?' Dòng “chưa gán team” là đơn có marketer chưa khai báo.':''}</p>
-  ${rankTable(ROWS,r=>r.team||'',`Team`,{name:k=>k?esc(teamName(k)):'<span class="muted">(chưa gán team)</span>',click:k=>k?'team:'+k:'',spark:true,
-    extraHead:(multiProj?'<th class="l">Dự án</th>':'')+'<th>Tiến độ target</th>',
-    extraCell:(k,a)=>{const t=byId(CAT.teams,k);return (multiProj?`<td class="l">${esc(t?projName(t.project_id):'')}</td>`:'')+`<td>${F.range==='month'&&t&&+t.target_vnd?P(a.rev/t.target_vnd,0):'–'}</td>`}})}</div>`;
+  <div class="card"><div class="cardhead"><div><h2>Các team</h2><p class="hint">Bấm vào một team để xem từng nhân sự. Bấm tiêu đề cột để sắp xếp.${ROWS.some(r=>!r.team)?' “Chưa gán team” là đơn có marketer chưa khai báo.':''}</p></div>${exportBtn('tTeams')}</div>
+  ${dataTable('tTeams',cols,rankRows(ROWS,PREV,r=>r.team||''),{name:'Team',click:r=>r.k?'team:'+r.k:'',foot:totFoot(ROWS)})}</div>`;
 };
 let curTeam=store.get('team','');
 V.team=()=>{
@@ -231,14 +347,17 @@ V.team=()=>{
   const inScope=CAT.teams.filter(t=>t.active!==false&&(ids.includes(t.id)||(F.proj?t.project_id===F.proj:ME.scope==='all'||(ME.scope==='project'&&(ME.project_ids||[]).includes(t.project_id))||(ME.scope==='team'&&t.id===ME.team_id))));
   if(!inScope.length)return ROWS.length?`<div class="card">${Shell.empty('users','Chưa có team trong phạm vi này','Admin hoặc quản lý thêm team ở Quản trị → Danh mục.',ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin.html#danhmuc">Mở Danh mục</a>':'')}</div>`:empty();
   if(!inScope.some(t=>t.id===curTeam))curTeam=(inScope.find(t=>ids.includes(t.id))||inScope[0]).id;
-  const t=byId(CAT.teams,curTeam),list=ROWS.filter(r=>r.team===curTeam),a=tot(list);
-  const sel=inScope.length>1?`<div class="tools"><div class="chips">${inScope.map(x=>`<button class="chip ${x.id===curTeam?'on':''}" data-team="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div></div>`:'';
-  if(!list.length)return sel+`<div class="card">${Shell.empty('inbox',esc(t.name)+' chưa có đơn','Không có đơn trong khoảng ngày và kênh đang lọc. Thử chọn khoảng dài hơn.')}</div>`;
-  const tg=F.range==='month'&&+t.target_vnd?`<div class="bar"><i style="width:${Math.min(100,a.rev/t.target_vnd*100)}%"></i></div><div class="n">${P(a.rev/t.target_vnd)} target ${M(t.target_vnd)}</div>`:'';
-  return sel+kpiBlock(a,tg)+
-  `<div class="card"><h2>Xếp hạng nhân sự · ${esc(t.name)}</h2><p class="hint">Bấm vào tên để xem chi tiết. % hoàn tính trên đơn đã xong (giao thành công + hoàn).</p>
-  ${rankTable(list,r=>r.staff||'~'+(r.mk||''),'Nhân sự',{name:k=>k.startsWith('~')?`<span class="muted">${esc(k.slice(1)||'(không có marketer)')}</span>`:esc(staffName(k)),click:k=>k.startsWith('~')?'':'nhansu:'+k,spark:true,extraHead:'<th class="l">Kênh</th>',extraCell:k=>`<td class="l">${[...new Set(list.filter(r=>(r.staff||'~'+(r.mk||''))===k).map(r=>r.ch))].map(chTag).join(' ')}</td>`})}</div>
-  <div class="card"><h2>Doanh số theo ngày · ${esc(t.name)}</h2>${dailyChart(list,200)}</div>`;
+  const t=byId(CAT.teams,curTeam),list=ROWS.filter(r=>r.team===curTeam),plist=PREV.filter(r=>r.team===curTeam);
+  const sel=inScope.length>1?`<div class="tools"><span class="flabel">Team</span><div class="chips">${inScope.map(x=>`<button class="chip ${x.id===curTeam?'on':''}" data-team="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div></div>`:'';
+  const head=(ALLOWED.includes('tongquan')&&ME.scope!=='team'?crumbs([['Tổng quan','tongquan:'],[t.name,'']]):'')+sel;
+  if(!list.length)return head+`<div class="card">${Shell.empty('inbox',esc(t.name)+' chưa có đơn','Không có đơn trong khoảng ngày và kênh đang lọc. Thử chọn khoảng dài hơn.')}</div>`;
+  const key=r=>r.staff||'~'+(r.mk||'');
+  const cols=rankCols('Nhân sự',k=>k.startsWith('~')?`<span class="muted">${esc(k.slice(1)||'Không có marketer')}</span><div class="sub2">chưa khai báo</div>`:esc(staffName(k)),{gp:1,
+    extra:[{k:'ch',label:'Kênh',l:1,fmt:r=>[...new Set(list.filter(x=>key(x)===r.k).map(x=>x.ch))].map(chTag).join(' '),val:r=>''}]});
+  return head+kpiCards(list,plist)+targetBlock(list,F.range==='month'?+t.target_vnd||0:0)+
+  `<div class="card"><div class="cardhead"><div><h2>Xếp hạng nhân sự · ${esc(t.name)}</h2><p class="hint">Bấm vào tên để xem chi tiết từng người.</p></div>${exportBtn('tStaff')}</div>
+  ${dataTable('tStaff',cols,rankRows(list,plist,key),{name:'Nhân sự '+t.name,click:r=>r.k.startsWith('~')?'':'nhansu:'+r.k,foot:totFoot(list)})}</div>
+  ${chartCard('Xu hướng theo ngày · '+esc(t.name),list,plist,true)}`;
 };
 let curStaff=store.get('staff','');
 V.nhansu=()=>{
@@ -246,15 +365,16 @@ V.nhansu=()=>{
   const ids=[...new Set(ROWS.map(r=>r.staff).filter(Boolean))];
   if(!ids.length)return `<div class="card">${Shell.empty('user','Chưa gán được đơn cho nhân sự nào','Các đơn trong khoảng này có marketer chưa được khai báo. Khai báo ở Quản trị → Chưa khai báo.',ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin.html#chuakhaibao">Khai báo marketer</a>':'')}</div>`;
   if(!ids.includes(curStaff))curStaff=ME.staff_id&&ids.includes(ME.staff_id)?ME.staff_id:ids[0];
-  const list=ROWS.filter(r=>r.staff===curStaff),a=tot(list),s=byId(CAT.staff,curStaff)||{};
+  const list=ROWS.filter(r=>r.staff===curStaff),plist=PREV.filter(r=>r.staff===curStaff),s=byId(CAT.staff,curStaff)||{};
   const groups=new Map();ids.forEach(id=>{const st=byId(CAT.staff,id)||{};const k=st.team_id||'';if(!groups.has(k))groups.set(k,[]);groups.get(k).push(id)});
   const opts=[...groups.entries()].map(([k,l])=>`<optgroup label="${esc(teamName(k))}">${l.map(id=>`<option value="${esc(id)}" ${id===curStaff?'selected':''}>${esc(staffName(id))}</option>`).join('')}</optgroup>`).join('');
   const prods=PRODS?PRODS.rows.filter(r=>r.staff===curStaff):null;
-  return `<div class="tools">${ids.length>1?`<label for="staffSel" class="muted">Nhân sự</label><select id="staffSel">${opts}</select>`:`<b>${esc(staffName(curStaff))}</b>`}<span class="muted">${esc(teamName(s.team_id))} · ${[...new Set(list.map(r=>r.ch))].map(chTag).join(' ')}</span></div>`+
-  kpiBlock(a)+
-  `<div class="grid2"><div class="card"><h2>Theo ngày</h2>${dailyChart(list,200)}</div>
-   <div class="card"><h2>Theo kênh</h2>${legend(list,r=>r.ch,chTag,chColor)}</div></div>
-  <div class="card"><h2>Sản phẩm đã bán</h2>${prods==null?'<p class="muted"><span class="spin"></span> Đang tải…</p>':prodTable(prods,false)}</div>`;
+  const head=(ME.scope!=='self'&&ALLOWED.includes('tongquan')?crumbs([['Tổng quan','tongquan:'],...(s.team_id&&ALLOWED.includes('team')?[[teamName(s.team_id),'team:'+s.team_id]]:[]),[staffName(curStaff),'']]):'')+
+    `<div class="tools">${ids.length>1?`<span class="flabel">Nhân sự</span><select id="staffSel">${opts}</select>`:`<b style="font-size:15px">${esc(staffName(curStaff))}</b>`}<span class="muted">${esc(teamName(s.team_id))} · ${[...new Set(list.map(r=>r.ch))].map(chTag).join(' ')}</span></div>`;
+  return head+kpiCards(list,plist)+
+  `<div class="${days().length<2?'grid2 even':'grid2'}">${chartCard('Xu hướng theo ngày',list,plist)}
+   <div class="card"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn.</p>${legend(list,r=>r.ch,chTag,chColor)}</div></div>
+  <div class="card"><div class="cardhead"><div><h2>Sản phẩm đã bán</h2></div></div>${prods==null?'<div class="skel" style="height:12px"></div>':prodTable(prods,false)}</div>`;
 };
 function prodTable(rows,withSearch){
   const m=new Map();
@@ -264,7 +384,7 @@ function prodTable(rows,withSearch){
   if(withSearch&&pQ){const q=pQ.toLowerCase();g=g.filter(a=>(a.code+' '+(a.name||'')).toLowerCase().includes(q))}
   const sf={rev:a=>-a.rev,ord:a=>-a.ord,qty:a=>-a.qty,rr:a=>-(retRate(a)||0),gp:a=>-(a.okRev-a.okCogs)};g.sort((x,y)=>(sf[pSort]||sf.rev)(x)-(sf[pSort]||sf.rev)(y));
   const th=(k,l)=>withSearch?`<th class="sort" data-sort="${k}">${l}${pSort===k?' ↓':''}</th>`:`<th>${l}</th>`;
-  return `<div class="tw"><table><thead><tr><th class="l">Mã</th><th class="l">Sản phẩm</th>${th('rev','Doanh số')}${th('ord','Số đơn')}${th('qty','Số lượng')}<th>Giao TC</th>${th('rr','% hoàn')}<th>Đang giao</th>${SEE_COST?`<th>Giá vốn/SP</th>${th('gp','Lãi gộp (giao TC)')}<th>% lãi gộp</th>`:''}</tr></thead><tbody>
+  return `<div class="tw"><table><thead><tr><th class="l">Mã</th><th class="l">Sản phẩm</th>${th('rev','Doanh số')}${th('ord','Số đơn')}${th('qty','Số lượng')}<th>Đã giao</th>${th('rr','% hoàn')}<th>Đang giao</th>${SEE_COST?`<th>Giá vốn/SP</th>${th('gp','Lãi gộp (đã giao)')}<th>% lãi gộp</th>`:''}</tr></thead><tbody>
   ${g.map(a=>`<tr><td class="l mono">${esc(a.code)}</td><td class="l" style="white-space:normal">${esc(a.name||'')}</td><td>${M(a.rev)}</td><td>${N(a.ord)}</td><td>${N(a.qty)}</td><td>${N(a.ok)}</td><td>${retPill(retRate(a))}</td><td>${N(a.ship)}</td>${SEE_COST?`<td>${a.unit!=null?N(a.unit):'<span class="pill p-bad">Chưa có</span>'}</td><td>${a.ok?M(a.okRev-a.okCogs):'–'}</td><td>${a.okRev&&a.unit!=null?P((a.okRev-a.okCogs)/a.okRev):'–'}</td>`:''}</tr>`).join('')||`<tr><td colspan="${SEE_COST?11:8}" class="l muted">Không có sản phẩm.</td></tr>`}
   </tbody></table></div>`;
 }
@@ -323,18 +443,18 @@ V.kqkd=()=>{
   const cols=[['Tổng',tot(ROWS)]].concat(agg(ROWS,keyFn).sort((a,b)=>b.rev-a.rev).map(a=>[nameFn(a.k),a]));
   const line=(lab,f,cls='')=>`<tr class="${cls}"><td class="${cls.includes('ind')?'ind':''}">${lab}</td>${cols.map(c=>`<td>${f(c[1])}</td>`).join('')}</tr>`;
   const plTable=ROWS.length?`<div class="tw"><table><thead><tr><th class="l">Chỉ tiêu (VNĐ)</th>${cols.map(c=>`<th>${esc(c[0])}</th>`).join('')}</tr></thead><tbody>
-    ${line('Doanh số chốt',a=>M(a.rev),'h')}${line('Số đơn chốt',a=>N(a.ord),'ind')}
-    <tr class="sec"><td>I. Doanh thu thực nhận (giao thành công)</td>${cols.map(c=>`<td>${M(c[1].okRev)}</td>`).join('')}</tr>
-    ${line('Tỷ lệ doanh thu / doanh số chốt',a=>`<span class="muted">${P(a.okRev/a.rev)}</span>`,'ind')}
+    ${line('Doanh số (đơn đặt)',a=>M(a.rev),'h')}${line('Số đơn đặt',a=>N(a.ord),'ind')}
+    <tr class="sec"><td>I. Tiền đơn đã giao</td>${cols.map(c=>`<td>${M(c[1].okRev)}</td>`).join('')}</tr>
+    ${line('Tỷ lệ đã giao / doanh số',a=>`<span class="muted">${P(a.okRev/a.rev)}</span>`,'ind')}
     ${line('Đang giao (chưa về)',a=>M(a.shipRev),'ind')}${line('Hoàn',a=>M(a.retRev),'ind')}${line('Tỷ lệ hoàn',a=>retPill(retRate(a)),'ind')}
-    ${SEE_COST?`<tr class="sec"><td>II. Giá vốn hàng bán (đơn giao thành công)</td>${cols.map(c=>`<td>${M(c[1].okCogs)}</td>`).join('')}</tr>
-    ${line('Đơn giao TC thiếu giá vốn',a=>a.okMiss?`<span class="neg">${N(a.okMiss)} đơn</span>`:'<span class="muted">0</span>','ind')}
+    ${SEE_COST?`<tr class="sec"><td>II. Giá vốn hàng đã giao</td>${cols.map(c=>`<td>${M(c[1].okCogs)}</td>`).join('')}</tr>
+    ${line('Đơn đã giao chưa có giá vốn',a=>a.okMiss?`<span class="neg">${N(a.okMiss)} đơn</span>`:'<span class="muted">0</span>','ind')}
     <tr class="sec"><td>III. Lợi nhuận gộp (I − II)</td>${cols.map(c=>{const v=c[1].okRev-c[1].okCogs;return `<td class="${v<0?'neg':'pos'}">${M(v)}</td>`}).join('')}</tr>
     ${line('% lợi nhuận gộp / doanh thu',a=>`<span class="muted">${P((a.okRev-a.okCogs)/a.okRev)}</span>`,'ind')}
     <tr class="sec"><td>IV. Chi phí khác</td>${cols.map(()=>'<td class="muted">chưa có</td>').join('')}</tr>
     ${line('Chi phí ads, vận chuyển, FFM, vận hành',()=>'<span class="muted">–</span>','ind')}`:''}
     </tbody></table></div>`:empty();
-  return `<div class="card pl"><h2>Kết quả kinh doanh · ${esc(RANGES[F.range].toLowerCase())}</h2><p class="hint">Theo ${multiProj?'dự án':'team'}. Doanh thu chỉ tính đơn giao thành công. ${SEE_COST?'Giá vốn theo giá nhập gần nhất tính đến ngày tạo đơn (Quản trị → Giá vốn). Chi phí ads, vận chuyển, FFM chưa nối; tạm thời dùng ô đối soát file FFM bên dưới để tính tiền về.':''}</p>${plTable}</div>
+  return `<div class="card pl"><h2>Kết quả kinh doanh · ${esc(RANGES[F.range].toLowerCase())}</h2><p class="hint">Theo ${multiProj?'dự án':'team'}. Tiền về chỉ tính đơn khách đã nhận hàng. ${SEE_COST?'Giá vốn theo giá nhập gần nhất tính đến ngày tạo đơn (Quản trị → Giá vốn). Chi phí ads, vận chuyển, FFM chưa nối; tạm thời dùng ô đối soát file FFM bên dưới để tính tiền về.':''}</p>${plTable}</div>
   <div class="card" id="jt"><h2>Đối soát file J&amp;T / FFM</h2><p class="hint">Chọn đơn vị FFM, rồi tải file .xlsx hoặc .csv có các cột Mã vận đơn (hoặc Waybill Number), COD, Tên sản phẩm, Order Status. File chỉ đọc trong trình duyệt, không gửi đi đâu.</p>
   <div class="tools"><label for="jtFfm" class="muted">File của đơn vị</label><select id="jtFfm">${FFMS.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}</select></div>
   <div class="drop" id="drop"><input type="file" id="jtFile" accept=".xlsx,.xls,.csv" style="max-width:100%"><div style="margin-top:6px;font-size:12px">hoặc kéo thả file vào đây</div></div>
@@ -385,9 +505,9 @@ function alerts(){
   if(UNMAPPED){const mk=UNMAPPED.filter(u=>u.kind==='marketer'),src=UNMAPPED.filter(u=>u.kind==='source');
     if(mk.length)out.push(['warn','Marketer chưa khai báo',`${mk.length} tên marketer (${N(mk.reduce((s,u)=>s+ +u.orders,0))} đơn) chưa thuộc team nào: ${mk.slice(0,4).map(u=>u.value).join(', ')}${mk.length>4?'…':''}`,'<a href="admin.html#chuakhaibao">Khai báo</a>']);
     if(src.length)out.push(['warn','Nguồn đơn chưa thuộc kênh',`${src.slice(0,4).map(u=>u.value).join(', ')}${src.length>4?'…':''}`,'<a href="admin.html#chuakhaibao">Gán kênh</a>'])}
-  agg(ROWS.filter(r=>r.staff),r=>r.staff).forEach(a=>{const rr=retRate(a);if(a.ok+a.ret>=20&&rr>.35)out.push(['bad','Tỷ lệ hoàn cao',`${staffName(a.k)}: hoàn ${P(rr)} trên ${N(a.ok+a.ret)} đơn đã xong`,'Kiểm tra']);else if(a.ok+a.ret>=20&&rr>.28)out.push(['warn','Tỷ lệ hoàn đang tăng',`${staffName(a.k)}: hoàn ${P(rr)}`,'Theo dõi'])});
+  agg(ROWS.filter(r=>r.staff),r=>r.staff).forEach(a=>{const rr=retRate(a);if(a.ok+a.ret>=20&&rr>.35)out.push(['bad','Tỷ lệ hoàn cao',`${staffName(a.k)}: hoàn ${P(rr)} trên ${N(a.ok+a.ret)} đơn đã xong`,ALLOWED.includes('nhansu')?`<button class="lnk" data-go="nhansu:${esc(a.k)}">Xem nhân sự</button>`:'Kiểm tra']);else if(a.ok+a.ret>=20&&rr>.28)out.push(['warn','Tỷ lệ hoàn đang tăng',`${staffName(a.k)}: hoàn ${P(rr)}`,ALLOWED.includes('nhansu')?`<button class="lnk" data-go="nhansu:${esc(a.k)}">Xem nhân sự</button>`:'Theo dõi'])});
   if(F.range==='month'){const t=new Date(),dim=new Date(t.getFullYear(),t.getMonth()+1,0).getDate(),pace=t.getDate()/dim;
-    agg(ROWS.filter(r=>r.team),r=>r.team).forEach(a=>{const tm=byId(CAT.teams,a.k);if(tm&&+tm.target_vnd&&a.rev/tm.target_vnd<pace-.15)out.push(['warn','Chậm target',`${tm.name}: đạt ${P(a.rev/tm.target_vnd)} target, đã qua ${P(pace,0)} tháng`,'Xem team'])})}
+    agg(ROWS.filter(r=>r.team),r=>r.team).forEach(a=>{const tm=byId(CAT.teams,a.k);if(tm&&+tm.target_vnd&&a.rev/tm.target_vnd<pace-.15)out.push(['warn','Chậm target',`${tm.name}: đạt ${P(a.rev/tm.target_vnd)} target, đã qua ${P(pace,0)} tháng`,ALLOWED.includes('team')?`<button class="lnk" data-go="team:${esc(a.k)}">Xem team</button>`:''])})}
   const o={bad:0,warn:1,info:2};return out.sort((a,b)=>o[a[0]]-o[b[0]]);
 }
 V.canhbao=()=>{const a=alerts();return `<div class="card"><h2>${a.length} cảnh báo đang mở</h2><p class="hint">Tính từ dữ liệu POS theo bộ lọc đang chọn. Tỷ lệ hoàn chỉ xét nhân sự có từ 20 đơn đã xong.</p>
@@ -431,7 +551,7 @@ async function submitFfm(){
 }
 
 // ---------- khung ----------
-const TITLES={tongquan:['Tổng quan','Doanh số, đơn, giao hàng và hoàn'],team:['Team','Từng team và nhân sự trong team'],nhansu:['Nhân sự','Chỉ số từng người và sản phẩm đã bán'],sanpham:['Sản phẩm','Hiệu quả từng sản phẩm'],donhang:['Đơn hàng','Tra cứu đơn từ POS'],kqkd:['Kết quả kinh doanh','Doanh thu, giá vốn, lợi nhuận gộp theo team / dự án'],canhbao:['Cảnh báo','Việc cần xử lý ngay'],caidat:['Cài đặt','Tài khoản và đơn vị FFM']};
+const TITLES={tongquan:[ME.scope==='self'?'Số của tôi':'Tổng quan','Doanh số, đơn, giao hàng và hoàn'],team:['Team','Từng team và nhân sự trong team'],nhansu:['Nhân sự','Chỉ số từng người và sản phẩm đã bán'],sanpham:['Sản phẩm','Hiệu quả từng sản phẩm'],donhang:['Đơn hàng','Tra cứu đơn từ POS'],kqkd:['Kết quả kinh doanh','Doanh thu, giá vốn, lợi nhuận gộp theo team / dự án'],canhbao:['Cảnh báo','Việc cần xử lý ngay'],caidat:['Cài đặt','Tài khoản và đơn vị FFM']};
 let view='tongquan',keep={};
 function snapForm(){const k={};document.querySelectorAll('#view input:not([type=file]),#view select').forEach(e=>{if(e.id)k[e.id]=e.value});k.__focus=document.activeElement&&document.activeElement.id;return k}
 function render(){
@@ -440,7 +560,7 @@ function render(){
   const scopeTxt=F.proj?projName(F.proj):ME.scope==='team'?teamName(ME.team_id):ME.scope==='self'?staffName(ME.staff_id):ME.scope==='project'&&projOpts.length===1?projOpts[0].name:'';
   const [f,t]=rangeDates(F.range);const last=new Date(t);last.setDate(last.getDate()-1);
   $('#title').textContent=TITLES[view][0];
-  $('#subtitle').textContent=(scopeTxt?scopeTxt+' · ':'')+(view==='caidat'?TITLES[view][1]:`${fmtD(f)}${+last!==+f?' – '+fmtD(last):''}`);
+  $('#subtitle').textContent=(scopeTxt?scopeTxt+' · ':'')+(view==='caidat'?TITLES[view][1]:rangeLabel());
   document.querySelectorAll('#nav a[data-v]').forEach(a=>a.classList.toggle('on',a.dataset.v===view));
   renderFilters();
   $('#view').innerHTML=(catErr?`<div class="msg neg">Không đọc được danh mục: ${esc(catErr)}. Kiểm tra đã chạy đủ các file SQL trên Supabase chưa.</div>`:'')+V[view]();
@@ -448,11 +568,15 @@ function render(){
   keep={__view:view};
   Shell.badge('alertCnt',alerts().filter(a=>a[0]==='bad').length);
 }
-function go(v){view=v;keep={};delArm=null;try{history.replaceState(null,'','#'+v)}catch(e){}if((v==='sanpham'||v==='nhansu'||(SEE_COST&&v==='canhbao'))&&!PRODS)loadProducts();render();window.scrollTo(0,0)}
-function setF(k,v){F[k]=v;store.set({proj:'proj',mkt:'mkt',ch:'ch2',range:'range'}[k],v);oPage=0;loadData()}
+function go(v){view=v;keep={};delArm=null;try{history.replaceState(null,'',hashFor(v))}catch(e){}if((v==='sanpham'||v==='nhansu'||(SEE_COST&&v==='canhbao'))&&!PRODS)loadProducts();render();window.scrollTo(0,0)}
+function setF(k,v){F[k]=v;store.set({proj:'proj',mkt:'mkt',ch:'ch2',range:'range',from:'from',to:'to',cmp:'cmp'}[k],k==='cmp'?(v?'1':'0'):v);oPage=0;try{history.replaceState(null,'',hashFor(view))}catch(e){}loadData()}
 document.addEventListener('click',e=>{
   const n=e.target.closest('#nav a[data-v]');if(n){e.preventDefault();go(n.dataset.v);return}
-  const rg=e.target.closest('[data-range]');if(rg){setF('range',rg.dataset.range);return}
+  const rg=e.target.closest('[data-range]');if(rg){const k=rg.dataset.range;if(k==='custom'&&!(F.from&&F.to)){const [f,t]=rangeDates();F.from=isoD(f);F.to=isoD(addD(t,-1));store.set('from',F.from);store.set('to',F.to)}setF('range',k);return}
+  const mt=e.target.closest('[data-metric]');if(mt){chartMetric=mt.dataset.metric;store.set('cmetric',chartMetric);render();return}
+  const srt=e.target.closest('[data-sortt]');if(srt&&!e.target.closest('.tip')){const [id,k]=srt.dataset.sortt.split(':');const st=SORT[id]||(SORT[id]={k,dir:-1});if(st.k===k)st.dir*=-1;else{st.k=k;st.dir=k==='name'?1:-1}render();return}
+  const ex=e.target.closest('[data-export]');if(ex){exportTable(ex.dataset.export);return}
+  if(e.target.id==='fReset'){Object.assign(F,{proj:'',mkt:'',ch:'all'});['proj','mkt'].forEach(k=>store.set(k,''));store.set('ch2','all');setF('range',ME.scope==='self'?'today':'month');return}
   const c=e.target.closest('[data-ch]');if(c){setF('ch',c.dataset.ch);return}
   const t=e.target.closest('[data-team]');if(t){curTeam=t.dataset.team;store.set('team',curTeam);render();return}
   const g=e.target.closest('[data-go]');if(g&&g.dataset.go){const i=g.dataset.go.indexOf(':');const v=g.dataset.go.slice(0,i),k=g.dataset.go.slice(i+1);if(v==='team'){curTeam=k;store.set('team',k)}if(v==='nhansu'){curStaff=k;store.set('staff',k)}if(ALLOWED.includes(v))go(v);return}
@@ -463,10 +587,13 @@ document.addEventListener('click',e=>{
   if(e.target.id==='ffCancel'){editFfm=null;formMsg.ffm='';keep={};render();return}
   const df=e.target.closest('[data-del-ffm]');if(df){const id=df.dataset.delFfm;if(delArm==='f:'+id){delArm=null;const nm=(FFMS.find(f=>f.id===id)||{}).name;db.collection('ffm').doc(id).delete().then(()=>{formMsg.ffm=`<span class="muted">Đã xoá ${esc(nm)}.</span>`;if(editFfm===id)editFfm=null;render()}).catch(err=>{formMsg.ffm=`<span class="neg">Chưa xoá được: ${esc(err.message||err.code)}.</span>`;render()})}else{delArm='f:'+id;render()}return}
 });
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-go]'))e.target.click()});
 document.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='ffmForm')submitFfm()});
 document.addEventListener('change',e=>{
   if(e.target.id==='fProj')setF('proj',e.target.value);
   if(e.target.id==='fMkt')setF('mkt',e.target.value);
+  if(e.target.id==='fCmp')setF('cmp',e.target.checked);
+  if(e.target.id==='fFrom'||e.target.id==='fTo'){const k=e.target.id==='fFrom'?'from':'to';if(e.target.value){F[k]=e.target.value;store.set(k,F[k]);setF('range','custom')}}
   if(e.target.id==='staffSel'){curStaff=e.target.value;store.set('staff',curStaff);render()}
   if(e.target.id==='jtFile'&&e.target.files[0])runJT(e.target.files[0]);
 });
@@ -474,7 +601,11 @@ function liveSearch(id,set){document.addEventListener('input',e=>{if(e.target.id
 liveSearch('pq',v=>pQ=v);liveSearch('oq',v=>{oQ=v;oPage=0});
 ['dragover','dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{const d=e.target.closest&&e.target.closest('#drop');if(!d)return;e.preventDefault();d.classList.toggle('over',ev==='dragover');if(ev==='drop'&&e.dataTransfer.files[0])runJT(e.dataTransfer.files[0])}));
 
-const h=(location.hash||'').slice(1);if(V[h])view=h;if(!ALLOWED.includes(view))view=ALLOWED[0];if(h!==view)try{history.replaceState(null,'','#'+view)}catch(e){}
+// Trang mở đầu theo vai trò: kế toán → KQKD, vận đơn / kho → Đơn hàng, còn lại → Tổng quan.
+const HOME={ke_toan:'kqkd',van_don:'donhang',kho:'donhang'}[ME.role];
+const h=(location.hash||'').slice(1).split('?')[0];
+view=V[h]&&ALLOWED.includes(h)?h:(HOME&&ALLOWED.includes(HOME)?HOME:ALLOWED[0]);
+try{history.replaceState(null,'',hashFor(view))}catch(e){}
 render();loadData();
 sbc.from('pos_shops').select('id,name,active,last_sync_status,last_sync_error').then(({data})=>{SHOPS=data||[]});
 if(ME.role==='admin'||ME.role==='quan_ly')sbc.rpc('admin_unmapped').then(({data})=>{UNMAPPED=data||[];render()});

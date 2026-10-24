@@ -18,6 +18,7 @@
 
     <!-- ---------- danh mục ---------- -->
     <section id="tab-danhmuc" hidden>
+      <div class="card" id="setupCard" hidden></div>
       <div class="tabs" id="catTabs"></div>
       <div id="catBody"></div>
     </section>
@@ -278,7 +279,37 @@
     if (f.type === "color") return `<input id="${id}" type="color" value="${esc(v || "#8a9289")}" style="height:36px;padding:2px">`;
     return `<input id="${id}" type="${f.type === "number" ? "number" : "text"}" ${f.type === "number" ? 'step="any"' : ""} value="${esc(v ?? "")}">`;
   }
+  // Thiết lập ban đầu: các bước theo thứ tự, đánh dấu ✓ khi xong; ẩn khi đã xong hết.
+  async function renderSetup() {
+    if (!isAdmin) return;
+    const [shops, pur] = await Promise.all([sb.from("pos_shops").select("id, api_key_hint, last_synced_at"), sb.from("purchases").select("id", { count: "exact", head: true })]);
+    const sh = shops.data || [], mk = unmapped.filter((u) => u.kind === "marketer" || u.kind === "utm").length;
+    const steps = [
+      [C.markets.length > 0, "Thị trường", "Khai báo thị trường, tiền tệ, tỷ giá.", "#danhmuc", "markets"],
+      [C.projects.length > 0 && C.teams.length > 0, "Dự án và team", "Tạo dự án, rồi các team trong từng dự án.", "#danhmuc", "teams"],
+      [sh.some((x) => x.api_key_hint), "Nối shop POS", "Thêm shop, dán API key, thử kết nối.", "#pos"],
+      [sh.some((x) => x.last_synced_at), "Đồng bộ đơn lần đầu", "Kéo đơn trong khoảng đồng bộ về.", "#pos"],
+      [C.staff.length > 0 && mk === 0, "Khai báo marketer", mk ? `Còn ${mk} marketer chưa thuộc team.` : "Gán marketer trên POS vào team.", "#chuakhaibao"],
+      [(pur.count || 0) > 0, "Giá vốn", "Tải file nhập hàng để tính lợi nhuận gộp.", "#giavon"],
+    ];
+    const n = steps.filter((x) => x[0]).length;
+    const card = $("#setupCard");
+    card.hidden = n === steps.length;
+    if (card.hidden) return;
+    card.innerHTML = `<div class="cardhead"><div><h2>Thiết lập ban đầu</h2><p class="hint">Làm lần lượt các bước để bảng điều hành có số liệu đầy đủ.</p></div>
+      <div class="progressline"><div class="bar"><i style="width:${(n / steps.length * 100).toFixed(0)}%"></i></div><b>${n}/${steps.length} bước</b></div></div>
+      <div class="setup">${steps.map(([ok, t, d, href, cat], i) => `<a href="${href}" class="${ok ? "done" : ""}" ${cat ? `data-setcat="${cat}"` : ""}><span class="ck">${ok ? "✓" : i + 1}</span><span><b>${t}</b><small>${d}</small></span></a>`).join("")}</div>`;
+  }
+  $("#setupCard").addEventListener("click", (e) => {
+    const a = e.target.closest("a"); if (!a) return;
+    e.preventDefault();
+    const tab = a.getAttribute("href").slice(1);
+    if (a.dataset.setcat) { curCat = a.dataset.setcat; addOpen = false; editing = null; }
+    go(tab);
+  });
+
   function renderCat() {
+    renderSetup();
     const c = CAT[curCat], rows = C[curCat], canW = c.write();
     document.querySelectorAll("#catTabs button").forEach((b) => b.classList.toggle("on", b.dataset.cat === curCat));
     const rec = editing ? byId(rows, editing) : prefill;
@@ -288,7 +319,7 @@
       <div class="msg" id="catMsg">${catMsg}</div>
       <div class="tw"><table><thead><tr>${shown.map((f) => `<th class="l">${esc(f.label.split(" (")[0].split(",")[0])}</th>`).join("")}${(c.extra || []).map((x) => `<th>${x[0]}</th>`).join("")}<th></th></tr></thead><tbody>
       ${rows.map((r) => `<tr class="${editing === r.id ? "editing" : ""}">${shown.map((f) => `<td class="l" style="white-space:normal">${c.cell && c.cell[f.k] ? c.cell[f.k](r) : f.type === "bool" ? (r[f.k] !== false ? '<span class="pill p-good">Hoạt động</span>' : '<span class="pill p-mute">Ngừng</span>') : esc(r[f.k] ?? "")}</td>`).join("")}${(c.extra || []).map((x) => `<td>${x[1](r)}</td>`).join("")}
-        <td class="actions">${canW ? `<button class="lnk" data-edit="${esc(r.id)}">Sửa</button><button class="lnk ${armed === r.id ? "danger" : ""}" data-del="${esc(r.id)}">${armed === r.id ? "Bấm lần nữa để xoá" : "Xoá"}</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="${shown.length + (c.extra || []).length + 1}">${Shell.empty("folder", "Chưa có " + c.label.toLowerCase() + " nào", canW ? "Bấm “Thêm " + c.label.toLowerCase() + "” để tạo mục đầu tiên." : "")}</td></tr>`}
+        <td class="actions">${canW ? `<button class="lnk" data-edit="${esc(r.id)}">Sửa</button><button class="lnk" data-del="${esc(r.id)}">Xoá</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="${shown.length + (c.extra || []).length + 1}">${Shell.empty("folder", "Chưa có " + c.label.toLowerCase() + " nào", canW ? "Bấm “Thêm " + c.label.toLowerCase() + "” để tạo mục đầu tiên." : "")}</td></tr>`}
       </tbody></table></div>
       ${formOpen ? `<form id="catForm" class="editor" novalidate><div class="edtitle">${editing ? "Sửa " + c.label.toLowerCase() + ": " + esc(rec?.name) : "Thêm " + c.label.toLowerCase()}</div>
         <div class="form">${c.fields.map((f) => `<label>${esc(f.label)}${fieldInput(f, rec ? rec[f.k] : f.type === "bool" ? true : undefined)}</label>`).join("")}</div>
@@ -301,11 +332,25 @@
     if (e.target.id === "catCancel") { editing = null; addOpen = false; catMsg = ""; renderCat(); return; }
     if (e.target.closest("#catAdd")) { addOpen = true; editing = null; catMsg = ""; renderCat(); const f = $("#catForm input"); if (f) f.focus(); return; }
     const del = e.target.closest("[data-del]"); if (del) {
-      const id = del.dataset.del; if (armed !== id) { armed = id; renderCat(); return; }
-      armed = null;
-      const { data, error } = await sb.from(c.table).delete().eq("id", id).select("id");
-      catMsg = error ? `<span class="neg">Chưa xoá được: ${esc(error.message)}</span>` : !data.length ? '<span class="neg">Không có quyền xoá mục này.</span>' : '<span class="muted">Đã xoá.</span>';
-      await reloadCatalog(); renderCat();
+      const id = del.dataset.del, row = byId(C[curCat], id);
+      // Mục khác đang trỏ tới mục này: hỏi lại, nêu rõ hậu quả; ghi lại để hoàn tác khôi phục liên kết.
+      const DEP = { projects: [["teams", "project_id", "team"], ["staff", "project_id", "nhân sự"]], teams: [["staff", "team_id", "nhân sự"]], markets: [["pos_shops", "market_id", "shop POS"]] };
+      const links = [];
+      for (const [t, col, lbl] of DEP[curCat] || []) {
+        const { data } = await sb.from(t).select("id").eq(col, id);
+        if (data && data.length) links.push({ t, col, lbl, ids: data.map((x) => x.id) });
+      }
+      if (links.length && !confirm(`“${row.name}” đang có ${links.map((l) => l.ids.length + " " + l.lbl).join(", ")}. Xoá thì các mục đó sẽ không còn thuộc “${row.name}” nữa. Vẫn xoá?`)) return;
+      const { data, error } = await sb.from(c.table).delete().eq("id", id).select("*");
+      if (error || !data.length) { catMsg = `<span class="neg">${error ? "Chưa xoá được: " + esc(error.message) : "Không có quyền xoá mục này."}</span>`; renderCat(); return; }
+      catMsg = ""; editing = editing === id ? null : editing; await reloadCatalog(); renderCat();
+      const saved = data[0], cat = curCat;
+      Shell.toast(`Đã xoá ${c.label.toLowerCase()} “${saved.name}”.`, { undo: async () => {
+        const { error: e2 } = await sb.from(CAT[cat].table).insert(saved);
+        if (e2) { Shell.toast("Không hoàn tác được: " + e2.message, { err: true }); return; }
+        for (const l of links) await sb.from(l.t).update({ [l.col]: id }).in("id", l.ids);
+        await reloadCatalog(); renderCat(); Shell.toast(`Đã khôi phục “${saved.name}”.`);
+      } });
     }
   });
   $("#catBody").addEventListener("submit", async (e) => {
