@@ -243,7 +243,8 @@ declare n bigint;
 begin
   -- Gọi từ SQL Editor (không có người dùng đăng nhập) hoặc admin.
   if auth.uid() is not null and not public.is_admin() then raise exception 'Chỉ admin' using errcode = '42501'; end if;
-  update public.orders set synced_at = synced_at;
+  -- Supabase chặn UPDATE không có WHERE (safeupdate), nên cần điều kiện luôn đúng.
+  update public.orders set synced_at = synced_at where pos_order_id is not null;
   get diagnostics n = row_count;
   return n;
 end $$;
