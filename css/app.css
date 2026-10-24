@@ -89,7 +89,7 @@ tr.editing td{background:var(--accent-soft)}
 .legend .row .k{display:flex;align-items:center;gap:8px}
 .legend .row .s{color:var(--muted);font-size:12px;min-width:56px;text-align:right}
 .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
-select,input[type=search],input[type=text],input[type=number]{font:500 13px var(--font);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+select,input[type=search],input[type=text],input[type=number],input[type=password],input[type=email]{font:500 13px var(--font);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
 input[type=search]{min-width:0;flex:1 1 200px;max-width:320px}
 svg text{font-family:var(--font)}
 .chart{width:100%;height:auto;display:block}
@@ -154,3 +154,5 @@ pre.raw{font:12px/1.5 var(--mono);background:var(--sunk);border:1px solid var(--
 .spin{width:11px;height:11px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;display:inline-block}
 @media (prefers-reduced-motion:no-preference){.spin{animation:spin .8s linear infinite}}
 @keyframes spin{to{transform:rotate(360deg)}}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.filters select{min-width:0;max-width:100%}

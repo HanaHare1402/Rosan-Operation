@@ -4,6 +4,7 @@
   const ROLES = {
     admin: "Admin",
     quan_ly: "Quản lý",
+    truong_team: "Trưởng team",
     marketing: "Marketing",
     ke_toan: "Kế toán",
     van_don: "Vận đơn",
@@ -14,15 +15,22 @@
   const VIEWS = {
     admin: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "canhbao", "caidat"],
     quan_ly: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "canhbao", "caidat"],
-    marketing: ["tongquan", "team", "nhansu", "sanpham", "canhbao"],
+    truong_team: ["tongquan", "team", "nhansu", "sanpham", "donhang", "canhbao"],
+    marketing: ["tongquan", "nhansu", "sanpham", "donhang", "canhbao"],
     ke_toan: ["tongquan", "donhang", "kqkd", "canhbao", "caidat"],
     van_don: ["donhang", "canhbao"],
     kho: ["sanpham", "donhang", "canhbao"],
-    sale: ["donhang", "sanpham"],
+    sale: ["tongquan", "nhansu", "donhang", "sanpham"],
   };
 
-  const TEAMS = { phong: "Team Phong", mung: "Team Mừng", hieu: "Team Hiếu", nhung: "Team Nhung", san: "Team Sàn" };
-  const CHANNELS = { fb: "Facebook", gg: "Google", tiktok: "TikTok", shopee: "Shopee", lazada: "Lazada", khac: "Khác" };
+  // Phạm vi xem: quyết định tài khoản thấy đơn nào.
+  const SCOPES = {
+    all: "Toàn công ty",
+    project: "Dự án được gán",
+    team: "Team được gán",
+    self: "Chỉ của mình",
+  };
+  const DEFAULT_SCOPE = { admin: "all", ke_toan: "all", quan_ly: "project", van_don: "project", kho: "project", truong_team: "team", marketing: "self", sale: "self" };
 
   const configured = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
   const sb = configured && window.supabase ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
@@ -31,9 +39,9 @@
     if (!sb) return null;
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return null;
-    const { data, error } = await sb.from("profiles").select("id, email, full_name, role, team").eq("id", session.user.id).maybeSingle();
+    const { data, error } = await sb.from("profiles").select("id, email, full_name, role, scope, project_ids, team_id, staff_id").eq("id", session.user.id).maybeSingle();
     if (error) throw error;
-    return data || { id: session.user.id, email: session.user.email, full_name: "", role: null, team: null };
+    return data || { id: session.user.id, email: session.user.email, full_name: "", role: null, scope: "self", project_ids: [], team_id: null, staff_id: null };
   }
 
   // Trang cần đăng nhập: chưa đăng nhập thì chuyển về login.html.
@@ -57,7 +65,15 @@
     return data;
   }
 
+  // Danh mục dùng chung: dự án, team, thị trường, kênh, nhân sự.
+  async function loadCatalog() {
+    const q = (t, order) => sb.from(t).select("*").order(order || "name");
+    const [p, t, m, c, s] = await Promise.all([q("projects", "sort"), q("teams"), q("markets"), q("channels", "sort"), q("staff")]);
+    for (const r of [p, t, m, c, s]) if (r.error) throw r.error;
+    return { projects: p.data, teams: t.data, markets: m.data, channels: c.data, staff: s.data };
+  }
+
   async function signOut() { if (sb) await sb.auth.signOut(); location.replace("login.html"); }
 
-  window.Auth = { sb, configured, ROLES, VIEWS, TEAMS, CHANNELS, loadProfile, requireAuth, callFn, signOut };
+  window.Auth = { sb, configured, ROLES, VIEWS, SCOPES, DEFAULT_SCOPE, loadCatalog, loadProfile, requireAuth, callFn, signOut };
 })();

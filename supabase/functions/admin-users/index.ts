@@ -1,7 +1,25 @@
 // Quản lý tài khoản: chỉ admin gọi được. Tạo tài khoản, đổi quyền, đặt lại mật khẩu, khoá, xoá.
 import { adminClient, cors, getCaller, json } from "../_shared/common.ts";
 
-const ROLES = ["admin", "quan_ly", "marketing", "ke_toan", "van_don", "kho", "sale"];
+const ROLES = ["admin", "quan_ly", "truong_team", "marketing", "ke_toan", "van_don", "kho", "sale"];
+const SCOPES = ["all", "project", "team", "self"];
+// Phạm vi xem mặc định theo vai trò; admin chỉnh lại được từng người.
+const DEFAULT_SCOPE: Record<string, string> = {
+  admin: "all", ke_toan: "all", quan_ly: "project", van_don: "project", kho: "project", truong_team: "team", marketing: "self", sale: "self",
+};
+
+// Các trường phạm vi gửi lên (chỉ lấy trường có mặt).
+function scopePatch(body: Record<string, any>, role: string | null) {
+  const p: Record<string, unknown> = {};
+  if ("scope" in body || "role" in body) {
+    const sc = body.scope && SCOPES.includes(body.scope) ? body.scope : (role ? DEFAULT_SCOPE[role] : "self");
+    p.scope = sc;
+  }
+  if ("project_ids" in body) p.project_ids = Array.isArray(body.project_ids) ? body.project_ids.map(String).filter(Boolean) : [];
+  if ("team_id" in body) p.team_id = body.team_id || null;
+  if ("staff_id" in body) p.staff_id = body.staff_id || null;
+  return p;
+}
 const BAN_FOREVER = "876000h";
 
 Deno.serve(async (req) => {
@@ -28,7 +46,7 @@ Deno.serve(async (req) => {
           users.push(...data.users);
           if (data.users.length < 1000) break;
         }
-        const { data: profiles, error } = await sb.from("profiles").select("id, full_name, role, team");
+        const { data: profiles, error } = await sb.from("profiles").select("id, full_name, role, scope, project_ids, team_id, staff_id");
         if (error) throw error;
         const pm = new Map(profiles.map((p) => [p.id, p]));
         return json({
@@ -37,7 +55,10 @@ Deno.serve(async (req) => {
             email: u.email,
             full_name: pm.get(u.id)?.full_name ?? "",
             role: pm.get(u.id)?.role ?? null,
-            team: pm.get(u.id)?.team ?? null,
+            scope: pm.get(u.id)?.scope ?? "self",
+            project_ids: pm.get(u.id)?.project_ids ?? [],
+            team_id: pm.get(u.id)?.team_id ?? null,
+            staff_id: pm.get(u.id)?.staff_id ?? null,
             banned: !!u.banned_until && new Date(u.banned_until) > new Date(),
             last_sign_in_at: u.last_sign_in_at,
             created_at: u.created_at,
@@ -54,7 +75,7 @@ Deno.serve(async (req) => {
         if (error) throw error;
         // Trigger đã tạo profile; ghi thêm tên, quyền, team.
         const { error: e2 } = await sb.from("profiles").upsert({
-          id: data.user.id, email, full_name: body.full_name || "", role, team: body.team || null, updated_at: new Date().toISOString(),
+          id: data.user.id, email, full_name: body.full_name || "", role, ...scopePatch({ ...body, role }, role), updated_at: new Date().toISOString(),
         });
         if (e2) throw e2;
         return json({ ok: true, id: data.user.id });
@@ -66,7 +87,7 @@ Deno.serve(async (req) => {
         const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
         if ("full_name" in body) patch.full_name = String(body.full_name || "");
         if ("role" in body) patch.role = role;
-        if ("team" in body) patch.team = body.team || null;
+        Object.assign(patch, scopePatch(body, role));
         const { error } = await sb.from("profiles").update(patch).eq("id", id);
         if (error) throw error;
         return json({ ok: true });
