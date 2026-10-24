@@ -515,8 +515,10 @@
   async function runSync(body, label) {
     if (looping) { say($("#shopsMsg"), "Đang có lượt đồng bộ chạy, bấm Dừng nếu muốn chạy lượt khác.", "neg"); return; }
     looping = true; stopLoop = false;
-    const sum = {}; let round = 0, last = null;
-    const status = () => say($("#shopsMsg"), `<span class="spin" aria-hidden="true"></span> ${label} · lượt ${round}${Object.keys(sum).length ? " · đã lưu " + nf.format(Object.values(sum).reduce((a, b) => a + b, 0)) + " đơn" : ""} <button class="lnk danger" type="button" id="stopSync">Dừng</button>`, "muted");
+    const sum = {}; let round = 0, last = null, busySince = null;
+    const ST = { ok: "xong", partial: "đang kéo dở", busy: "chờ lượt khác của shop này kết thúc", skipped: "chờ lượt sau", error: "lỗi" };
+    const detail = () => last ? " · " + (last.results || []).map((x) => `${esc(x.shop)}: ${ST[x.status] || esc(x.status)}${x.orders ? " +" + nf.format(x.orders) + " đơn" : ""}${x.error ? " (" + esc(x.error) + ")" : ""}`).join("; ") : "";
+    const status = () => say($("#shopsMsg"), `<span class="spin" aria-hidden="true"></span> ${label} · lượt ${round} · đã lưu ${nf.format(Object.values(sum).reduce((a, b) => a + b, 0))} đơn${detail()} <button class="lnk danger" type="button" id="stopSync">Dừng</button>`, "muted");
     loadShops();
     try {
       for (round = 1; round <= 300 && !stopLoop; round++) {
@@ -525,8 +527,12 @@
         (last.results || []).forEach((x) => (sum[x.shop] = (sum[x.shop] || 0) + (x.orders || 0)));
         const pending = (last.results || []).filter((x) => x.status === "partial" || x.status === "busy" || x.status === "skipped");
         if (!pending.length) break;
-        // Lượt khác (lịch 15 phút / người khác) đang kéo đúng shop đó thì chờ một chút.
-        if (pending.every((x) => x.status === "busy")) await new Promise((r) => setTimeout(r, 5000));
+        // Lượt khác (lịch 15 phút / người khác) đang kéo đúng shop đó thì chờ; khoá tự hết sau 3 phút.
+        if (pending.every((x) => x.status === "busy")) {
+          busySince = busySince || Date.now();
+          if (Date.now() - busySince > 240000) { say($("#shopsMsg"), "Shop vẫn bị một lượt khác giữ sau 4 phút. Kiểm tra đã chạy SQL 20261025030000_sync_progress.sql chưa, rồi bấm Đồng bộ lại.", "neg"); looping = false; loadShops(); return; }
+          status(); await new Promise((r) => setTimeout(r, 5000));
+        } else busySince = null;
         loadShops();
       }
       say($("#shopsMsg"), stopLoop ? "Đã dừng. Phần còn lại lịch 15 phút sẽ tự chạy tiếp, hoặc bấm Đồng bộ lần nữa." : `Xong sau ${round} lượt.`, stopLoop ? "muted" : "pos");
