@@ -827,12 +827,13 @@
     grid.slice(hi + 1).forEach((r, i) => {
       if (!r.some((x) => String(x).trim())) return;
       if (stWant && c.status >= 0 && !norm(r[c.status]).includes(stWant)) { skipped++; return; }
-      const code = c.code >= 0 ? String(r[c.code]).trim() : "";
+      // Dòng phụ của cùng một lô thường bỏ trống mã: dùng tên tiếng Anh (giá vốn khớp được theo tên).
+      const code = (c.code >= 0 ? String(r[c.code]).trim() : "") || (c.nameEn >= 0 ? String(r[c.nameEn]).trim() : "");
       const date = (c.date >= 0 ? parseDate(r[c.date]) : null) || (c.date2 >= 0 ? parseDate(r[c.date2]) : null);
       const qty = c.qty >= 0 ? parseNum(r[c.qty]) : NaN;
       let cost = c.cost >= 0 ? parseNum(r[c.cost]) : NaN;
       if (!(cost > 0) && c.total >= 0 && qty > 0) cost = parseNum(r[c.total]) / qty;
-      const why = !code ? "thiếu mã" : !date ? "ngày không đọc được" : !(cost > 0) ? "thiếu đơn giá" : "";
+      const why = !code ? "thiếu cả mã lẫn tên tiếng Anh" : !date ? "ngày không đọc được" : !(cost > 0) ? "thiếu đơn giá" : "";
       if (why) { bad.push({ row: hi + 2 + i, why }); return; }
       ok.push({ code, name: c.name >= 0 ? String(r[c.name]).trim() || null : null, name_en: c.nameEn >= 0 ? String(r[c.nameEn]).trim() || null : null, purchase_date: iso(date), qty: qty > 0 ? qty : null,
         unit_cost: Math.round(cost * 10000) / 10000, currency: cur, unit_cost_vnd: Math.round(cost * rate * 100) / 100,
