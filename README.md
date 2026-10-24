@@ -13,7 +13,7 @@ Bảng điều hành vận hành Team Vương (Phil): tổng quan, team, nhân s
 | Quản trị (admin) | `admin.html` | Tạo tài khoản, cấp vai trò, khoá/xoá; thêm shop POS, đặt API key, thử kết nối, đồng bộ. |
 | Database | `supabase/migrations/…_init.sql` | Bảng, phân quyền (RLS), lưu key vào Supabase Vault. |
 | Server | `supabase/functions/admin-users`, `supabase/functions/pos` | Quản lý tài khoản; gọi API Pancake POS và kéo đơn về. |
-| Lịch đồng bộ | `supabase/cron.sql` | 15 phút kéo đơn một lần. |
+| Cập nhật đơn | `supabase/functions/pos` + `supabase/cron.sql` | Mở bảng điều hành là kéo đơn mới nhất (tối đa 30 giây/lần cho mọi người), 2 phút/lần khi đang xem; lịch 15 phút làm tiếp phần kéo dở. |
 
 **Vai trò:** Admin · Quản lý · Marketing · Kế toán · Vận đơn · Kho · Sale. Bảng vai trò ↔ màn hình nằm trong `js/auth.js` (`VIEWS`) và hiện ở trang Quản trị.
 
@@ -25,7 +25,7 @@ Bảng điều hành vận hành Team Vương (Phil): tổng quan, team, nhân s
 ## Cài đặt lần đầu
 
 1. **Tạo project Supabase** ở https://supabase.com (gói Free là đủ). Chọn region Singapore.
-2. **Tạo database:** SQL Editor → New query → dán toàn bộ `supabase/migrations/20261024000000_init.sql` → Run.
+2. **Tạo database:** SQL Editor → New query → dán lần lượt từng file trong `supabase/migrations/` theo thứ tự tên (`…000000_init.sql` trước, rồi `…010000_sync_lock.sql`) → Run.
 3. **Khoá đăng ký và đặt địa chỉ trang:**
    - Authentication → Sign In / Providers: tắt **Allow new users to sign up**.
    - Authentication → URL Configuration: *Site URL* = `https://hanahare1402.github.io/Rosan-Operation/`. Thêm `https://hanahare1402.github.io/Rosan-Operation/login.html` vào *Redirect URLs* để link quên mật khẩu hoạt động.
