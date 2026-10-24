@@ -9,7 +9,6 @@ const POS = "https://pos.pages.fm/api/v1";
 const PAGE_SIZE = 100;
 const TIME_BUDGET_MS = 110_000; // dừng sớm, lần chạy sau làm tiếp từ trang đang dở
 const OVERLAP_MS = 10 * 60_000; // lùi 10 phút mỗi lần để không sót đơn cập nhật sát mốc
-const DEFAULT_BACKFILL_DAYS = 30;
 const REFRESH_BUDGET_MS = 25_000; // người dùng đang chờ trên trang
 const REFRESH_MIN_GAP_MS = 30_000; // vừa kéo trong 30 giây thì dùng luôn, không gọi POS nữa
 
@@ -77,7 +76,7 @@ function mapOrder(shopId: string, o: any) {
   };
 }
 
-async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger: string, deadline: number, backfillDays: number) {
+async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger: string, deadline: number) {
   // Lượt khác đang kéo shop này thì bỏ qua, tránh hai lượt ghi chồng nhau.
   const { data: locked, error: le } = await sb.rpc("internal_lock_shop", { p_shop: shop.id });
   if (le) return { shop: shop.name, status: "error", pages: 0, orders: 0, error: "Chưa chạy SQL 20261024010000_sync_lock.sql trên Supabase: " + le.message };
@@ -96,9 +95,13 @@ async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger:
     if (!key) throw new Error("Chưa có API key");
 
     // Tiếp tục cửa sổ đang dở, hoặc mở cửa sổ mới từ lần đồng bộ trước (lùi một chút) đến bây giờ.
+    // Mốc đồng bộ admin chọn (Quản trị → Kết nối POS): đơn tạo trước mốc thì không kéo, không giữ.
+    const { data: cut, error: ce } = await sb.rpc("sync_cutoff", { p_shop: shop.id });
+    if (ce) throw new Error("Chưa chạy SQL 20261025020000_sync_range.sql trên Supabase: " + ce.message);
+    const cutoff = new Date(cut as string);
     const start = shop.sync_window_start ? new Date(shop.sync_window_start)
-      : shop.last_synced_at ? new Date(+new Date(shop.last_synced_at) - OVERLAP_MS)
-      : new Date(Date.now() - backfillDays * 86400_000);
+      : shop.last_synced_at ? new Date(Math.max(+new Date(shop.last_synced_at) - OVERLAP_MS, +cutoff))
+      : cutoff;
     const end = shop.sync_window_end ? new Date(shop.sync_window_end) : new Date();
     // Lùi một trang khi làm tiếp: đơn được cập nhật trong lúc chạy có thể làm các trang dịch đi.
     let page = Math.max(1, (shop.sync_page ?? 1) - (shop.sync_page ? 1 : 0));
@@ -114,7 +117,9 @@ async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger:
       const list: any[] = Array.isArray(body.data) ? body.data : Array.isArray(body.orders) ? body.orders : [];
       pages++;
       if (list.length) {
-        const rows = list.filter((o) => o && (o.id ?? o.system_id) != null).map((o) => mapOrder(shop.id, o));
+        // Lọc theo ngày tạo: đơn cũ vừa đổi trạng thái vẫn nằm trong danh sách "vừa cập nhật".
+        const rows = list.filter((o) => o && (o.id ?? o.system_id) != null && !(ts(o.inserted_at) && new Date(ts(o.inserted_at)!) < cutoff))
+          .map((o) => mapOrder(shop.id, o));
         const { error } = await sb.from("orders").upsert(rows, { onConflict: "shop_id,pos_order_id" });
         if (error) throw error;
         count += rows.length;
@@ -181,20 +186,27 @@ Deno.serve(async (req) => {
       if (trigger !== "cron" && !["admin", "quan_ly"].includes(role || "")) return json({ error: "Chỉ admin hoặc quản lý" }, 403);
       let q = sb.from("pos_shops").select("*").eq("active", true).not("api_key_secret_id", "is", null);
       if (body.shop) q = q.eq("id", body.shop);
-      // Kéo lại từ đầu (backfill_days ngày) cho shop được chọn.
-      if (body.reset && body.shop && isAdmin) {
-        await sb.from("pos_shops").update({ last_synced_at: null, sync_window_start: null, sync_window_end: null, sync_page: null }).eq("id", body.shop);
+      // Kéo lại từ mốc đồng bộ: một shop, hoặc tất cả (sau khi admin đổi khoảng đồng bộ).
+      if (body.reset && isAdmin) {
+        let r = sb.from("pos_shops").update({ last_synced_at: null, sync_window_start: null, sync_window_end: null, sync_page: null });
+        r = body.shop ? r.eq("id", body.shop) : r.not("id", "is", null);
+        await r;
       }
       // Shop lâu chưa đồng bộ nhất chạy trước, để shop lớn không chiếm hết thời gian của shop khác.
       const { data: shops, error } = await q.order("last_synced_at", { ascending: true, nullsFirst: true });
       if (error) throw error;
-      const days = Math.min(400, Math.max(1, Number(body.backfill_days) || DEFAULT_BACKFILL_DAYS));
       const results = [];
       for (const s of shops as Shop[]) {
         if (Date.now() > deadline) { results.push({ shop: s.name, status: "skipped", error: "Hết thời gian, lần sau làm tiếp" }); continue; }
-        results.push(await syncShop(sb, s, trigger, deadline, days));
+        results.push(await syncShop(sb, s, trigger, deadline));
       }
-      return json({ ok: true, results });
+      // Lịch 15 phút dọn đơn cũ hơn mốc (nếu admin bật) và nhật ký cũ.
+      let purged: number | null = null;
+      if (trigger === "cron" || body.purge) {
+        const { data } = await sb.rpc("purge_old_orders");
+        purged = typeof data === "number" ? data : null;
+      }
+      return json({ ok: true, results, purged });
     }
 
     if (body.action === "refresh") {
@@ -206,7 +218,7 @@ Deno.serve(async (req) => {
         .is("sync_window_start", null).not("last_synced_at", "is", null).lt("last_synced_at", fresh);
       if (error) throw error;
       const until = Date.now() + REFRESH_BUDGET_MS;
-      const results = await Promise.all((shops as Shop[]).map((s) => syncShop(sb, s, "mở trang: " + trigger, until, DEFAULT_BACKFILL_DAYS)));
+      const results = await Promise.all((shops as Shop[]).map((s) => syncShop(sb, s, "mở trang: " + trigger, until)));
       // Mốc dữ liệu = shop cũ nhất trong số shop đang bán và có key.
       const { data: all } = await sb.from("pos_shops").select("name, last_synced_at")
         .eq("active", true).not("api_key_secret_id", "is", null);

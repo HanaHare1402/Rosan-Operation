@@ -27,7 +27,7 @@ Bảng điều hành vận hành Team Vương (Phil): tổng quan, team, nhân s
 ## Cài đặt lần đầu
 
 1. **Tạo project Supabase** ở https://supabase.com (gói Free là đủ). Chọn region Singapore.
-2. **Tạo database:** SQL Editor → New query → dán lần lượt từng file trong `supabase/migrations/` theo thứ tự tên (`…000000_init.sql`, `…010000_sync_lock.sql`, `…25000000_org_structure.sql`, `…25010000_pos_fields.sql`) → Run.
+2. **Tạo database:** SQL Editor → New query → dán lần lượt từng file trong `supabase/migrations/` theo thứ tự tên (`…000000_init.sql`, `…010000_sync_lock.sql`, `…25000000_org_structure.sql`, `…25010000_pos_fields.sql`, `…25020000_sync_range.sql`) → Run.
 3. **Khoá đăng ký và đặt địa chỉ trang:**
    - Authentication → Sign In / Providers: tắt **Allow new users to sign up**.
    - Authentication → URL Configuration: *Site URL* = `https://hanahare1402.github.io/Rosan-Operation/`. Thêm `https://hanahare1402.github.io/Rosan-Operation/login.html` vào *Redirect URLs* để link quên mật khẩu hoạt động.
