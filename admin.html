@@ -20,6 +20,7 @@
       <a href="#chuakhaibao" data-tab="chuakhaibao">Chưa khai báo <span class="cnt" id="unmappedCnt" hidden>0</span></a>
       <a href="#taikhoan" data-tab="taikhoan">Tài khoản</a>
       <a href="#pos" data-tab="pos">Kết nối POS</a>
+      <a href="#giavon" data-tab="giavon">Giá vốn</a>
       <a href="#nhatky" data-tab="nhatky">Nhật ký đồng bộ</a>
     </nav>
     <div class="userbox"><span class="who" id="who"></span><span class="muted" id="whoRole"></span><div class="acts"><button class="lnk" id="logout">Đăng xuất</button></div></div>
@@ -118,6 +119,37 @@
     </section>
 
     <!-- ---------- nhật ký ---------- -->
+    <section id="tab-giavon" hidden>
+      <div class="card" id="costUpload">
+        <h2>Tải dữ liệu nhập hàng</h2>
+        <p class="hint">Giá vốn tính theo <b>giá nhập gần nhất</b>: mỗi sản phẩm trong đơn lấy đơn giá của lần nhập gần nhất tính đến ngày tạo đơn (chưa có lần nhập nào trước đó thì lấy lần nhập sớm nhất). Tải file Excel (.xlsx) hoặc .csv; tải lại cùng file không bị trùng, chỉ thêm dòng mới.</p>
+        <div class="drop" id="costDrop"><input type="file" id="costFile" accept=".xlsx,.xls,.csv" style="max-width:100%"><div style="margin-top:6px;font-size:12px">hoặc kéo thả file vào đây</div></div>
+        <div id="costMap" hidden style="margin-top:14px">
+          <div class="form">
+            <label>Trang tính<select id="cmSheet"></select></label>
+            <label>Dòng tiêu đề<input id="cmHeader" type="number" min="1" step="1"></label>
+            <label>Cột mã sản phẩm (mã trên POS)<select id="cmCode"></select></label>
+            <label>Cột tên sản phẩm<select id="cmName"></select></label>
+            <label>Cột ngày nhập<select id="cmDate"></select></label>
+            <label>Cột số lượng<select id="cmQty"></select></label>
+            <label>Cột đơn giá nhập / 1 sản phẩm<select id="cmCost"></select></label>
+            <label>Hoặc cột thành tiền (chia cho số lượng)<select id="cmTotal"></select></label>
+            <label>Cột nhà cung cấp<select id="cmSupplier"></select></label>
+            <label>Đơn vị tiền của giá<select id="cmCur"></select></label>
+            <label>1 đơn vị tiền = ? VNĐ<input id="cmRate" type="number" step="any" min="0"></label>
+          </div>
+          <p class="hint" style="margin:10px 0 6px" id="cmSummary"></p>
+          <div class="tw"><table id="cmPreview"></table></div>
+          <div class="formrow"><button class="btn" type="button" id="cmImport">Tải lên</button><label style="display:flex;gap:6px;align-items:center;font-size:12.5px"><input type="checkbox" id="cmReplace"> Xoá toàn bộ dữ liệu nhập hàng cũ trước khi tải</label><span class="fmsg" id="cmMsg"></span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cardhead"><div><h2>Giá vốn hiện tại</h2><p class="hint">Giá của lần nhập gần nhất. Dòng đỏ: sản phẩm đã bán trong 30 ngày mà chưa có dữ liệu nhập hàng (giá vốn tính bằng 0).</p></div><input type="search" id="costQ" placeholder="Tìm mã hoặc tên"></div>
+        <div class="msg" id="costMsg" role="status"></div>
+        <div class="tw"><table><thead><tr><th class="l">Mã</th><th class="l">Sản phẩm</th><th>Giá vốn hiện tại (VNĐ)</th><th class="l">Lần nhập gần nhất</th><th>SL nhập</th><th>Số lần nhập</th><th>Đã bán 30 ngày</th></tr></thead><tbody id="costRows"><tr><td colspan="7" class="l muted">Đang tải…</td></tr></tbody></table></div>
+      </div>
+    </section>
+
     <section id="tab-nhatky" hidden>
       <div class="card"><div class="cardhead"><div><h2>50 lần đồng bộ gần nhất</h2><p class="hint">Đơn được kéo khi có người mở bảng điều hành (tối đa 30 giây một lần) và theo lịch tự động 2 tiếng/lần. “partial”: chưa kéo hết, lần sau làm tiếp. “busy”: lượt khác đang kéo shop đó.</p></div><button class="btn ghost" id="reloadRuns">Tải lại</button></div>
       <div class="tw"><table><thead><tr><th class="l">Bắt đầu</th><th class="l">Shop</th><th class="l">Người / lịch</th><th>Trang</th><th>Đơn</th><th class="l">Kết quả</th><th class="l">Lỗi</th></tr></thead><tbody id="runs"></tbody></table></div></div>
@@ -128,6 +160,7 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
 <script src="js/auth.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (async function () {
   const $ = (s) => document.querySelector(s);
@@ -143,8 +176,8 @@
   $("#who").textContent = me.full_name || me.email;
   $("#whoRole").textContent = Auth.ROLES[me.role] || "Chưa có vai trò";
   $("#logout").onclick = () => Auth.signOut();
-  const isAdmin = me.role === "admin", isQL = me.role === "quan_ly";
-  if (!isAdmin && !isQL) { $("#denied").hidden = false; document.querySelector("nav").querySelectorAll("a[data-tab]").forEach((a) => (a.hidden = true)); return; }
+  const isAdmin = me.role === "admin", isQL = me.role === "quan_ly", isKT = me.role === "ke_toan";
+  if (!isAdmin && !isQL && !isKT) { $("#denied").hidden = false; document.querySelector("nav").querySelectorAll("a[data-tab]").forEach((a) => (a.hidden = true)); return; }
   document.querySelectorAll("[data-admin]").forEach((e) => (e.hidden = !isAdmin));
 
   // ---------- danh mục dùng chung ----------
@@ -158,22 +191,24 @@
   try { await reloadCatalog(); } catch (e) { $("#subtitle").innerHTML = `<span class="neg">Không đọc được danh mục: ${esc(e.message)}. Kiểm tra đã chạy file SQL 20261025000000_org_structure.sql chưa.</span>`; }
 
   // ---------- điều hướng tab ----------
+  // [tiêu đề, mô tả, vai trò được vào]
   const TABS = {
-    danhmuc: ["Danh mục", "Dự án, team, thị trường, kênh, nhân sự", true],
-    chuakhaibao: ["Chưa khai báo", "Marketer và nguồn đơn từ POS chưa khớp danh mục", true],
-    taikhoan: ["Tài khoản", "Tạo tài khoản, cấp vai trò và phạm vi xem", false],
-    pos: ["Kết nối POS", "Shop, API key Pancake POS và đồng bộ đơn", false],
-    nhatky: ["Nhật ký đồng bộ", "Lịch sử kéo đơn từ POS", false],
+    danhmuc: ["Danh mục", "Dự án, team, thị trường, kênh, nhân sự", ["admin", "quan_ly"]],
+    chuakhaibao: ["Chưa khai báo", "Marketer và nguồn đơn từ POS chưa khớp danh mục", ["admin", "quan_ly"]],
+    taikhoan: ["Tài khoản", "Tạo tài khoản, cấp vai trò và phạm vi xem", ["admin"]],
+    pos: ["Kết nối POS", "Shop, API key Pancake POS và đồng bộ đơn", ["admin"]],
+    giavon: ["Giá vốn", "Dữ liệu nhập hàng, giá vốn theo giá nhập gần nhất", ["admin", "quan_ly", "ke_toan"]],
+    nhatky: ["Nhật ký đồng bộ", "Lịch sử kéo đơn từ POS", ["admin"]],
   };
-  const allowedTab = (t) => TABS[t] && (isAdmin || TABS[t][2]);
+  const allowedTab = (t) => TABS[t] && TABS[t][2].includes(me.role);
   document.querySelectorAll("nav a[data-tab]").forEach((a) => (a.hidden = !allowedTab(a.dataset.tab)));
   function go(t) {
-    if (!allowedTab(t)) t = "danhmuc";
+    if (!allowedTab(t)) t = Object.keys(TABS).find(allowedTab);
     Object.keys(TABS).forEach((k) => ($("#tab-" + k).hidden = k !== t));
     document.querySelectorAll("nav a[data-tab]").forEach((a) => a.classList.toggle("on", a.dataset.tab === t));
     $("#title").textContent = TABS[t][0]; if (!$("#subtitle").querySelector(".neg")) $("#subtitle").textContent = TABS[t][1];
     history.replaceState(null, "", "#" + t);
-    ({ danhmuc: renderCat, chuakhaibao: loadUnmapped, taikhoan: loadUsers, pos: loadShops, nhatky: loadRuns })[t]();
+    ({ danhmuc: renderCat, chuakhaibao: loadUnmapped, taikhoan: loadUsers, pos: loadShops, giavon: loadCosts, nhatky: loadRuns })[t]();
   }
   document.querySelectorAll("nav a[data-tab]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); go(a.dataset.tab); }));
 
@@ -675,7 +710,152 @@
   }
   $("#reloadRuns").onclick = loadRuns;
 
-  go((location.hash || "").slice(1) || "danhmuc");
+  // ---------- giá vốn ----------
+  const canUpload = isAdmin || isKT;
+  $("#costUpload").hidden = !canUpload;
+  let costList = [], wb = null, grid = [];
+  async function loadCosts() {
+    const { data, error } = await sb.rpc("admin_cost_overview");
+    if (error) { $("#costRows").innerHTML = `<tr><td colspan="7" class="l neg">${esc(error.message)}. Kiểm tra đã chạy SQL 20261025050000_cost.sql chưa.</td></tr>`; return; }
+    costList = data; renderCosts();
+  }
+  function renderCosts() {
+    const q = ($("#costQ").value || "").toLowerCase();
+    const rows = costList.filter((r) => !q || (String(r.code) + " " + (r.name || "")).toLowerCase().includes(q));
+    const missing = costList.filter((r) => r.unit_cost_vnd == null && +r.sold_30d > 0).length;
+    say($("#costMsg"), missing ? `${missing} sản phẩm đã bán trong 30 ngày chưa có giá vốn.` : costList.length ? "Mọi sản phẩm đã bán trong 30 ngày đều có giá vốn." : "", missing ? "neg" : "pos");
+    $("#costRows").innerHTML = rows.map((r) => `<tr${r.unit_cost_vnd == null && +r.sold_30d > 0 ? ' style="background:var(--bad-soft)"' : ""}><td class="l mono">${esc(r.code)}</td><td class="l" style="white-space:normal">${esc(r.name || "")}</td><td>${r.unit_cost_vnd != null ? nf.format(Math.round(r.unit_cost_vnd)) : '<span class="pill p-bad">Chưa có</span>'}</td><td class="l">${r.last_date ? fmtDate(new Date(r.last_date + "T00:00:00")) : "–"}</td><td>${r.last_qty != null ? nf.format(r.last_qty) : "–"}</td><td>${nf.format(r.purchases)}</td><td>${nf.format(r.sold_30d)}</td></tr>`).join("") || '<tr><td colspan="7" class="l muted">Chưa có dữ liệu.</td></tr>';
+  }
+  $("#costQ").addEventListener("input", renderCosts);
+
+  // Đọc số kiểu Việt Nam (38.000 / 38,5) lẫn kiểu Anh (38,000 / 38.5).
+  function parseNum(v) {
+    if (typeof v === "number") return v;
+    let s = String(v ?? "").replace(/[^\d.,-]/g, "");
+    if (!s) return NaN;
+    if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, "").replace(",", ".");
+    else if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g, "");
+    else s = s.replace(",", ".");
+    return parseFloat(s);
+  }
+  // Ngày: ô ngày của Excel, số serial, dd/mm/yyyy, yyyy-mm-dd.
+  function parseDate(v) {
+    if (v instanceof Date && !isNaN(v)) return new Date(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate()));
+    if (typeof v === "number" && v > 20000 && v < 80000) return new Date(Date.UTC(1899, 11, 30) + v * 86400000);
+    const s = String(v ?? "").trim(); let m;
+    if ((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/))) { const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return new Date(Date.UTC(y, +m[2] - 1, +m[1])); }
+    if ((m = s.match(/^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})/))) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    return null;
+  }
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const norm = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().trim();
+  const GUESS = {
+    cmCode: ["ma sp", "ma san pham", "sku", "ma hang", "product code", "code", "ma"],
+    cmName: ["ten sp", "ten san pham", "ten hang", "product name", "san pham", "ten"],
+    cmDate: ["ngay nhap", "ngay", "date", "thoi gian"],
+    cmQty: ["so luong", "sl", "qty", "quantity"],
+    cmCost: ["don gia", "gia nhap", "gia von", "unit cost", "unit price", "gia/sp", "gia"],
+    cmTotal: ["thanh tien", "tong tien", "total", "amount"],
+    cmSupplier: ["nha cung cap", "ncc", "supplier"],
+  };
+  function guessCol(headers, keys, used) {
+    for (const k of keys) { const i = headers.findIndex((h, j) => !used.has(j) && norm(h) === k); if (i >= 0) return i; }
+    for (const k of keys) { const i = headers.findIndex((h, j) => !used.has(j) && norm(h).includes(k)); if (i >= 0) return i; }
+    return -1;
+  }
+  function loadSheet() {
+    const ws = wb.Sheets[$("#cmSheet").value];
+    grid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
+    // Dòng tiêu đề: dòng đầu có từ 3 ô chữ trở lên.
+    let h = grid.findIndex((r) => r.filter((c) => typeof c === "string" && c.trim()).length >= 3);
+    $("#cmHeader").value = (h < 0 ? 0 : h) + 1;
+    mapCols(true);
+  }
+  function mapCols(guess) {
+    const hi = Math.max(0, (parseInt($("#cmHeader").value, 10) || 1) - 1);
+    const headers = (grid[hi] || []).map((x) => String(x));
+    const used = new Set();
+    for (const id of Object.keys(GUESS)) {
+      const cur = guess ? guessCol(headers, GUESS[id], used) : parseInt($("#" + id).value, 10);
+      if (cur >= 0) used.add(cur);
+      $("#" + id).innerHTML = `<option value="-1">(không có)</option>` + headers.map((h, i) => `<option value="${i}" ${i === cur ? "selected" : ""}>${esc(h || "Cột " + (i + 1))}</option>`).join("");
+    }
+    preview();
+  }
+  function readRows() {
+    const hi = Math.max(0, (parseInt($("#cmHeader").value, 10) || 1) - 1);
+    const col = (id) => parseInt($("#" + id).value, 10);
+    const c = { code: col("cmCode"), name: col("cmName"), date: col("cmDate"), qty: col("cmQty"), cost: col("cmCost"), total: col("cmTotal"), sup: col("cmSupplier") };
+    const rate = parseNum($("#cmRate").value) || 1, cur = $("#cmCur").value;
+    const ok = [], bad = [];
+    grid.slice(hi + 1).forEach((r, i) => {
+      if (!r.some((x) => String(x).trim())) return;
+      const code = c.code >= 0 ? String(r[c.code]).trim() : "";
+      const date = c.date >= 0 ? parseDate(r[c.date]) : null;
+      const qty = c.qty >= 0 ? parseNum(r[c.qty]) : NaN;
+      let cost = c.cost >= 0 ? parseNum(r[c.cost]) : NaN;
+      if (!(cost > 0) && c.total >= 0 && qty > 0) cost = parseNum(r[c.total]) / qty;
+      const why = !code ? "thiếu mã" : !date ? "ngày không đọc được" : !(cost > 0) ? "thiếu đơn giá" : "";
+      if (why) { bad.push({ row: hi + 2 + i, why }); return; }
+      ok.push({ code, name: c.name >= 0 ? String(r[c.name]).trim() || null : null, purchase_date: iso(date), qty: qty > 0 ? qty : null,
+        unit_cost: Math.round(cost * 10000) / 10000, currency: cur, unit_cost_vnd: Math.round(cost * rate * 100) / 100,
+        supplier: c.sup >= 0 ? String(r[c.sup]).trim() || null : null });
+    });
+    return { ok, bad };
+  }
+  function preview() {
+    const { ok, bad } = readRows();
+    $("#cmSummary").innerHTML = `Đọc được <b>${nf.format(ok.length)}</b> dòng nhập hàng${bad.length ? `, bỏ qua <span class="neg">${nf.format(bad.length)} dòng</span> (${esc(bad.slice(0, 5).map((b) => "dòng " + b.row + ": " + b.why).join("; "))}${bad.length > 5 ? "…" : ""})` : ""}. Xem trước 8 dòng đầu:`;
+    $("#cmPreview").innerHTML = `<thead><tr><th class="l">Mã</th><th class="l">Tên</th><th class="l">Ngày nhập</th><th>SL</th><th>Đơn giá</th><th>Đơn giá (VNĐ)</th></tr></thead><tbody>${ok.slice(0, 8).map((r) => `<tr><td class="l mono">${esc(r.code)}</td><td class="l">${esc(r.name || "")}</td><td class="l">${r.purchase_date.split("-").reverse().join("/")}</td><td>${r.qty != null ? nf.format(r.qty) : "–"}</td><td>${nf.format(r.unit_cost)} ${esc(r.currency)}</td><td>${nf.format(r.unit_cost_vnd)}</td></tr>`).join("")}</tbody>`;
+  }
+  async function hashRow(r) {
+    const s = [r.code.toLowerCase(), r.purchase_date, r.qty ?? "", r.unit_cost, r.currency, r.supplier ?? ""].join("|");
+    const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(s));
+    return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  function openFile(file) {
+    if (typeof XLSX === "undefined") { say($("#cmMsg"), "Không tải được thư viện đọc Excel, thử tải lại trang.", "neg"); return; }
+    const fr = new FileReader();
+    fr.onload = (e) => {
+      try {
+        wb = /\.csv$/i.test(file.name) ? XLSX.read(new TextDecoder("utf-8").decode(e.target.result).replace(/^\ufeff/, ""), { type: "string", cellDates: true }) : XLSX.read(new Uint8Array(e.target.result), { type: "array", cellDates: true });
+        $("#cmSheet").innerHTML = wb.SheetNames.map((n) => `<option>${esc(n)}</option>`).join("");
+        $("#costMap").hidden = false; say($("#cmMsg"), "", ""); loadSheet();
+      } catch (err) { say($("#cmMsg"), "Không đọc được file: " + esc(err.message), "neg"); }
+    };
+    fr.readAsArrayBuffer(file);
+  }
+  $("#cmCur").innerHTML = [["VND", 1], ["PHP", (C.markets.find((m) => m.currency === "PHP") || {}).rate_vnd || 403], ["CNY", 3500], ["USD", 26000]].map(([c, r]) => `<option value="${c}" data-rate="${r}">${c}</option>`).join("");
+  $("#cmRate").value = 1;
+  $("#cmCur").addEventListener("change", () => { $("#cmRate").value = $("#cmCur").selectedOptions[0].dataset.rate; preview(); });
+  $("#costFile").addEventListener("change", (e) => e.target.files[0] && openFile(e.target.files[0]));
+  ["dragover", "dragleave", "drop"].forEach((ev) => $("#costDrop").addEventListener(ev, (e) => { e.preventDefault(); $("#costDrop").classList.toggle("over", ev === "dragover"); if (ev === "drop" && e.dataTransfer.files[0]) openFile(e.dataTransfer.files[0]); }));
+  $("#cmSheet").addEventListener("change", loadSheet);
+  $("#cmHeader").addEventListener("change", () => mapCols(true));
+  ["#cmCode", "#cmName", "#cmDate", "#cmQty", "#cmCost", "#cmTotal", "#cmSupplier", "#cmRate"].forEach((id) => $(id).addEventListener("change", preview));
+  $("#cmImport").onclick = async () => {
+    const { ok } = readRows();
+    if (!ok.length) { say($("#cmMsg"), "Không có dòng hợp lệ để tải.", "neg"); return; }
+    if ($("#cmReplace").checked && !confirm("Xoá toàn bộ dữ liệu nhập hàng cũ rồi tải file này?")) return;
+    $("#cmImport").disabled = true;
+    try {
+      if ($("#cmReplace").checked) { const { error } = await sb.from("purchases").delete().gte("id", 0); if (error) throw error; }
+      let sent = 0;
+      for (let i = 0; i < ok.length; i += 500) {
+        const chunk = await Promise.all(ok.slice(i, i + 500).map(async (r) => Object.assign({ row_hash: await hashRow(r) }, r)));
+        const { error } = await sb.from("purchases").upsert(chunk, { onConflict: "row_hash", ignoreDuplicates: true });
+        if (error) throw error;
+        sent += chunk.length;
+        say($("#cmMsg"), `<span class="spin" aria-hidden="true"></span> Đang tải ${nf.format(sent)} / ${nf.format(ok.length)} dòng…`, "muted");
+      }
+      say($("#cmMsg"), `Đã tải ${nf.format(ok.length)} dòng (dòng đã có từ trước được bỏ qua). Đang tính lại giá vốn các đơn…`, "pos");
+      await loadCosts();
+      drainRecompute($("#cmMsg"));
+    } catch (err) { say($("#cmMsg"), "Chưa tải được: " + esc(err.message), "neg"); }
+    $("#cmImport").disabled = false;
+  };
+
+  go((location.hash || "").slice(1) || Object.keys(TABS).find(allowedTab));
 })();
 </script>
 </body>
