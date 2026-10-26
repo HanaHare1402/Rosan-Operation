@@ -511,6 +511,8 @@ const K={key:'',rows:[],prev:[],set:null,month:'',loading:false,err:''};
 const monthStart=d=>new Date(d.getFullYear(),d.getMonth(),1);
 const fmtM=iso=>iso?iso.slice(5,7)+'/'+iso.slice(0,4):'';
 const kRow=r=>({who:r.who||'~',pk:r.product_key,name:r.product,grp:r.grp,n:+r.orders,sent:+r.sent,ret:+r.ret,ok:+r.ok,cogs:+r.cogs,miss:+r.cogs_missing,sr:+r.ship_rate,usd:+r.ad_usd});
+// Supabase trả tối đa 1.000 dòng mỗi lần: đọc từng trang cho đủ (nhiều marketer nhập chi phí hằng ngày sẽ vượt ngưỡng này).
+async function fetchAll(mk){let out=[];for(let i=0;;i+=1000){const r=await mk().range(i,i+999);if(r.error)return r;out=out.concat(r.data||[]);if(!r.data||r.data.length<1000)return {data:out}}}
 async function getKSet(m){
   const {data}=await sbc.from('kpi_settings').select('*').lte('month',m).order('month',{ascending:false}).limit(1);
   const s=Object.assign({},KDEF);const r=(data||[])[0];if(r)KFIELDS.forEach(([k])=>{if(r[k]!=null)s[k]=+r[k]});s.from=r?r.month:'';return s;
@@ -518,7 +520,8 @@ async function getKSet(m){
 async function loadKpi(key){
   const [from,to]=rangeDates(),[pf,pt]=prevDates(),m=isoD(monthStart(from));
   const args=(f,t)=>({p_from:f.toISOString(),p_to:t.toISOString(),p_mode:kMode,p_project:F.proj||null});
-  const [cur,prev,set]=await Promise.all([sbc.rpc('kpi_report',args(from,to)),F.cmp?sbc.rpc('kpi_report',args(pf,pt)):Promise.resolve({data:[]}),getKSet(m)]);
+  const rep=(f,t)=>fetchAll(()=>sbc.rpc('kpi_report',args(f,t)).order('who').order('product_key'));
+  const [cur,prev,set]=await Promise.all([rep(from,to),F.cmp?rep(pf,pt):Promise.resolve({data:[]}),getKSet(m)]);
   if(key!==K.key)return;
   K.loading=false;K.month=m;K.set=set;
   if(cur.error){K.err=cur.error.message;K.rows=[]}else{K.err='';K.rows=cur.data.map(kRow)}
@@ -545,6 +548,13 @@ Object.assign(DEF,{
   k_lng:'Doanh số thành công trừ giá vốn, cước, phí vận chuyển, phí GIP, fulfill, quảng cáo, test, bao bì. Dùng để tính lương.',
   k_cost:'Tổng các khoản trừ: giá vốn, cước, phí vận chuyển, GIP, fulfill, quảng cáo, test, bao bì.',
   k_ads:'Chi phí quảng cáo nhập ở màn Chi phí ads (USD × tỷ giá của tháng).',
+  k_cogs:'Giá vốn các đơn đã giao: giá nhập gần nhất tính đến ngày tạo đơn.',
+  k_ship:'Số đơn × cước mỗi đơn (mặc định 60 ₱), quy ra VNĐ.',
+  k_dvvc:'Phí dịch vụ đơn vị vận chuyển: % doanh số thành công (mặc định 1,12%).',
+  k_gip:'Phí dịch vụ GIP: % doanh số thành công (mặc định 1,25%).',
+  k_ffm:'Phí fulfill: % doanh số gửi đi (mặc định 2,55%).',
+  k_test:'Chi phí test: % doanh số gửi đi (mặc định 0,70%).',
+  k_pack:'Chi phí bao bì: % doanh số gửi đi (mặc định 0%).',
   k_set:'Các tỷ lệ phí, cước và tỷ giá dùng để tính. Mỗi tháng một bộ; tháng chưa đặt thì dùng tháng gần nhất trước đó.',
 });
 const kWhoName=k=>k==='~'?`<span class="muted">${kMode==='rd'?'Chưa gán R&D':'Chưa gán nhân sự'}</span>`:esc(staffName(k));
@@ -580,14 +590,30 @@ async function saveKSet(){
   Shell.toast(`Đã lưu thông số tháng ${fmtM(K.month)}.`);K.key='';render();
 }
 // Cột bảng KPI (người hoặc sản phẩm). Xuất Excel kèm đủ các khoản như file gốc.
+// Mặc định đủ từng khoản chi phí như bảng KPI gốc; "Gọn" gộp lại thành một cột tổng chi phí.
+let kView=store.get('kview','full')==='short'?'short':'full';
 function kCols(first,prevMap){
-  return [first,
+  const s=K.set||KDEF,num=(k,label)=>({k,label,fmt:r=>r[k]?M(r[k]):'<span class="muted">0</span>',val:r=>r[k]});
+  const lng={k:'lng',label:'Lợi nhuận gộp',tip:'k_lng',fmt:r=>`<div class="num2"><b class="${r.lng<0?'neg':''}">${M(r.lng)}</b>${prevMap&&prevMap.has(r.k)?delta(r.lng,prevMap.get(r.k).lng,{short:1}):''}</div>`,val:r=>r.lng};
+  // Bản đủ cột: LNG kèm % trên doanh số gửi đi trong cùng ô.
+  const lngPct={k:'lng',label:'LNG · %',tip:'k_lng',fmt:r=>`<div class="num2"><b class="${r.lng<0?'neg':''}">${M(r.lng)}</b><span class="${r.lng<0?'neg':'muted'}">${pctOf(r.lng,r.sent)}</span>${prevMap&&prevMap.has(r.k)?delta(r.lng,prevMap.get(r.k).lng,{short:1}):''}</div>`,val:r=>r.lng};
+  const head=[first,
     {k:'sent',label:'Gửi đi',tip:'k_sent',fmt:r=>M(r.sent),val:r=>r.sent},
-    {k:'rr',label:'Tỷ lệ hoàn',tip:'k_rr',fmt:r=>retPill(r.rr),val:r=>r.rr},
-    {k:'ok',label:'Thành công',tip:'k_ok',fmt:r=>M(r.ok),val:r=>r.ok},
-    {k:'cost',label:'Tổng chi phí',tip:'k_cost',fmt:r=>`<div class="num2"><b>${M(r.cost)}</b><span class="muted">ads ${M(r.ads)}</span></div>`,val:r=>r.cost},
-    {k:'lng',label:'Lợi nhuận gộp',tip:'k_lng',fmt:r=>`<div class="num2"><b class="${r.lng<0?'neg':''}">${M(r.lng)}</b>${prevMap&&prevMap.has(r.k)?delta(r.lng,prevMap.get(r.k).lng,{short:1}):`<span class="muted">${pctOf(r.lng,r.sent)}</span>`}</div>`,val:r=>r.lng}];
+    {k:'rr',label:'% hoàn',tip:'k_rr',fmt:r=>retPill(r.rr),val:r=>r.rr},
+    {k:'ok',label:'Thành công',tip:'k_ok',fmt:r=>M(r.ok),val:r=>r.ok}];
+  if(kView==='short')return head.concat([{k:'cost',label:'Tổng chi phí',tip:'k_cost',fmt:r=>`<div class="num2"><b>${M(r.cost)}</b><span class="muted">ads ${M(r.ads)}</span></div>`,val:r=>r.cost},lng,
+    {k:'pl',label:'% LNG',fmt:r=>`<span class="${r.lng<0?'neg':''}">${pctOf(r.lng,r.sent)}</span>`,val:r=>r.sent?r.lng/r.sent:NaN}]);
+  // Bao bì mặc định 0%: ẩn cột khi cả bảng đều bằng 0 để bảng vừa màn hình.
+  return head.concat([num('cogs','Giá vốn'),num('ship','Cước VC'),num('dvvc','Phí DVVC'),num('gip','Phí GIP'),num('ffm','Fulfill'),num('ads','Quảng cáo'),num('test','Test')],
+    s.pack_pct?[num('pack','Bao bì')]:[],[lngPct]);
 }
+// Dòng tổng cho mọi cột, kèm % trên doanh số gửi đi như dòng "Tỷ lệ" của file gốc.
+function kFoot(T){
+  const f={name:'<b>Tổng</b>',rr:retPill(T.rr),pl:`<b class="${T.lng<0?'neg':''}">${pctOf(T.lng,T.sent)}</b>`};
+  ['sent','ok','cogs','ship','dvvc','gip','ffm','ads','test','pack','cost','lng'].forEach(k=>{f[k]=`<div class="num2"><b class="${k==='lng'&&T.lng<0?'neg':''}">${M(T[k])}</b>${k==='sent'?'':`<span class="muted">${pctOf(T[k],T.sent)}</span>`}</div>`});
+  return f;
+}
+const kViewSeg=()=>`<div class="seg" role="group" aria-label="Cách hiện chi phí">${[['full','Đủ từng khoản'],['short','Gọn']].map(([k,l])=>`<button type="button" data-kview="${k}" class="${kView===k?'on':''}" aria-pressed="${kView===k}">${l}</button>`).join('')}</div>`;
 const KX=[['Số đơn','n'],['Doanh số gửi đi','sent'],['Hoàn','ret'],['Đang xử lý','proc'],['Doanh số thành công','ok'],['Giá vốn','cogs'],['Cước vận chuyển','ship'],['Phí DV vận chuyển','dvvc'],['Phí DV GIP','gip'],['Phí fulfill','ffm'],['Chi phí quảng cáo (USD)','usd'],['Chi phí quảng cáo (VNĐ)','ads'],['Chi phí test','test'],['Chi phí bao bì','pack'],['Lợi nhuận gộp','lng']].map(([label,k])=>({label,val:r=>Math.round(r[k]*100)/100}))
   .concat([{label:'% LNG / gửi đi',val:r=>r.sent?Math.round(r.lng/r.sent*10000)/100:''}]);
 function kPL(a,s){
@@ -628,9 +654,9 @@ V.kpi=()=>{
   if(!who){
     const T=kCalc(kSum(K.rows,()=>'all')[0],s),PT=F.cmp&&K.prev.length?kCalc(kSum(K.prev,()=>'all')[0],s):null;
     const first={k:'name',label:kMode==='rd'?'Người R&D':'Nhân sự',l:1,fmt:r=>kWhoName(r.k)+(r.k!=='~'&&byId(CAT.staff,r.k)?`<div class="sub2">${esc(teamName(byId(CAT.staff,r.k).team_id))}</div>`:''),val:r=>r.k==='~'?'':staffName(r.k)};
-    const foot={name:'<b>Tổng</b>',sent:`<b>${M(T.sent)}</b>`,rr:retPill(T.rr),ok:`<b>${M(T.ok)}</b>`,cost:M(T.cost),lng:`<b class="${T.lng<0?'neg':''}">${M(T.lng)}</b>`};
+    const foot=kFoot(T);
     return head+kCards(T,PT)+kWarn(T)+
-    `<div class="card"><div class="cardhead"><div><h2>KPI ${modeLabel} · ${esc(rangeLabel())}</h2><p class="hint">Bấm vào tên để xem bảng tính chi tiết và từng sản phẩm. Bấm tiêu đề cột để sắp xếp. “Xuất Excel” có đủ các khoản như file KPI.</p></div>${exportBtn('tKpi')}</div>
+    `<div class="card"><div class="cardhead"><div><h2>KPI ${modeLabel} · ${esc(rangeLabel())}</h2><p class="hint">Bấm vào tên để xem bảng tính chi tiết và từng sản phẩm. Bấm tiêu đề cột để sắp xếp. “Xuất Excel” có đủ các khoản như file KPI.</p></div><div class="page-actions">${kViewSeg()}${exportBtn('tKpi')}</div></div>
     ${dataTable('tKpi',kCols(first,F.cmp?prevMap:null),people,{name:'KPI '+modeLabel,sortKey:'lng',click:r=>r.k==='~'?'':'kpi:'+r.k,foot,xcols:KX})}</div>
     <div class="card pl"><h2>Bảng tính tổng</h2><p class="hint">Cộng tất cả ${kMode==='rd'?'người R&D':'nhân sự'} trong phạm vi đang xem.</p>${kPL(T,s)}</div>`;
   }
@@ -638,12 +664,12 @@ V.kpi=()=>{
   const prods=kSum(rows,r=>r.pk).map(a=>kCalc(a,s)),pprev=new Map(kSum(K.prev.filter(r=>r.who===who),r=>r.pk).map(a=>[a.k,kCalc(a,s)]));
   const sel=people.length>1?`<span class="flabel">${kMode==='rd'?'Người R&D':'Nhân sự'}</span><select id="kWhoSel">${people.slice().sort((a,b)=>String(a.k==='~'?'':staffName(a.k)).localeCompare(staffName(b.k),'vi')).map(p=>`<option value="${esc(p.k)}" ${p.k===who?'selected':''}>${p.k==='~'?(kMode==='rd'?'Chưa gán R&D':'Chưa gán nhân sự'):esc(staffName(p.k))}</option>`).join('')}</select>`:`<b style="font-size:15px">${kWhoName(who)}</b>`;
   const first={k:'name',label:'Sản phẩm',l:1,fmt:r=>`${esc(r.name||r.k)} ${grpPill(r.grp)}`,val:r=>r.name||r.k};
-  const foot={name:'<b>Tổng</b>',sent:`<b>${M(me1.sent)}</b>`,rr:retPill(me1.rr),ok:`<b>${M(me1.ok)}</b>`,cost:M(me1.cost),lng:`<b class="${me1.lng<0?'neg':''}">${M(me1.lng)}</b>`};
+  const foot=kFoot(me1);
   const nm=who==='~'?(kMode==='rd'?'Chưa gán R&D':'Chưa gán nhân sự'):staffName(who);
   return (solo?'':crumbs([['KPI · '+modeLabel,'kpi:'],[nm,'']]))+head+`<div class="tools">${sel}<span class="muted">${who!=='~'&&byId(CAT.staff,who)?esc(teamName(byId(CAT.staff,who).team_id)):''}</span></div>`+
   kCards(me1,F.cmp?pv:null)+kWarn(me1)+
   `<div class="card pl"><h2>Bảng tính lợi nhuận gộp</h2><p class="hint">${esc(nm)} · ${esc(rangeLabel())}</p>${kPL(me1,s)}</div>
-  <div class="card"><div class="cardhead"><div><h2>Từng sản phẩm</h2><p class="hint">Mỗi đơn tính cho sản phẩm chính của đơn (dòng hàng giá trị lớn nhất, không tính hàng tặng).</p></div>${exportBtn('tKpiP')}</div>
+  <div class="card"><div class="cardhead"><div><h2>Từng sản phẩm</h2><p class="hint">Mỗi đơn tính cho sản phẩm chính của đơn (dòng hàng giá trị lớn nhất, không tính hàng tặng).</p></div><div class="page-actions">${kViewSeg()}${exportBtn('tKpiP')}</div></div>
     ${dataTable('tKpiP',kCols(first,F.cmp?pprev:null),prods,{name:'KPI '+nm,sortKey:'lng',foot,xcols:[{label:'Nhóm',val:r=>r.grp||''}].concat(KX)})}</div>`;
 };
 
@@ -663,7 +689,7 @@ const AD={key:'',rows:[],loading:false,err:'',usd:KDEF.usd_vnd,usdFrom:''};
 let PRODLIST=null;
 async function loadAds(key){
   const d=new Date(adDay+'T00:00:00'),m0=isoD(monthStart(d)),m1=isoD(new Date(d.getFullYear(),d.getMonth()+1,1));
-  const [r,s]=await Promise.all([sbc.from('ad_spend').select('day,staff_id,product_key,product_name,usd').gte('day',m0).lt('day',m1).order('day',{ascending:false}).limit(10000),getKSet(m0)]);
+  const [r,s]=await Promise.all([fetchAll(()=>sbc.from('ad_spend').select('day,staff_id,product_key,product_name,usd').gte('day',m0).lt('day',m1).order('day',{ascending:false}).order('staff_id').order('product_key')),getKSet(m0)]);
   if(key!==AD.key)return;
   AD.loading=false;AD.usd=s.usd_vnd;
   if(r.error){AD.err=r.error.message;AD.rows=[]}else{AD.err='';AD.rows=r.data}
@@ -677,7 +703,7 @@ V.chiphi=()=>{
   if(!list.some(s=>s.id===adStaff))adStaff=ME.staff_id&&list.some(s=>s.id===ME.staff_id)?ME.staff_id:list[0].id;
   const d=new Date(adDay+'T00:00:00'),key=isoD(monthStart(d));
   if(key!==AD.key){AD.key=key;AD.loading=true;adEdit=null;loadAds(key)}
-  if(!PRODLIST){PRODLIST=[];sbc.rpc('kpi_products',{p_days:60}).then(({data})=>{PRODLIST=(data||[]).sort((a,b)=>b.orders-a.orders);if(view==='chiphi')render()})}
+  if(!PRODLIST){PRODLIST=[];fetchAll(()=>sbc.rpc('kpi_products',{p_days:60}).order('product_key')).then(({data})=>{PRODLIST=(data||[]).sort((a,b)=>b.orders-a.orders);if(view==='chiphi')render()})}
   const rows=adEdit||adRowsFor();if(!rows.length||rows[rows.length-1].name||rows[rows.length-1].usd)rows.push({name:'',usd:''});
   const known=new Set(PRODLIST.map(p=>p.product_key));
   const usdOf=v=>{const x=parseFloat(String(v).replace(',','.'));return x>=0?x:0};
@@ -867,6 +893,7 @@ document.addEventListener('click',e=>{
   const c=e.target.closest('[data-ch]');if(c){setF('ch',c.dataset.ch);return}
   const t=e.target.closest('[data-team]');if(t){curTeam=t.dataset.team;store.set('team',curTeam);render();return}
   const g=e.target.closest('[data-go]');if(g&&g.dataset.go){const i=g.dataset.go.indexOf(':');const v=g.dataset.go.slice(0,i),k=g.dataset.go.slice(i+1);if(v==='team'){curTeam=k;store.set('team',k)}if(v==='nhansu'){curStaff=k;store.set('staff',k)}if(v==='kpi')kWho=k;if(v==='chiphi'&&k){const [d,st]=k.split('|');adDay=d;adStaff=st;adEdit=null}if(ALLOWED.includes(v))go(v);return}
+  const kv=e.target.closest('[data-kview]');if(kv){kView=kv.dataset.kview;store.set('kview',kView);render();return}
   const km=e.target.closest('[data-kmode]');if(km){kMode=km.dataset.kmode;store.set('kmode',kMode);kWho='';render();return}
   if(e.target.closest('#kSetBtn')){kSetOpen=!kSetOpen;render();return}
   const ad=e.target.closest('[data-adday]');if(ad){adDay=isoD(addD(sod(new Date()),+ad.dataset.adday));adEdit=null;render();return}

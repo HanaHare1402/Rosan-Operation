@@ -419,3 +419,8 @@ tbody tr[data-go]:focus-visible td{background:var(--accent-soft)}
 /* bảng tính LNG: trên điện thoại đưa "cách tính" xuống dưới tên khoản */
 .kpl-n{display:none}
 @media (max-width:640px){.kpl-c{display:none}.kpl-n{display:block}}
+/* bảng KPI nhiều cột: giữ cột tên khi cuộn ngang */
+#tKpi th:first-child,#tKpi td:first-child,#tKpiP th:first-child,#tKpiP td:first-child{position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:1px 0 0 var(--line)}
+#tKpi thead th:first-child,#tKpiP thead th:first-child,#tKpi tfoot td:first-child,#tKpiP tfoot td:first-child{background:var(--panel-2)}
+#tKpi th,#tKpi td,#tKpiP th,#tKpiP td{padding-left:7px;padding-right:7px}
+#tKpi th,#tKpiP th{letter-spacing:.02em}
