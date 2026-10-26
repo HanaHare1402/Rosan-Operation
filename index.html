@@ -523,7 +523,7 @@ async function loadKpi(key){
   const rep=(f,t)=>fetchAll(()=>sbc.rpc('kpi_report',args(f,t)).order('who').order('product_key'));
   const [cur,prev,set]=await Promise.all([rep(from,to),F.cmp?rep(pf,pt):Promise.resolve({data:[]}),getKSet(m)]);
   if(key!==K.key)return;
-  K.loading=false;K.month=m;K.set=set;
+  K.loading=false;K.month=m;K.set=set;if(KCAT.month&&KCAT.month!==m)KCAT.rows=null;
   if(cur.error){K.err=cur.error.message;K.rows=[]}else{K.err='';K.rows=cur.data.map(kRow)}
   K.prev=prev.error?[]:(prev.data||[]).map(kRow);
   if(view==='kpi')render();
@@ -592,6 +592,17 @@ async function saveKSet(){
 // Cột bảng KPI (người hoặc sản phẩm). Xuất Excel kèm đủ các khoản như file gốc.
 // Mặc định đủ từng khoản chi phí như bảng KPI gốc; "Gọn" gộp lại thành một cột tổng chi phí.
 let kView=store.get('kview','full')==='short'?'short':'full';
+let kAllProds=store.get('kallp','0')==='1';
+// Danh mục sản phẩm cho "Hiện tất cả": bán 60 ngày qua + đã từng xếp nhóm; nhóm / R&D theo tháng gần nhất ≤ tháng của kỳ.
+const KCAT={rows:null,loading:false,month:''};
+async function loadKCat(){
+  KCAT.loading=true;const m=K.month||isoD(monthStart(rangeDates()[0]));
+  const [p,g]=await Promise.all([fetchAll(()=>sbc.rpc('kpi_products',{p_days:60}).order('product_key')),fetchAll(()=>sbc.from('product_groups').select('month,product_key,name,grp,rd_staff_id').lte('month',m).order('month',{ascending:false}).order('product_key'))]);
+  const map=new Map();
+  (p.data||[]).forEach(r=>map.set(r.product_key,{k:r.product_key,name:r.name,grp:null,rd:null,got:false}));
+  (g.data||[]).forEach(r=>{let x=map.get(r.product_key);if(!x){x={k:r.product_key,name:r.name,grp:null,rd:null,got:false};map.set(r.product_key,x)}if(!x.got)Object.assign(x,{grp:r.grp,rd:r.rd_staff_id,got:true})});
+  KCAT.rows=[...map.values()];KCAT.loading=false;KCAT.month=m;if(view==='kpi')render();
+}
 function kCols(first,prevMap){
   const s=K.set||KDEF,num=(k,label)=>({k,label,fmt:r=>r[k]?M(r[k]):'<span class="muted">0</span>',val:r=>r[k]});
   const lng={k:'lng',label:'Lợi nhuận gộp',tip:'k_lng',fmt:r=>`<div class="num2"><b class="${r.lng<0?'neg':''}">${M(r.lng)}</b>${prevMap&&prevMap.has(r.k)?delta(r.lng,prevMap.get(r.k).lng,{short:1}):''}</div>`,val:r=>r.lng};
@@ -662,16 +673,23 @@ V.kpi=()=>{
     <div class="card pl"><h2>Bảng tính tổng</h2><p class="hint">Cộng tất cả ${kMode==='rd'?'người R&D':'nhân sự'} trong phạm vi đang xem.</p>${kPL(T,s)}</div>`;
   }
   const me1=people.find(p=>p.k===who),pv=prevMap.get(who)||null,rows=K.rows.filter(r=>r.who===who);
-  const prods=kSum(rows,r=>r.pk).map(a=>kCalc(a,s)),pprev=new Map(kSum(K.prev.filter(r=>r.who===who),r=>r.pk).map(a=>[a.k,kCalc(a,s)]));
+  const prods=kSum(rows,r=>r.pk).map(a=>kCalc(a,s));
+  // "Hiện tất cả sản phẩm": thêm dòng 0 cho các sản phẩm chưa có đơn / chi phí trong kỳ, giống bảng KPI gốc liệt kê mọi sản phẩm.
+  if(kAllProds){
+    if(!KCAT.rows&&!KCAT.loading)loadKCat();
+    const have=new Set(prods.map(p=>p.k));
+    (KCAT.rows||[]).filter(c=>!have.has(c.k)&&(kMode!=='rd'||c.rd===who)).forEach(c=>prods.push(kCalc({k:c.k,name:c.name,grp:c.grp,n:0,sent:0,ret:0,ok:0,cogs:0,miss:0,sr:0,usd:0},s)));
+  }
+  const pprev=new Map(kSum(K.prev.filter(r=>r.who===who),r=>r.pk).map(a=>[a.k,kCalc(a,s)]));
   const sel=people.length>1?`<span class="flabel">${kMode==='rd'?'Người R&D':'Nhân sự'}</span><select id="kWhoSel">${people.slice().sort((a,b)=>String(a.k==='~'?'':staffName(a.k)).localeCompare(staffName(b.k),'vi')).map(p=>`<option value="${esc(p.k)}" ${p.k===who?'selected':''}>${p.k==='~'?(kMode==='rd'?'Chưa gán R&D':'Chưa gán nhân sự'):esc(staffName(p.k))}</option>`).join('')}</select>`:`<b style="font-size:15px">${kWhoName(who)}</b>`;
-  const first={k:'name',label:'Sản phẩm',l:1,fmt:r=>`${esc(r.name||r.k)} ${grpPill(r.grp)}`,val:r=>r.name||r.k};
+  const first={k:'name',label:'Sản phẩm',l:1,fmt:r=>`<div style="white-space:normal;min-width:120px">${esc(r.name||r.k)}</div><div style="margin-top:3px">${grpPill(r.grp)}</div>`,val:r=>r.name||r.k};
   const foot=kFoot(me1);
   const nm=who==='~'?(kMode==='rd'?'Chưa gán R&D':'Chưa gán nhân sự'):staffName(who);
   return (solo?'':crumbs([['KPI · '+modeLabel,'kpi:'],[nm,'']]))+head+`<div class="tools">${sel}<span class="muted">${who!=='~'&&byId(CAT.staff,who)?esc(teamName(byId(CAT.staff,who).team_id)):''}</span></div>`+
   kCards(me1,F.cmp?pv:null)+kWarn(me1)+
   `<div class="card pl"><h2>Bảng tính lợi nhuận gộp</h2><p class="hint">${esc(nm)} · ${esc(rangeLabel())}</p>${kPL(me1,s)}</div>
-  <div class="card"><div class="cardhead"><div><h2>Từng sản phẩm</h2><p class="hint">Mỗi đơn tính cho sản phẩm chính của đơn (dòng hàng giá trị lớn nhất, không tính hàng tặng).</p></div><div class="page-actions">${kViewSeg()}${exportBtn('tKpiP')}</div></div>
-    ${dataTable('tKpiP',kCols(first,F.cmp?pprev:null),prods,{name:'KPI '+nm,sortKey:'lng',foot,xcols:[{label:'Nhóm',val:r=>r.grp||''}].concat(KX)})}</div>`;
+  <div class="card"><div class="cardhead"><div><h2>Từng sản phẩm · ${N(prods.filter(p=>p.n||p.usd).length)} có đơn / chi phí${kAllProds?` · ${N(prods.length)} sản phẩm`:''}</h2><p class="hint">Mỗi đơn tính cho sản phẩm chính của đơn (dòng hàng giá trị lớn nhất, không tính hàng tặng).${KCAT.loading?' Đang tải danh sách sản phẩm…':''}</p></div><div class="page-actions"><label class="toggle"><input type="checkbox" id="kAllProds" ${kAllProds?'checked':''}> Hiện tất cả sản phẩm</label>${kViewSeg()}${exportBtn('tKpiP')}</div></div>
+    ${dataTable('tKpiP',kCols(first,F.cmp?pprev:null),prods,{name:'KPI '+nm,sortKey:'sent',foot,xcols:[{label:'Nhóm',val:r=>r.grp||''}].concat(KX)})}</div>`;
 };
 
 // ---------- nhập chi phí quảng cáo ----------
@@ -920,6 +938,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='staffSel'){curStaff=e.target.value;store.set('staff',curStaff);render()}
   if(e.target.id==='jtFile'&&e.target.files[0])runJT(e.target.files[0]);
   if(e.target.id==='kWhoSel'){kWho=e.target.value;render()}
+  if(e.target.id==='kAllProds'){kAllProds=e.target.checked;store.set('kallp',kAllProds?'1':'0');render()}
   if(e.target.id==='adDay'&&e.target.value){adDay=e.target.value;adEdit=null;render()}
   if(e.target.id==='adStaff'){adStaff=e.target.value;store.set('adstaff',adStaff);adEdit=null;render()}
   if(e.target.id==='adFile'&&e.target.files[0])readAdFile(e.target.files[0]);
