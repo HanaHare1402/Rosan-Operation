@@ -351,7 +351,7 @@ V.tongquan=()=>{
       ${CAT.markets.length>1?`<h2 style="margin-top:22px">Theo thị trường</h2><div style="margin-top:8px">${legend(ROWS,r=>r.mkt,k=>esc((byId(CAT.markets,k)||{name:'–'}).name))}</div>`:''}
     </div>
   </div>
-  <div class="card"><div class="cardhead"><div><h2>Các team</h2><p class="hint">Bấm vào một team để xem từng nhân sự. Bấm tiêu đề cột để sắp xếp.${ROWS.some(r=>!r.team)?' “Chưa gán team” là đơn có marketer chưa khai báo.':''}</p></div>${exportBtn('tTeams')}</div>
+  <div class="card"><div class="cardhead"><div><h2>Các team</h2></div>${exportBtn('tTeams')}</div>
   ${dataTable('tTeams',cols,rankRows(ROWS,PREV,r=>r.team||''),{name:'Team',click:r=>r.k?'team:'+r.k:'',foot:totFoot(ROWS)})}</div>
   ${dailyCard(null)}`;
 };
@@ -370,7 +370,7 @@ V.team=()=>{
     extra:[{k:'ch',label:'Kênh',l:1,fmt:r=>[...new Set(list.filter(x=>key(x)===r.k).map(x=>x.ch))].map(chTag).join(' '),val:r=>''}]});
   ensureTD();
   return head+kpiCards(list,plist,adsInfo(TD,TD.rows.filter(r=>r.team===curTeam),[t]))+targetBlock(list,F.range==='month'?+t.target_vnd||0:0)+
-  `<div class="card"><div class="cardhead"><div><h2>Xếp hạng nhân sự · ${esc(t.name)}</h2><p class="hint">Bấm vào tên để xem chi tiết từng người.</p></div>${exportBtn('tStaff')}</div>
+  `<div class="card"><div class="cardhead"><div><h2>Xếp hạng nhân sự · ${esc(t.name)}</h2></div>${exportBtn('tStaff')}</div>
   ${dataTable('tStaff',cols,rankRows(list,plist,key),{name:'Nhân sự '+t.name,click:r=>r.k.startsWith('~')?'':'nhansu:'+r.k,foot:totFoot(list)})}</div>
   ${dailyCard(curTeam)}
   ${chartCard('Xu hướng theo ngày · '+esc(t.name),list,plist,true)}`;
@@ -786,7 +786,9 @@ function dailyBody(rows,rate,o){
   if(o.targets===false)cells.push(['Chi phí / đơn',T.n?N(T.usd*rate/T.n):'–','']);
   const strip=tgt||g2||cap||o.targets===false?`<div class="statstrip" style="margin:4px 0 14px">${cells.slice(0,4).map(([l,v,sub])=>`<div><span class="l">${l}</span><b>${v}</b><span class="muted">${sub}</span></div>`).join('')}</div>`:'';
   const canTgt=['admin','quan_ly'].includes(ME.role);
-  return `<div class="card"><div class="cardhead"><div><h2>${title}</h2><p class="hint">Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn. Bảng này không lọc theo kênh.${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}</p></div></div>
+  const dtipTxt=`Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn. Bảng này không lọc theo kênh.${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}`.replace(/<[^>]+>/g,'');
+  const dtip=`<span class="tip" tabindex="0" role="note" aria-label="${esc(dtipTxt)}" data-tip="${esc(dtipTxt)}">?</span>`;
+  return `<div class="card"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div></div>
     ${contest}${strip}
     ${rows.length?`<div class="tw"><table class="daily">${'<thead>'+head+'</thead>'}<tbody>${body}</tbody></table></div>`:Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
 }
