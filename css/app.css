@@ -480,3 +480,7 @@ table.daily .pill{font-size:11.5px}
 .adwho button:hover{background:var(--sunk)}.adwho button.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
 .adwho .sub2{display:block}
 @media (max-width:640px){.adrow{grid-template-columns:minmax(0,1fr) 108px 32px}.adrow .vnd{display:none}.adcal button{min-height:42px}}
+/* bộ lọc dạng ô chọn: nhãn nhỏ đứng trước ô */
+.fsel{display:inline-flex;align-items:center;gap:7px}
+.fsel select{min-width:130px}
+@media (max-width:640px){.fsel{flex:1 1 calc(50% - 6px);flex-direction:column;align-items:stretch;gap:3px}.fsel select{min-width:0;width:100%}}

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261026b">
+<link rel="stylesheet" href="css/app.css?v=20261026c">
 </head>
 <body>
 
@@ -29,9 +29,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261026b"></script>
-<script src="js/settings-db.js?v=20261026b"></script>
-<script src="js/shell.js?v=20261026b"></script>
+<script src="js/auth.js?v=20261026c"></script>
+<script src="js/settings-db.js?v=20261026c"></script>
+<script src="js/shell.js?v=20261026c"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -120,19 +120,19 @@ function scopeLabel(){
 }
 const isDefault=()=>!F.proj&&!F.mkt&&F.ch==='all'&&F.range===(ME.scope==='self'?'today':'month');
 function renderFilters(){
-  const pSel=projOpts.length?`<span class="flabel">Dự án</span><select id="fProj" aria-label="Dự án"><option value="">${ME.scope==='all'?'Tất cả dự án':'Tất cả dự án của tôi'}</option>${projOpts.map(p=>`<option value="${esc(p.id)}" ${F.proj===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`:`<span class="pill p-info">${scopeLabel()}</span>`;
-  const mSel=CAT.markets.length>1?`<select id="fMkt" aria-label="Thị trường"><option value="">Mọi thị trường</option>${CAT.markets.map(m=>`<option value="${esc(m.id)}" ${F.mkt===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select>`:'';
-  const range=`<div class="seg" role="group" aria-label="Khoảng ngày">${Object.entries(RANGES).map(([k,v])=>`<button type="button" data-range="${k}" class="${F.range===k?'on':''}" aria-pressed="${F.range===k}">${v}</button>`).join('')}</div>`;
+  // Mọi bộ lọc là ô chọn thả xuống trên một hàng, cho màn đỡ rối mắt.
+  const sel=(id,label,opts,cur)=>`<label class="fsel"><span class="flabel">${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${esc(v)}" ${String(cur)===String(v)?'selected':''}>${esc(t)}</option>`).join('')}</select></label>`;
+  // KPI R&D gộp đơn mọi dự án của sản phẩm: bỏ chọn dự án cho khỏi hiểu nhầm. KPI không lọc kênh / thị trường như file gốc.
+  const rd=view==='kpi'&&kMode==='rd';
+  const pSel=projOpts.length?(rd?'':sel('fProj','Dự án',[['',ME.scope==='all'?'Tất cả dự án':'Tất cả dự án của tôi'],...projOpts.map(p=>[p.id,p.name])],F.proj)):`<span class="pill p-info">${scopeLabel()}</span>`;
+  const mSel=CAT.markets.length>1&&view!=='kpi'?sel('fMkt','Thị trường',[['','Mọi thị trường'],...CAT.markets.map(m=>[m.id,m.name])],F.mkt):'';
+  const cSel=CAT.channels.length&&view!=='kpi'&&view!=='canhbao'?sel('fCh','Kênh',[['all','Mọi kênh'],...CAT.channels.map(c=>[c.id,c.name])],F.ch):'';
+  const rSel=sel('fRange','Thời gian',Object.entries(RANGES),F.range);
   const custom=F.range==='custom'?`<span class="drange"><input type="date" id="fFrom" value="${esc(F.from)}" aria-label="Từ ngày"> → <input type="date" id="fTo" value="${esc(F.to)}" aria-label="Đến ngày"></span>`:'';
   const cmp=`<label class="toggle" title="Hiện mức tăng / giảm so với ${cmpLabel()}"><input type="checkbox" id="fCmp" ${F.cmp?'checked':''}> So với ${cmpLabel()}</label>`;
-  $('#filters').innerHTML=pSel+mSel+'<span class="sep"></span>'+range+custom+'<span class="grow"></span>'+cmp;
+  $('#filters').innerHTML=pSel+mSel+cSel+rSel+custom+'<span class="grow"></span>'+cmp+(isDefault()?'':'<button class="lnk" type="button" id="fReset">Xoá bộ lọc</button>');
   $('#toolbar').hidden=view==='caidat'||view==='chiphi';
-  // KPI tính theo cả dự án như file gốc: không lọc kênh / thị trường.
-  $('#filters2').hidden=view==='canhbao'||view==='kpi'||!CAT.channels.length;
-  if(view==='kpi'&&$('#fMkt'))$('#fMkt').hidden=true;
-  // KPI R&D gộp đơn mọi dự án của sản phẩm: bỏ chọn dự án cho khỏi hiểu nhầm.
-  if(view==='kpi'&&kMode==='rd'&&$('#fProj')){$('#fProj').hidden=true;$('#fProj').previousElementSibling.hidden=true}
-  $('#filters2').innerHTML=`<span class="flabel">Kênh</span><div class="chips" role="group" aria-label="Lọc theo kênh"><button class="chip ${F.ch==='all'?'on':''}" data-ch="all">Tất cả</button>${CAT.channels.map(c=>`<button class="chip ${F.ch===c.id?'on':''}" data-ch="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</button>`).join('')}</div>${isDefault()?'':'<span class="grow"></span><button class="lnk" type="button" id="fReset">Xoá bộ lọc</button>'}`;
+  $('#filters2').hidden=true;
 }
 
 // ---------- dữ liệu ----------
@@ -1104,6 +1104,8 @@ document.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='ffmF
 document.addEventListener('change',e=>{
   if(e.target.id==='fProj')setF('proj',e.target.value);
   if(e.target.id==='fMkt')setF('mkt',e.target.value);
+  if(e.target.id==='fCh')setF('ch',e.target.value);
+  if(e.target.id==='fRange'){const k=e.target.value;if(k==='custom'&&!(F.from&&F.to)){const [f,t]=rangeDates();F.from=isoD(f);F.to=isoD(addD(t,-1));store.set('from',F.from);store.set('to',F.to)}setF('range',k)}
   if(e.target.id==='fCmp')setF('cmp',e.target.checked);
   if(e.target.id==='fFrom'||e.target.id==='fTo'){const k=e.target.id==='fFrom'?'from':'to';if(e.target.value){F[k]=e.target.value;store.set(k,F[k]);setF('range','custom')}}
   if(e.target.id==='staffSel'){curStaff=e.target.value;store.set('staff',curStaff);render()}
