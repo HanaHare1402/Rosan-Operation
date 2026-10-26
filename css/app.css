@@ -129,7 +129,7 @@ main{min-width:0;padding:22px 32px 56px;padding-right:max(32px,env(safe-area-ins
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .5s ease}}
 
 /* ---------- bảng ---------- */
-.tw{overflow-x:auto;margin:0 -18px;padding:0 18px}
+.tw{overflow-x:auto}
 table{width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;font-size:12px}
 th{font-size:10.5px;font-weight:650;color:var(--muted);text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;letter-spacing:.04em;text-transform:uppercase;background:var(--panel-2)}
 thead th:first-child{border-top-left-radius:8px} thead th:last-child{border-top-right-radius:8px}
@@ -283,7 +283,6 @@ pre.raw{font:12px/1.55 var(--mono);background:var(--sunk);border:1px solid var(-
   .grid2{grid-template-columns:minmax(0,1fr)}
   h1{font-size:20px}
   .card{padding:16px}
-  .tw{margin:0 -16px;padding:0 16px}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .kpi .v{font-size:20px}
   .toolbar .sep{display:none}
@@ -544,9 +543,22 @@ aside .userbox .who{color:#fff}aside .userbox .role{color:var(--side-muted)}
 aside .avatar{background:rgba(255,255,255,.16);color:#fff}
 aside .icon-btn{color:var(--side-muted)}aside .icon-btn:hover{background:var(--side-hover);color:#fff;border-color:transparent}
 /* báo cáo kết quả kinh doanh: khung cuộn riêng để hàng tiêu đề (tên sản phẩm) đứng yên khi kéo lên / xuống */
-.tw.plscroll{max-height:calc(100vh - 230px);overflow:auto}
-table.pltab thead th{position:sticky;top:0;z-index:3;text-transform:none;letter-spacing:0;font-size:11.5px;font-weight:650;line-height:1.3;color:var(--ink);height:44px}
-table.pltab thead th:nth-child(-n+3){z-index:4}
+
+table.pltab thead th{position:relative;z-index:3;text-transform:none;letter-spacing:0;font-size:11.5px;font-weight:650;line-height:1.3;color:var(--ink);height:44px}
+table.pltab thead th:nth-child(-n+3){position:sticky;z-index:4}
 table.pltab thead th .pn{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal}
 table.pltab td:nth-child(3){overflow:visible;text-overflow:clip}
-@media (max-width:960px){.tw.plscroll{max-height:none}}
+/* bảng có cột đứng yên: viền khung rõ ràng, nền ô đứng yên che kín nội dung cuộn phía sau */
+.tw:has(> table.daily),.tw:has(> #tKpi),.tw:has(> #tKpiP){border:1px solid var(--line);border-radius:10px}
+table.pltab tbody tr.sec td:nth-child(-n+3){background:var(--sunk)}
+table.pltab th:nth-child(3),table.pltab td:nth-child(3){box-shadow:inset -1px 0 0 var(--line-2),6px 0 8px -6px rgba(0,0,0,.12)}
+table.daily .tot{box-shadow:inset -1px 0 0 var(--line-2),6px 0 8px -6px rgba(0,0,0,.12)}
+/* hàng tiêu đề đang bám dưới đầu trang: nền đặc, bóng mờ phía dưới */
+table.sthead thead th{position:relative;z-index:3;will-change:transform}
+table.sthead thead th:first-child{z-index:5}
+table.sthead thead.stuck th{box-shadow:0 6px 8px -6px rgba(0,0,0,.18),inset 0 -1px 0 var(--line-2)}
+table.sthead thead th{background:var(--sunk)}
+.tw:has(> table.sthead){border:1px solid var(--line);border-radius:10px}
+/* ô tiêu đề đứng yên (cột Tổng, cột LNG) nằm trên các ô nội dung đứng yên khi hàng tiêu đề trượt xuống */
+table.sthead thead th.tot{z-index:4}
+#tKpi thead th:last-child,#tKpiP thead th:last-child{z-index:4}
