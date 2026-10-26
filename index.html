@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261027c">
+<link rel="stylesheet" href="css/app.css?v=20261027d">
 </head>
 <body>
 
@@ -31,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261027c"></script>
-<script src="js/settings-db.js?v=20261027c"></script>
-<script src="js/shell.js?v=20261027c"></script>
+<script src="js/auth.js?v=20261027d"></script>
+<script src="js/settings-db.js?v=20261027d"></script>
+<script src="js/shell.js?v=20261027d"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -911,7 +911,7 @@ V.kqkd=()=>{
   const modeSeg=`<div class="seg" role="group" aria-label="Cột của báo cáo">${[['team',multiProj?'Theo dự án':'Theo team'],['prod','Theo sản phẩm']].map(([k,l])=>`<button type="button" data-kqmode="${k}" class="${kqMode===k?'on':''}" aria-pressed="${kqMode===k}">${l}</button>`).join('')}</div>`;
   return `<div class="card pl"><div class="cardhead"><div><h2>Báo cáo kết quả kinh doanh · ${esc(rangeLabel())}</h2></div><div class="page-actions">${modeSeg}${exportBtn('tPL')}</div></div>
     ${oldSql}${missing}${noAds}
-    <div class="tw"><table id="tPL" class="pltab" style="min-width:${240+130+76+(cols.length-1)*124}px"><colgroup><col style="width:240px"><col style="width:130px"><col style="width:76px">${cols.slice(1).map(()=>'<col style="width:124px">').join('')}</colgroup><thead><tr><th class="l">Chỉ tiêu (đồng)</th>${cols.map((c,i)=>`<th>${esc(c[0])}</th>${i===0?'<th>Tỷ lệ</th>':''}`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>
+    <div class="tw plscroll"><table id="tPL" class="pltab" style="min-width:${240+130+84+(cols.length-1)*124}px"><colgroup><col style="width:240px"><col style="width:130px"><col style="width:84px">${cols.slice(1).map(()=>'<col style="width:124px">').join('')}</colgroup><thead><tr><th class="l">Chỉ tiêu (đồng)</th>${cols.map((c,i)=>`<th title="${esc(c[0])}"><span class="pn">${esc(c[0])}</span></th>${i===0?'<th>Tỷ lệ</th>':''}`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>
   ${otherCard}
   <div class="card" id="jt"><h2>Đối soát file J&amp;T / FFM</h2><p class="hint">Chọn đơn vị FFM, rồi tải file .xlsx hoặc .csv có các cột Mã vận đơn (hoặc Waybill Number), COD, Tên sản phẩm, Order Status. File chỉ đọc trong trình duyệt, không gửi đi đâu.</p>
   <div class="tools"><label for="jtFfm" class="muted">File của đơn vị</label><select id="jtFfm">${FFMS.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}</select></div>

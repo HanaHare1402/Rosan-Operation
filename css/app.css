@@ -32,12 +32,12 @@
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
 a{color:var(--accent)}
 a:hover{color:var(--accent-2)}
-h1{font-size:22px;line-height:1.25;letter-spacing:-.02em;margin:0;font-weight:700;text-wrap:balance}
-h2{font-size:15px;line-height:1.35;letter-spacing:-.01em;margin:0;font-weight:650}
-.sub{color:var(--muted);margin:3px 0 0;font-size:13px}
+h1{font-size:20px;line-height:1.25;letter-spacing:-.02em;margin:0;font-weight:700;text-wrap:balance}
+h2{font-size:14px;line-height:1.35;letter-spacing:-.01em;margin:0;font-weight:650}
+.sub{color:var(--muted);margin:3px 0 0;font-size:12px}
 .muted{color:var(--muted)} .neg{color:var(--bad)} .pos{color:var(--good)}
 .mono{font-family:var(--mono);font-size:12.5px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -120,7 +120,7 @@ main{min-width:0;padding:22px 32px 56px;padding-right:max(32px,env(safe-area-ins
 @media (max-width:1280px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px;min-width:0;box-shadow:var(--shadow-1);position:relative}
 .kpi .l{color:var(--muted);font-size:12px;font-weight:550;letter-spacing:.01em}
-.kpi .v{font-size:24px;font-weight:700;letter-spacing:-.025em;margin-top:4px;font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1.2}
+.kpi .v{font-size:21px;font-weight:700;letter-spacing:-.025em;margin-top:4px;font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1.2}
 .kpi .n{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.45}
 .kpi:first-child{border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
 .kpi:first-child .v{color:var(--accent-ink)}
@@ -130,10 +130,10 @@ main{min-width:0;padding:22px 32px 56px;padding-right:max(32px,env(safe-area-ins
 
 /* ---------- bảng ---------- */
 .tw{overflow-x:auto;margin:0 -18px;padding:0 18px}
-table{width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;font-size:13px}
-th{font-size:11px;font-weight:650;color:var(--muted);text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;letter-spacing:.04em;text-transform:uppercase;background:var(--panel-2)}
+table{width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;font-size:12px}
+th{font-size:10.5px;font-weight:650;color:var(--muted);text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;letter-spacing:.04em;text-transform:uppercase;background:var(--panel-2)}
 thead th:first-child{border-top-left-radius:8px} thead th:last-child{border-top-right-radius:8px}
-td{padding:10px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;vertical-align:middle}
+td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;vertical-align:middle}
 th:first-child,td:first-child{text-align:left}
 th.l,td.l{text-align:left}
 th.sort{cursor:pointer;user-select:none}
@@ -165,7 +165,7 @@ td input[type=text],td select{padding:5px 8px;font-size:12.5px}
 .d-fb{background:var(--fb)} .d-gg{background:var(--gg)} .d-tiktok{background:var(--tt)} .d-shopee{background:var(--sp)} .d-lazada{background:var(--lz)} .d-khac{background:var(--faint)}
 
 /* ---------- nút, ô nhập ---------- */
-.btn{font:600 13px var(--font);background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:9px;padding:8px 15px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;line-height:1.35;white-space:nowrap;box-shadow:var(--shadow-1)}
+.btn{font:600 12.5px var(--font);background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:9px;padding:8px 15px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;line-height:1.35;white-space:nowrap;box-shadow:var(--shadow-1)}
 .btn:hover{background:var(--accent-2);border-color:var(--accent-2)}
 .btn:disabled{opacity:.55;cursor:default}
 .btn svg{width:15px;height:15px}
@@ -181,7 +181,7 @@ td input[type=text],td select{padding:5px 8px;font-size:12.5px}
 .lnk.danger{color:var(--bad);background:var(--bad-soft)}
 .lnk:disabled{opacity:.6;cursor:default}
 select,input[type=search],input[type=text],input[type=number],input[type=password],input[type=email],input[type=date],input[type=month]{
-  font:500 13px var(--font);color:var(--ink);background:var(--panel);border:1px solid var(--line-2);border-radius:9px;padding:7px 11px;min-height:36px;max-width:100%}
+  font:500 12.5px var(--font);color:var(--ink);background:var(--panel);border:1px solid var(--line-2);border-radius:9px;padding:6px 10px;min-height:34px;max-width:100%}
 select{padding-right:28px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b968f' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center}
 select:hover,input:hover{border-color:var(--faint)}
 select:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -197,7 +197,7 @@ input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px}
 .add-row{display:flex;justify-content:flex-start;margin-top:14px}
 
 /* ---------- thông báo ---------- */
-.msg{font-size:13px}
+.msg{font-size:12.5px}
 .msg:empty,.fmsg:empty{display:none}
 .msg:not(:empty){margin:10px 0;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);line-height:1.5}
 .msg.neg{background:var(--bad-soft);border-color:color-mix(in srgb,var(--bad) 25%,transparent);color:var(--bad)}
@@ -326,7 +326,7 @@ th .tip::after{bottom:auto;top:calc(100% + 8px)}
 /* 4 ô chỉ số chính */
 .kpis.kpis4{grid-template-columns:repeat(4,minmax(0,1fr))}
 .kpi{display:flex;flex-direction:column}
-.kpi .v{font-size:28px}
+.kpi .v{font-size:24px}
 .kpi.primary{background:linear-gradient(180deg,color-mix(in srgb,var(--accent-soft) 70%,var(--panel)),var(--panel));border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
 .kpi .spark{margin-top:auto;padding-top:10px;width:100%;height:34px}
 .kpi .n div{margin-top:2px}
@@ -339,7 +339,7 @@ th .tip::after{bottom:auto;top:calc(100% + 8px)}
 .statstrip>div{padding:12px 16px;display:flex;flex-direction:column;gap:2px;min-width:0;border-left:1px solid var(--line)}
 .statstrip>div:first-child{border-left:0}
 .statstrip .l{font-size:12px;color:var(--muted);font-weight:550}
-.statstrip b{font-size:16px;font-variant-numeric:tabular-nums}
+.statstrip b{font-size:15px;font-variant-numeric:tabular-nums}
 .statstrip .muted,.statstrip .delta{font-size:12px}
 
 /* tiến độ target */
@@ -499,7 +499,7 @@ table.pltab th:nth-child(3),table.pltab td:nth-child(3){position:sticky;left:370
 table.pltab thead th:nth-child(-n+3){background:var(--sunk)}
 table.pltab tr.sec td{background:var(--sunk)!important;font-weight:700;color:var(--ink);border-top:1px solid var(--line-2)}
 table.pltab tr.sec td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
-table.pltab tr.res td{font-size:13.5px}
+table.pltab tr.res td{font-size:12.5px}
 table.pltab tr.res td:first-child{color:var(--accent)}
 table.pltab tr.h td{font-weight:600;color:var(--ink)}
 table.pltab td.ind{padding-left:26px;color:var(--ink-2)}
@@ -519,6 +519,34 @@ table.kpl tr.h td{font-weight:650}
 #tKpi thead th,#tKpiP thead th{border-bottom:1px solid var(--line-2);vertical-align:bottom;white-space:normal;min-width:76px}
 #tKpi tbody tr:hover td,#tKpiP tbody tr:hover td{background:color-mix(in srgb,var(--accent) 7%,var(--panel))}
 /* bảng KPI nhiều cột: chữ số gọn hơn, cột LNG luôn hiện ở mép phải khi cuộn ngang */
-#tKpi td,#tKpiP td{font-size:12.5px}
+#tKpi td,#tKpiP td{font-size:12px}
 #tKpi th:last-child,#tKpi td:last-child,#tKpiP th:last-child,#tKpiP td:last-child{position:sticky;right:0;z-index:1;background:var(--panel);box-shadow:inset 1px 0 0 var(--line-2)}
 #tKpi thead th:last-child,#tKpiP thead th:last-child,#tKpi tfoot td:last-child,#tKpiP tfoot td:last-child{background:var(--panel-2)}
+/* thanh menu trái: nền xanh đậm (cả giao diện sáng và tối), chữ sáng, mục đang chọn có nền sáng + vạch */
+:root{--side-bg:#0f3b2e;--side-bg-2:#0b2f24;--side-ink:#e6f3ee;--side-muted:#a7c9bc;--side-faint:#8fb5a7;--side-hover:rgba(255,255,255,.08);--side-on:rgba(255,255,255,.14);--side-line:rgba(255,255,255,.12);--side-accent:#6ee7b7}
+:root[data-theme="dark"]{--side-bg:#0d1f19;--side-bg-2:#0a1813}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--side-bg:#0d1f19;--side-bg-2:#0a1813}}
+aside{background:linear-gradient(180deg,var(--side-bg),var(--side-bg-2));border-right:0;color:var(--side-ink)}
+aside .brand{color:#fff}aside .brand-sub{color:var(--side-muted)}
+aside .logo{background:rgba(255,255,255,.14);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+aside .nav-group{color:var(--side-faint)}
+aside nav a{color:var(--side-ink);font-size:13px}
+aside nav a svg{color:var(--side-muted)}
+aside nav a:hover{background:var(--side-hover);color:#fff}
+aside nav a:hover svg{color:#fff}
+aside nav a.on{background:var(--side-on);color:#fff;font-weight:600;box-shadow:inset 3px 0 0 var(--side-accent)}
+aside nav a.on svg{color:var(--side-accent)}
+aside nav a:focus-visible{outline:2px solid var(--side-accent);outline-offset:1px}
+aside .cnt{background:#ef4444;color:#fff}
+aside .side-foot{background:rgba(255,255,255,.06);border-color:var(--side-line);color:var(--side-muted)}
+aside .userbox{border-top-color:var(--side-line)}
+aside .userbox .who{color:#fff}aside .userbox .role{color:var(--side-muted)}
+aside .avatar{background:rgba(255,255,255,.16);color:#fff}
+aside .icon-btn{color:var(--side-muted)}aside .icon-btn:hover{background:var(--side-hover);color:#fff;border-color:transparent}
+/* báo cáo kết quả kinh doanh: khung cuộn riêng để hàng tiêu đề (tên sản phẩm) đứng yên khi kéo lên / xuống */
+.tw.plscroll{max-height:calc(100vh - 230px);overflow:auto}
+table.pltab thead th{position:sticky;top:0;z-index:3;text-transform:none;letter-spacing:0;font-size:11.5px;font-weight:650;line-height:1.3;color:var(--ink);height:44px}
+table.pltab thead th:nth-child(-n+3){z-index:4}
+table.pltab thead th .pn{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal}
+table.pltab td:nth-child(3){overflow:visible;text-overflow:clip}
+@media (max-width:960px){.tw.plscroll{max-height:none}}
