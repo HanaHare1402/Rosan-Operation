@@ -345,7 +345,8 @@ V.tongquan=()=>{
     </div>
   </div>
   <div class="card"><div class="cardhead"><div><h2>Các team</h2><p class="hint">Bấm vào một team để xem từng nhân sự. Bấm tiêu đề cột để sắp xếp.${ROWS.some(r=>!r.team)?' “Chưa gán team” là đơn có marketer chưa khai báo.':''}</p></div>${exportBtn('tTeams')}</div>
-  ${dataTable('tTeams',cols,rankRows(ROWS,PREV,r=>r.team||''),{name:'Team',click:r=>r.k?'team:'+r.k:'',foot:totFoot(ROWS)})}</div>`;
+  ${dataTable('tTeams',cols,rankRows(ROWS,PREV,r=>r.team||''),{name:'Team',click:r=>r.k?'team:'+r.k:'',foot:totFoot(ROWS)})}</div>
+  ${dailyCard(null)}`;
 };
 let curTeam=store.get('team','');
 V.team=()=>{
@@ -363,6 +364,7 @@ V.team=()=>{
   return head+kpiCards(list,plist)+targetBlock(list,F.range==='month'?+t.target_vnd||0:0)+
   `<div class="card"><div class="cardhead"><div><h2>Xếp hạng nhân sự · ${esc(t.name)}</h2><p class="hint">Bấm vào tên để xem chi tiết từng người.</p></div>${exportBtn('tStaff')}</div>
   ${dataTable('tStaff',cols,rankRows(list,plist,key),{name:'Nhân sự '+t.name,click:r=>r.k.startsWith('~')?'':'nhansu:'+r.k,foot:totFoot(list)})}</div>
+  ${dailyCard(curTeam)}
   ${chartCard('Xu hướng theo ngày · '+esc(t.name),list,plist,true)}`;
 };
 let curStaff=store.get('staff','');
@@ -691,6 +693,71 @@ V.kpi=()=>{
   <div class="card"><div class="cardhead"><div><h2>Từng sản phẩm · ${N(prods.filter(p=>p.n||p.usd).length)} có đơn / chi phí${kAllProds?` · ${N(prods.length)} sản phẩm`:''}</h2><p class="hint">Mỗi đơn tính cho sản phẩm chính của đơn (dòng hàng giá trị lớn nhất, không tính hàng tặng).${KCAT.loading?' Đang tải danh sách sản phẩm…':''}</p></div><div class="page-actions"><label class="toggle"><input type="checkbox" id="kAllProds" ${kAllProds?'checked':''}> Hiện tất cả sản phẩm</label>${kViewSeg()}${exportBtn('tKpiP')}</div></div>
     ${dataTable('tKpiP',kCols(first,F.cmp?pprev:null),prods,{name:'KPI '+nm,sortKey:'sent',foot,xcols:[{label:'Nhóm',val:r=>r.grp||''}].concat(KX)})}</div>`;
 };
+
+// ---------- theo dõi theo ngày (giống sheet của từng team) ----------
+// Hàng: chi phí ads / doanh số / số đơn / % chi phí / chi phí mỗi đơn, tách theo nhóm sản phẩm. Cột: tổng kỳ và từng ngày.
+const TD={key:'',rows:[],usd:KDEF.usd_vnd,loading:false,err:''};
+const CONTEST={key:'',rows:null,month:''};
+async function loadTD(key){
+  const [from,to]=rangeDates();
+  const [r,s]=await Promise.all([fetchAll(()=>sbc.rpc('team_daily',{p_from:from.toISOString(),p_to:to.toISOString(),p_project:F.proj||null}).order('day').order('team_id').order('grp')),getKSet(isoD(monthStart(from)))]);
+  if(key!==TD.key)return;
+  TD.loading=false;TD.usd=s.usd_vnd;
+  if(r.error){TD.err=r.error.message;TD.rows=[]}else{TD.err='';TD.rows=r.data.map(x=>({day:x.day,team:x.team_id||'',grp:x.grp,n:+x.orders,rev:+x.revenue,usd:+x.ad_usd}))}
+  if(view==='team'||view==='tongquan')render();
+}
+// Thi đua: 2 người LNG cao nhất tháng trước (theo bảng KPI nhân viên ADS).
+async function loadContest(key){
+  const t=sod(new Date()),pf=new Date(t.getFullYear(),t.getMonth()-1,1),pt=new Date(t.getFullYear(),t.getMonth(),1);
+  const [r,s]=await Promise.all([fetchAll(()=>sbc.rpc('kpi_report',{p_from:pf.toISOString(),p_to:pt.toISOString(),p_mode:'ads',p_project:F.proj||null}).order('who').order('product_key')),getKSet(isoD(pf))]);
+  if(key!==CONTEST.key)return;
+  CONTEST.month=isoD(pf);CONTEST.rows=r.error?[]:kSum(r.data.map(kRow),x=>x.who).filter(a=>a.k!=='~').map(a=>kCalc(a,s));
+  if(view==='team'||view==='tongquan')render();
+}
+const WD=['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+const GNAME=g=>g?'Nhóm '+g:'Chưa xếp nhóm';
+function dailyCard(teamId){
+  const key=JSON.stringify([F.proj,F.range,F.from,F.to]);
+  if(key!==TD.key){TD.key=key;TD.loading=true;TD.rows=[];loadTD(key)}
+  if(ME.scope!=='self'&&CONTEST.key!==F.proj){CONTEST.key=F.proj;CONTEST.rows=null;loadContest(F.proj)}
+  const title=teamId?'Theo dõi theo ngày · '+esc(teamName(teamId)):'Theo dõi theo ngày · tất cả team';
+  if(TD.err)return `<div class="card"><h2>${title}</h2>${Shell.empty('alert','Chưa tải được bảng theo dõi',esc(TD.err)+'<br>Kiểm tra đã chạy file SQL 20261026010000_team_daily.sql trên Supabase chưa.')}</div>`;
+  if(TD.loading&&!TD.rows.length)return `<div class="card"><h2>${title}</h2><div class="skel" style="height:14px;margin-top:14px"></div><div class="skel" style="height:180px;margin-top:12px"></div></div>`;
+  const rows=teamId?TD.rows.filter(r=>r.team===teamId):TD.rows,rate=TD.usd,ds=days(),today=isoD(new Date());
+  const G=[1,2,3].concat(rows.some(r=>r.grp==null&&(r.n||r.usd))?[null]:[]);
+  const Z=()=>({n:0,rev:0,usd:0}),add=(a,r)=>{a.n+=r.n;a.rev+=r.rev;a.usd+=r.usd};
+  const by=new Map(),tot=Z();
+  rows.forEach(r=>{[r.day+'|'+r.grp,r.day+'|*','*|'+r.grp,'*|*'].forEach(k=>{if(!by.has(k))by.set(k,Z());add(by.get(k),r)})});
+  const get=(d,g)=>by.get(d+'|'+(g===undefined?'*':g))||Z();
+  // Target: của team, hoặc cộng các team trong phạm vi.
+  const teams=teamId?[byId(CAT.teams,teamId)].filter(Boolean):CAT.teams.filter(t=>t.active!==false&&TD.rows.some(r=>r.team===t.id));
+  const tgt=teams.reduce((a,t)=>a+(+t.target_vnd||0),0),g2=teams.reduce((a,t)=>a+(+t.target_g2_vnd||0),0);
+  const caps=[...new Set(teams.map(t=>+t.ads_pct_max||0).filter(Boolean))],cap=caps.length===1?caps[0]:0;
+  const pct=(a,strong)=>{if(!a.rev)return '<span class="muted">–</span>';const v=a.usd*rate/a.rev,over=cap&&v*100>cap;return over?`<b class="neg" title="Vượt trần ${PF(cap)}%">${P(v)} ▲</b>`:(strong?`<b>${P(v)}</b>`:P(v))};
+  const lines=[
+    ['Tổng chi phí ads (1)',a=>M(a.usd*rate),'h',undefined],...G.map(g=>['Chi phí ads · '+GNAME(g),a=>M(a.usd*rate),'ind',g]),
+    ['Doanh số tổng (2)',a=>M(a.rev),'h',undefined],...G.map(g=>['Doanh số · '+GNAME(g),a=>M(a.rev),'ind',g]),
+    ['Số đơn (3)',a=>N(a.n),'h',undefined],
+    ['% chi phí = (1) ÷ (2)',a=>pct(a,1),'h',undefined],...G.map(g=>['% chi phí · '+GNAME(g),a=>pct(a),'ind',g]),
+    ['Chi phí / đơn = (1) ÷ (3)',a=>a.n?N(a.usd*rate/a.n):'<span class="muted">–</span>','h',undefined]];
+  const head=`<tr><th class="l">Chỉ số</th><th>Tổng<div class="sub2">${esc(rangeLabel())}</div></th>${ds.map(d=>`<th>${WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
+  const body=lines.map(([lab,f,cls,g])=>`<tr class="${cls==='h'?'h':''}"><td class="${cls==='ind'?'ind':''}">${lab}</td><td><b>${f(get('*',g))}</b></td>${ds.map(d=>{const k=isoD(d);return `<td>${k>today?'<span class="muted">–</span>':f(get(k,g))}</td>`}).join('')}</tr>`).join('');
+  const T=get('*'),T2=get('*',2),dim=new Date(ds[0].getFullYear(),ds[0].getMonth()+1,0).getDate();
+  const strip=tgt||g2||cap?`<div class="statstrip" style="margin:4px 0 14px">
+    <div><span class="l">Target tháng</span><b>${tgt?M(tgt):'–'}</b><span class="muted">${tgt?`đã đạt ${M(T.rev)} · ${P(T.rev/tgt)}`:'Chưa đặt target'}</span></div>
+    <div><span class="l">Target tuần · ngày</span><b>${tgt?M(tgt/dim*7):'–'}</b><span class="muted">${tgt?'ngày '+M(tgt/dim):''}</span></div>
+    <div><span class="l">Target doanh số nhóm 2</span><b>${g2?M(g2):'–'}</b><span class="muted">${g2?`đã đạt ${M(T2.rev)} · ${P(T2.rev/g2)} · ngày ${M(g2/dim)}`:'Chưa đặt'}</span></div>
+    <div><span class="l">% chi phí ads${cap?` (trần ${PF(cap)}%)`:''}</span><b class="${cap&&T.rev&&T.usd*rate/T.rev*100>cap?'neg':''}">${T.rev?P(T.usd*rate/T.rev):'–'}</b><span class="muted">${cap?(T.rev&&T.usd*rate/T.rev*100>cap?'▲ đang vượt trần':'trong mức cho phép'):'Chưa đặt trần'}</span></div></div>`:'';
+  let contest='';
+  if(CONTEST.rows&&CONTEST.rows.length){
+    const top=CONTEST.rows.filter(a=>!teamId||(byId(CAT.staff,a.k)||{}).team_id===teamId).filter(a=>a.lng>0).sort((a,b)=>b.lng-a.lng).slice(0,2);
+    if(top.length)contest=`<div class="msg muted" style="margin:0 0 14px"><b>Kết quả thi đua tháng ${fmtM(CONTEST.month)}</b> · ${top.map((a,i)=>`${i?'🥈 Hạng 2':'🥇 Hạng 1'}: <b>${esc(staffName(a.k))}</b> (LNG ${M(a.lng)})`).join(' · ')}</div>`;
+  }
+  const canTgt=['admin','quan_ly'].includes(ME.role);
+  return `<div class="card"><div class="cardhead"><div><h2>${title}</h2><p class="hint">Chi phí ads (USD × ${N(rate)}) theo team của người nhập; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn. Bảng này không lọc theo kênh.${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}</p></div></div>
+    ${contest}${strip}
+    ${rows.length?`<div class="tw"><table class="daily">${'<thead>'+head+'</thead>'}<tbody>${body}</tbody></table></div>`:Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
+}
 
 // ---------- nhập chi phí quảng cáo ----------
 // Marketer nhập USD chi cho từng sản phẩm mỗi ngày; trưởng team / quản lý / kế toán / admin nhập hộ trong phạm vi của mình.
