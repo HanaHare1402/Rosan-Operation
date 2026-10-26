@@ -13,11 +13,11 @@
   };
   // Màn nào của bảng điều hành mỗi vai trò được xem.
   const VIEWS = {
-    admin: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "canhbao", "caidat"],
-    quan_ly: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "canhbao", "caidat"],
-    truong_team: ["tongquan", "team", "nhansu", "sanpham", "donhang", "canhbao"],
-    marketing: ["tongquan", "nhansu", "sanpham", "donhang", "canhbao"],
-    ke_toan: ["tongquan", "donhang", "kqkd", "canhbao", "caidat"],
+    admin: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "kpi", "chiphi", "canhbao", "caidat"],
+    quan_ly: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "kpi", "chiphi", "canhbao", "caidat"],
+    truong_team: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kpi", "chiphi", "canhbao"],
+    marketing: ["tongquan", "nhansu", "sanpham", "donhang", "kpi", "chiphi", "canhbao"],
+    ke_toan: ["tongquan", "donhang", "kqkd", "kpi", "chiphi", "canhbao", "caidat"],
     van_don: ["donhang", "canhbao"],
     kho: ["sanpham", "donhang", "canhbao"],
     sale: ["tongquan", "nhansu", "donhang", "sanpham"],
@@ -37,6 +37,7 @@
     danhmuc: ["admin", "quan_ly"],
     chuakhaibao: ["admin", "quan_ly"],
     giavon: ["admin", "quan_ly", "ke_toan"],
+    nhomsp: ["admin", "quan_ly", "ke_toan"],
     pos: ["admin"],
     taikhoan: ["admin"],
     nhatky: ["admin"],

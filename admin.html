@@ -142,6 +142,25 @@
       </div>
     </section>
 
+    <!-- ---------- nhóm sản phẩm ---------- -->
+    <section id="tab-nhomsp" hidden>
+      <div class="card">
+        <div class="cardhead"><div><h2>Nhóm sản phẩm và người R&amp;D</h2><p class="hint">Nhóm 1 là sản phẩm dễ đẩy, nhóm 3 khó đẩy. Người R&amp;D dùng cho bảng KPI R&amp;D. Mỗi tháng cập nhật một lần; sản phẩm nào tháng này chưa đổi thì giữ nhóm của tháng gần nhất trước đó.</p></div>
+          <div class="page-actions"><label class="flabel" for="gpMonth">Tháng</label><input type="month" id="gpMonth"><button class="btn ghost sm" type="button" id="gpImpOpen">Tải file Excel</button></div></div>
+        <div id="gpImp" class="editor" hidden>
+          <div class="edtitle">Tải nhóm từ file <button class="lnk" type="button" id="gpImpClose">Đóng</button></div>
+          <p class="hint" style="margin:0 0 10px">File .xlsx hoặc .csv có cột <b>Tên sản phẩm</b> (tên tiếng Anh như trên POS), <b>Nhóm</b> (1, 2, 3 hoặc “Nhóm 1”), và nếu có, cột <b>R&amp;D</b> (tên nhân sự). Ghi vào tháng đang chọn.</p>
+          <div class="drop"><input type="file" id="gpFile" accept=".xlsx,.xls,.csv" style="max-width:100%"></div>
+          <div class="msg" id="gpImpMsg" role="status"></div>
+          <div class="formrow"><button class="btn" type="button" id="gpImpGo" hidden>Ghi vào tháng</button></div>
+        </div>
+        <div class="tools" style="margin-top:14px"><input type="search" id="gpQ" placeholder="Tìm sản phẩm"><div class="chips" id="gpFilter" role="group" aria-label="Lọc theo nhóm"></div></div>
+        <div class="msg" id="gpMsg" role="status"></div>
+        <div class="tw"><table><thead><tr><th class="l">Sản phẩm</th><th>Đơn 60 ngày</th><th class="l">Nhóm</th><th class="l">R&amp;D phụ trách</th><th class="l">Đang áp dụng</th></tr></thead><tbody id="gpRows"><tr><td colspan="5"><div class="skel" style="height:12px"></div></td></tr></tbody></table></div>
+        <div class="formrow"><button class="btn" type="button" id="gpSave" disabled>Lưu thay đổi</button><button class="btn ghost" type="button" id="gpUndo" hidden>Bỏ thay đổi</button><span class="fmsg" id="gpSaveMsg"></span></div>
+      </div>
+    </section>
+
     <section id="tab-nhatky" hidden>
       <div class="card"><div class="cardhead"><div><h2>50 lần đồng bộ gần nhất</h2><p class="hint">Đơn được kéo khi có người mở bảng điều hành (tối đa 30 giây một lần) và theo lịch tự động 2 tiếng/lần. “partial”: chưa kéo hết, lần sau làm tiếp. “busy”: lượt khác đang kéo shop đó.</p></div><button class="btn ghost" id="reloadRuns">Tải lại</button></div>
       <div class="tw"><table><thead><tr><th class="l">Bắt đầu</th><th class="l">Shop</th><th class="l">Người / lịch</th><th>Trang</th><th>Đơn</th><th class="l">Kết quả</th><th class="l">Lỗi</th></tr></thead><tbody id="runs"></tbody></table></div></div>
@@ -189,6 +208,7 @@
     taikhoan: ["Tài khoản", "Tạo tài khoản, cấp vai trò và phạm vi xem", ["admin"]],
     pos: ["Kết nối POS", "Shop, API key Pancake POS và đồng bộ đơn", ["admin"]],
     giavon: ["Giá vốn", "Dữ liệu nhập hàng, giá vốn theo giá nhập gần nhất", ["admin", "quan_ly", "ke_toan"]],
+    nhomsp: ["Nhóm sản phẩm", "Phân nhóm dễ / khó đẩy và người R&D theo tháng", ["admin", "quan_ly", "ke_toan"]],
     nhatky: ["Nhật ký đồng bộ", "Lịch sử kéo đơn từ POS", ["admin"]],
   };
   const allowedTab = (t) => TABS[t] && TABS[t][2].includes(me.role);
@@ -199,7 +219,7 @@
     document.querySelectorAll("nav a[data-tab]").forEach((a) => a.classList.toggle("on", a.dataset.tab === t));
     $("#title").textContent = TABS[t][0]; if (!$("#subtitle").querySelector(".neg")) $("#subtitle").textContent = TABS[t][1];
     history.replaceState(null, "", "#" + t);
-    ({ danhmuc: renderCat, chuakhaibao: loadUnmapped, taikhoan: loadUsers, pos: loadShops, giavon: loadCosts, nhatky: loadRuns })[t]();
+    ({ danhmuc: renderCat, chuakhaibao: loadUnmapped, taikhoan: loadUsers, pos: loadShops, giavon: loadCosts, nhomsp: loadGroups, nhatky: loadRuns })[t]();
   }
   document.querySelectorAll("nav a[data-tab]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); go(a.dataset.tab); }));
 
@@ -461,7 +481,7 @@
   drainRecompute($("#unmappedMsg"), refreshUnmappedCount);
 
   // ---------- tài khoản (chỉ admin) ----------
-  const VIEW_NAMES = { tongquan: "Tổng quan", team: "Team", nhansu: "Nhân sự", sanpham: "Sản phẩm", donhang: "Đơn hàng", kqkd: "KQKD", canhbao: "Cảnh báo", caidat: "Cài đặt" };
+  const VIEW_NAMES = { tongquan: "Tổng quan", team: "Team", nhansu: "Nhân sự", sanpham: "Sản phẩm", donhang: "Đơn hàng", kqkd: "KQKD", kpi: "KPI", chiphi: "Chi phí ads", canhbao: "Cảnh báo", caidat: "Cài đặt" };
   $("#roleMatrix").innerHTML = Object.entries(Auth.ROLES).map(([k, v]) => `<tr><td>${v}</td><td class="l" style="white-space:normal">${Auth.VIEWS[k].map((x) => VIEW_NAMES[x]).join(", ")}${k === "admin" ? ", Quản trị" : k === "quan_ly" ? ", Quản trị (danh mục team, nhân sự)" : ""}</td><td class="l">${Auth.SCOPES[Auth.DEFAULT_SCOPE[k]]}</td></tr>`).join("");
   let users = [], uArmed = null, uEdit = null;
   const scopeText = (u) => {
@@ -941,6 +961,106 @@
       drainRecompute($("#cmMsg"));
     } catch (err) { say($("#cmMsg"), "Chưa tải được: " + esc(err.message), "neg"); }
     $("#cmImport").disabled = false;
+  };
+
+  // ---------- nhóm sản phẩm (theo tháng) ----------
+  // Danh sách = sản phẩm bán 60 ngày qua + sản phẩm đã từng xếp nhóm. Giá trị đang áp dụng = dòng của tháng gần nhất ≤ tháng chọn.
+  const pk = (x) => String(x || "").trim().toLowerCase();
+  const thisMonth = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+  $("#gpMonth").value = thisMonth();
+  let gpList = [], gpDirty = new Map(), gpFilter = "all", gpImpRows = [];
+  const gpM = () => ($("#gpMonth").value || thisMonth()) + "-01";
+  const fmtMon = (iso) => iso ? iso.slice(5, 7) + "/" + iso.slice(0, 4) : "";
+  async function loadGroups() {
+    const [p, g] = await Promise.all([sb.rpc("kpi_products", { p_days: 60 }), sb.from("product_groups").select("month,product_key,name,grp,rd_staff_id").lte("month", gpM()).order("month", { ascending: false }).limit(20000)]);
+    const err = p.error || g.error;
+    if (err) { $("#gpRows").innerHTML = `<tr><td colspan="5" class="l neg">${esc(err.message)}. Kiểm tra đã chạy SQL 20261026000000_kpi.sql chưa.</td></tr>`; return; }
+    const m = new Map();
+    (p.data || []).forEach((r) => m.set(r.product_key, { k: r.product_key, name: r.name, orders: +r.orders, grp: null, rd: null, from: "" }));
+    (g.data || []).forEach((r) => { let x = m.get(r.product_key); if (!x) { x = { k: r.product_key, name: r.name, orders: 0, grp: null, rd: null, from: "" }; m.set(r.product_key, x); } if (!x.from) Object.assign(x, { grp: r.grp, rd: r.rd_staff_id, from: r.month }); });
+    gpList = [...m.values()].sort((a, b) => b.orders - a.orders || a.name.localeCompare(b.name));
+    gpDirty = new Map(); renderGroups();
+  }
+  function renderGroups() {
+    const q = pk($("#gpQ").value), cnt = { all: gpList.length, none: 0, 1: 0, 2: 0, 3: 0 };
+    const cur = (x) => gpDirty.get(x.k) || x;
+    gpList.forEach((x) => { const g = cur(x).grp; cnt[g || "none"]++; });
+    $("#gpFilter").innerHTML = [["all", "Tất cả"], ["none", "Chưa xếp nhóm"], ["1", "Nhóm 1"], ["2", "Nhóm 2"], ["3", "Nhóm 3"]].map(([k, l]) => `<button type="button" class="chip ${gpFilter === k ? "on" : ""}" data-gpf="${k}" aria-pressed="${gpFilter === k}">${l} · ${cnt[k]}</button>`).join("");
+    const rows = gpList.filter((x) => (!q || pk(x.name).includes(q)) && (gpFilter === "all" || String(cur(x).grp || "none") === gpFilter));
+    const staffOpts = C.staff.filter((s) => s.active !== false).map((s) => [s.id, s.name]);
+    const m = gpM();
+    $("#gpRows").innerHTML = rows.slice(0, 400).map((x) => { const c = cur(x), d = gpDirty.has(x.k);
+      return `<tr${d ? ' class="editing"' : ""}><td class="l" style="white-space:normal">${esc(x.name)}</td><td>${nf.format(x.orders)}</td>
+      <td class="l"><select data-gpg="${esc(x.k)}" aria-label="Nhóm của ${esc(x.name)}">${opts([[1, "Nhóm 1 · dễ đẩy"], [2, "Nhóm 2"], [3, "Nhóm 3 · khó đẩy"]], c.grp, "Chưa xếp nhóm")}</select></td>
+      <td class="l"><select style="min-width:150px" data-gpr="${esc(x.k)}" aria-label="R&D của ${esc(x.name)}">${opts(staffOpts, c.rd, "Chưa gán")}</select></td>
+      <td class="l">${d ? '<span class="pill p-warn">Chưa lưu</span>' : x.from === m ? '<span class="pill p-good">Tháng này</span>' : x.from ? `<span class="pill p-mute">Theo tháng ${fmtMon(x.from)}</span>` : '<span class="muted">–</span>'}</td></tr>`; }).join("")
+      + (rows.length > 400 ? `<tr><td colspan="5" class="l muted">Còn ${nf.format(rows.length - 400)} sản phẩm, gõ tên vào ô tìm để lọc.</td></tr>` : "")
+      || `<tr><td colspan="5">${Shell.empty("inbox", "Không có sản phẩm", gpList.length ? "Thử đổi bộ lọc hoặc ô tìm." : "Chưa có đơn nào trong 60 ngày. Đồng bộ đơn từ POS trước.")}</td></tr>`;
+    $("#gpSave").disabled = !gpDirty.size; $("#gpUndo").hidden = !gpDirty.size;
+    $("#gpSave").textContent = gpDirty.size ? `Lưu ${gpDirty.size} thay đổi vào tháng ${fmtMon(m)}` : "Lưu thay đổi";
+  }
+  $("#gpRows").addEventListener("change", (e) => {
+    const s = e.target.closest("select"); if (!s) return;
+    const k = s.dataset.gpg || s.dataset.gpr, x = gpList.find((y) => y.k === k); if (!x) return;
+    const c = Object.assign({}, gpDirty.get(k) || { grp: x.grp, rd: x.rd });
+    if (s.dataset.gpg) c.grp = s.value ? +s.value : null; else c.rd = s.value || null;
+    if (c.grp === x.grp && c.rd === x.rd && x.from === gpM()) gpDirty.delete(k); else gpDirty.set(k, c);
+    renderGroups();
+  });
+  $("#gpFilter").addEventListener("click", (e) => { const b = e.target.closest("[data-gpf]"); if (b) { gpFilter = b.dataset.gpf; renderGroups(); } });
+  $("#gpQ").addEventListener("input", renderGroups);
+  $("#gpMonth").addEventListener("change", () => { if (gpDirty.size && !confirm(`Có ${gpDirty.size} thay đổi chưa lưu. Đổi tháng sẽ bỏ các thay đổi này?`)) return; loadGroups(); });
+  $("#gpUndo").onclick = () => { gpDirty = new Map(); say($("#gpSaveMsg"), "", ""); renderGroups(); };
+  async function saveGroupRows(rows, msgEl) {
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error } = await sb.from("product_groups").upsert(rows.slice(i, i + 500), { onConflict: "month,product_key" });
+      if (error) { say(msgEl, "Chưa lưu được: " + esc(error.message), "neg"); return false; }
+    }
+    return true;
+  }
+  $("#gpSave").onclick = async () => {
+    const m = gpM(), now = new Date().toISOString();
+    const rows = [...gpDirty.entries()].map(([k, c]) => ({ month: m, product_key: k, name: gpList.find((x) => x.k === k).name, grp: c.grp, rd_staff_id: c.rd, updated_at: now }));
+    $("#gpSave").disabled = true; say($("#gpSaveMsg"), "Đang lưu…", "muted");
+    if (await saveGroupRows(rows, $("#gpSaveMsg"))) { say($("#gpSaveMsg"), "", ""); Shell.toast(`Đã lưu ${rows.length} sản phẩm vào tháng ${fmtMon(m)}.`); loadGroups(); }
+    else $("#gpSave").disabled = false;
+  };
+  $("#gpImpOpen").onclick = () => { $("#gpImp").hidden = false; };
+  $("#gpImpClose").onclick = () => { $("#gpImp").hidden = true; gpImpRows = []; say($("#gpImpMsg"), "", ""); $("#gpImpGo").hidden = true; };
+  $("#gpFile").addEventListener("change", (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const fr = new FileReader();
+    fr.onload = (ev) => {
+      try {
+        const w = /\.csv$/i.test(file.name) ? XLSX.read(new TextDecoder("utf-8").decode(ev.target.result).replace(/^\ufeff/, ""), { type: "string" }) : XLSX.read(new Uint8Array(ev.target.result), { type: "array" });
+        const data = XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]], { defval: "", raw: true });
+        const keys = data.length ? Object.keys(data[0]) : [];
+        const find = (...c) => { for (const x of c) { const k = keys.find((k) => norm(k) === x) || keys.find((k) => norm(k).includes(x)); if (k) return k; } };
+        const kN = find("ten san pham tieng anh", "product", "ten san pham", "san pham"), kG = find("nhom", "group", "phan loai"), kR = find("r&d", "nhan vien test", "rd", "nguoi phu trach");
+        if (!kN || (!kG && !kR)) { say($("#gpImpMsg"), `Không tìm thấy cột Tên sản phẩm và Nhóm (hoặc R&D). Các cột trong file: ${esc(keys.join(", ")) || "(trống)"}.`, "neg"); $("#gpImpGo").hidden = true; return; }
+        const staff = C.staff.filter((s) => s.active !== false), who = (n) => { const q = pk(n); if (!q) return undefined; const ex = staff.filter((s) => pk(s.name) === q || (s.pos_names || []).some((p) => pk(p) === q)); if (ex.length === 1) return ex[0].id; const t = staff.filter((s) => pk(s.name).split(/\s+/).pop() === q); return t.length === 1 ? t[0].id : null; };
+        const byKey = new Map(gpList.map((x) => [x.k, x])), m = new Map(), skip = [], unknownRd = new Set();
+        data.forEach((r, i) => {
+          const name = String(r[kN]).trim(); if (!name) return;
+          const g = kG ? parseInt(String(r[kG]).replace(/\D/g, ""), 10) : NaN;
+          if (kG && String(r[kG]).trim() && !(g >= 1 && g <= 3)) { skip.push(`dòng ${i + 2}: nhóm “${r[kG]}”`); return; }
+          const old = byKey.get(pk(name)) || {};
+          let rd = old.rd ?? null;
+          if (kR && String(r[kR]).trim()) { const id = who(r[kR]); if (id) rd = id; else unknownRd.add(String(r[kR]).trim()); }
+          m.set(pk(name), { month: gpM(), product_key: pk(name), name, grp: g >= 1 ? g : (old.grp ?? null), rd_staff_id: rd });
+        });
+        gpImpRows = [...m.values()];
+        say($("#gpImpMsg"), `Đọc được <b>${nf.format(gpImpRows.length)}</b> sản phẩm cho tháng ${fmtMon(gpM())}.${skip.length ? ` Bỏ qua ${skip.length} dòng (${esc(skip.slice(0, 4).join("; "))}${skip.length > 4 ? "…" : ""}).` : ""}${unknownRd.size ? ` Không nhận ra R&D: ${esc([...unknownRd].slice(0, 6).join(", "))} (giữ nguyên người cũ).` : ""}`, gpImpRows.length ? "muted" : "neg");
+        $("#gpImpGo").hidden = !gpImpRows.length; $("#gpImpGo").textContent = `Ghi ${nf.format(gpImpRows.length)} sản phẩm vào tháng ${fmtMon(gpM())}`;
+      } catch (err) { say($("#gpImpMsg"), "Không đọc được file: " + esc(err.message), "neg"); }
+    };
+    fr.readAsArrayBuffer(file);
+  });
+  $("#gpImpGo").onclick = async () => {
+    $("#gpImpGo").disabled = true;
+    const now = new Date().toISOString();
+    if (await saveGroupRows(gpImpRows.map((r) => Object.assign({ updated_at: now }, r)), $("#gpImpMsg"))) { Shell.toast(`Đã ghi ${gpImpRows.length} sản phẩm.`); $("#gpImpClose").click(); loadGroups(); }
+    $("#gpImpGo").disabled = false;
   };
 
   go((location.hash || "").slice(1) || Object.keys(TABS).find(allowedTab));
