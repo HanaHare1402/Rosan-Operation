@@ -7,13 +7,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261026c">
+<link rel="stylesheet" href="css/app.css?v=20261027a">
 </head>
 <body>
 
 <div class="app">
   <aside></aside>
   <main>
+    <div class="stickhead">
     <header class="page-h">
       <div><h1 id="title">Tổng quan</h1><p class="sub" id="subtitle"></p></div>
       <div class="page-actions"><div class="fresh" id="fresh" role="status"></div></div>
@@ -22,6 +23,7 @@
       <div class="row" id="filters"></div>
       <div class="row" id="filters2"></div>
     </div>
+    </div>
     <section id="view"></section>
   </main>
 </div>
@@ -29,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261026c"></script>
-<script src="js/settings-db.js?v=20261026c"></script>
-<script src="js/shell.js?v=20261026c"></script>
+<script src="js/auth.js?v=20261027a"></script>
+<script src="js/settings-db.js?v=20261027a"></script>
+<script src="js/shell.js?v=20261027a"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -49,7 +51,8 @@ document.documentElement.classList.remove('auth-pending');
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nf=new Intl.NumberFormat('vi-VN');
 const N=v=>nf.format(Math.round(v||0));
-function M(v){v=v||0;const a=Math.abs(v),s=v<0?'−':'';if(a>=1e9)return s+(a/1e9).toFixed(2).replace('.',',')+' tỷ';if(a>=1e6)return s+(a/1e6).toFixed(1).replace('.',',')+' tr';return s+N(a)}
+// Tiền: luôn hiện đủ số đồng (VD 406.429.127), không rút gọn tr / tỷ.
+function M(v){v=v||0;return (v<0?'−':'')+N(Math.abs(v))}
 const PF=v=>String(v).replace('.',',');
 const U=v=>new Intl.NumberFormat('vi-VN',{maximumFractionDigits:2}).format(v||0);
 const P=(v,d=1)=>isFinite(v)?(v*100).toFixed(d).replace('.',',')+'%':'–';
@@ -150,14 +153,14 @@ async function loadData(){
   if(cur.error){loadErr=cur.error.message;ROWS=[]}else ROWS=cur.data.map(mapRow);
   PREV=prev.error?[]:(prev.data||[]).map(mapRow);
   PRODS=null;
-  if(view==='sanpham'||view==='nhansu'||(SEE_COST&&view==='canhbao'))loadProducts();
+  if(['sanpham','nhansu','tongquan','team','kqkd'].includes(view)||(SEE_COST&&view==='canhbao'))loadProducts();
   render();
 }
 async function loadProducts(){
   const [from,to]=rangeDates();
   const {data,error}=await sbc.rpc('dash_products',{p_from:from.toISOString(),p_to:to.toISOString(),p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch});
   PRODS=error?{err:error.message,rows:[]}:{rows:data.map(r=>({code:r.code,name:r.name,team:r.team_id,staff:r.staff_id,g:r.st_group,n:+r.orders,qty:+r.qty,rev:+r.revenue_vnd,cogs:+r.cogs_vnd||0,unit:r.unit_cost_vnd==null?null:+r.unit_cost_vnd}))};
-  if(view==='sanpham'||view==='nhansu'||view==='canhbao')render();
+  if(['sanpham','nhansu','canhbao','tongquan','team','kqkd'].includes(view))render();
 }
 // Gộp: ord/rev = đơn đặt (trừ huỷ); ok = đã giao; ret = hoàn; ship = đang giao; neu = chờ xử lý.
 function agg(list,key){
@@ -213,11 +216,11 @@ function trendChart(list,prevList,h=240,W=720){
   const ds=days();if(ds.length<2)return `<div class="muted" style="padding:24px 0;text-align:center">Chọn khoảng từ 2 ngày trở lên để xem xu hướng theo ngày.</div>`;
   const [lab,fn,fmt]=METRICS[chartMetric];
   const cur=series(list,ds,fn),prev=F.cmp?series(prevList,prevDays(),fn).slice(0,ds.length):[];
-  const H=h,L=56,Rr=12,T=14,B=28,iw=W-L-Rr,ih=H-T-B,bw=iw/ds.length;
+  const H=h,L=chartMetric==='rev'?96:56,Rr=12,T=14,B=28,iw=W-L-Rr,ih=H-T-B,bw=iw/ds.length;
   const mx=Math.max(chartMetric==='ret'?.05:1,...cur,...prev);
   const step=chartMetric==='ret'?[.05,.1,.2,.25].find(x=>mx/x<=5)||.25:(()=>{const s=Math.pow(10,Math.floor(Math.log10(mx)));return [1,2,2.5,5,10].map(x=>x*s).find(x=>mx/x<=5)||s*10})();
   const top=Math.ceil(mx/step)*step,y=v=>T+ih-(v/top)*ih;
-  const axis=v=>chartMetric==='ret'?Math.round(v*100)+'%':chartMetric==='ord'?N(v):v>=1e9?(v/1e9).toLocaleString('vi-VN',{maximumFractionDigits:1})+' tỷ':v>=1e6?Math.round(v/1e6)+' tr':v>0?Math.round(v/1e3)+'k':'0';
+  const axis=v=>chartMetric==='ret'?Math.round(v*100)+'%':N(v);
   let g='';
   for(let v=0;v<=top+1e-9;v+=step)g+=`<line x1="${L}" x2="${W-Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${axis(v)}</text>`;
   const every=Math.ceil(ds.length/8);
@@ -281,12 +284,20 @@ function dataTable(id,cols,rows,o={}){
 }
 const exportBtn=id=>`<button class="btn ghost sm" type="button" data-export="${id}" title="Tải bảng về dạng CSV (mở bằng Excel)">Xuất Excel</button>`;
 function exportTable(id){
+  if(id==='tPL'){exportDom(id);return}
   const t=TBL[id];if(!t)return;
   const cell=v=>{if(typeof v==='number'&&!isFinite(v))return '';const s=String(v??'').replace(/<[^>]+>/g,'');return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
   const cs=t.xcols.length?[t.cols[0]].concat(t.xcols):t.cols;
   const lines=[cs.map(c=>cell(c.label.replace(/<[^>]+>/g,''))).join(',')].concat(t.rows.map(r=>cs.map(c=>cell(c.val(r))).join(',')));
   const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${t.name} ${rangeLabel().replace(/[\/ –]+/g,'-')}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+function exportDom(id){
+  const tb=document.getElementById(id);if(!tb)return;
+  const cell=s=>{s=String(s).trim().replace(/\s+/g,' ');return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+  const lines=[...tb.querySelectorAll('tr')].map(tr=>[...tr.children].map(td=>cell(td.innerText)).join(','));
+  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Ket qua kinh doanh ${rangeLabel().replace(/[\/ –]+/g,'-')}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
 // Bảng xếp hạng theo nhóm (team / nhân sự / kênh): cột ít, có so với kỳ trước, tiến độ target nếu có.
 function rankRows(list,prevList,keyFn){const pm=new Map(agg(prevList,keyFn).map(a=>[a.k,a]));return agg(list,keyFn).map(a=>Object.assign(a,{p:pm.get(a.k)||ZERO}))}
@@ -348,6 +359,7 @@ V.tongquan=()=>{
   </div>
   <div class="card"><div class="cardhead"><div><h2>Các team</h2></div>${exportBtn('tTeams')}</div>
   ${dataTable('tTeams',cols,rankRows(ROWS,PREV,r=>r.team||''),{name:'Team',click:r=>r.k?'team:'+r.k:'',foot:totFoot(ROWS)})}</div>
+  ${topCard(PRODS?PRODS.rows:null,KP.rows,'Sản phẩm bán chạy')}
   ${dailyCard(null)}`;
 };
 let curTeam=store.get('team','');
@@ -367,6 +379,7 @@ V.team=()=>{
   return head+kpiCards(list,plist,adsInfo(TD,TD.rows.filter(r=>r.team===curTeam),[t]))+targetBlock(list,F.range==='month'?+t.target_vnd||0:0)+
   `<div class="card"><div class="cardhead"><div><h2>Xếp hạng nhân sự · ${esc(t.name)}</h2></div>${exportBtn('tStaff')}</div>
   ${dataTable('tStaff',cols,rankRows(list,plist,key),{name:'Nhân sự '+t.name,click:r=>r.k.startsWith('~')?'':'nhansu:'+r.k,foot:totFoot(list)})}</div>
+  ${topCard(PRODS?PRODS.rows.filter(r=>r.team===curTeam):null,KP.rows.filter(r=>(byId(CAT.staff,r.who)||{}).team_id===curTeam),'Sản phẩm bán chạy · '+esc(t.name))}
   ${dailyCard(curTeam)}
   ${chartCard('Xu hướng theo ngày · '+esc(t.name),list,plist,true)}`;
 };
@@ -379,6 +392,7 @@ V.nhansu=()=>{
   const list=ROWS.filter(r=>r.staff===curStaff),plist=PREV.filter(r=>r.staff===curStaff),s=byId(CAT.staff,curStaff)||{};
   const groups=new Map();ids.forEach(id=>{const st=byId(CAT.staff,id)||{};const k=st.team_id||'';if(!groups.has(k))groups.set(k,[]);groups.get(k).push(id)});
   const opts=[...groups.entries()].map(([k,l])=>`<optgroup label="${esc(teamName(k))}">${l.map(id=>`<option value="${esc(id)}" ${id===curStaff?'selected':''}>${esc(staffName(id))}</option>`).join('')}</optgroup>`).join('');
+  ensureKP();
   const prods=PRODS?PRODS.rows.filter(r=>r.staff===curStaff):null;
   const head=(ME.scope!=='self'&&ALLOWED.includes('tongquan')?crumbs([['Tổng quan','tongquan:'],...(s.team_id&&ALLOWED.includes('team')?[[teamName(s.team_id),'team:'+s.team_id]]:[]),[staffName(curStaff),'']]):'')+
     `<div class="tools">${ids.length>1?`<span class="flabel">Nhân sự</span><select id="staffSel">${opts}</select>`:`<b style="font-size:15px">${esc(staffName(curStaff))}</b>`}<span class="muted">${esc(teamName(s.team_id))} · ${[...new Set(list.map(r=>r.ch))].map(chTag).join(' ')}</span></div>`;
@@ -387,26 +401,41 @@ V.nhansu=()=>{
   `<div class="${days().length<2?'grid2 even':'grid2'}">${chartCard('Xu hướng theo ngày',list,plist)}
    <div class="card"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn.</p>${legend(list,r=>r.ch,chTag,chColor)}</div></div>
   ${staffDailyCard(curStaff)}
-  <div class="card"><div class="cardhead"><div><h2>Sản phẩm đã bán</h2></div></div>${prods==null?'<div class="skel" style="height:12px"></div>':prodTable(prods,false)}</div>`;
+  <div class="card"><div class="cardhead"><div><h2>Sản phẩm đã bán</h2></div></div>${prods==null?'<div class="skel" style="height:12px"></div>':prodTable(prods,false,KP.rows.filter(r=>r.who===curStaff))}</div>`;
 };
-function prodTable(rows,withSearch){
+// Bảng sản phẩm. kpRows: số theo sản phẩm (KP) cùng phạm vi để tính % chi phí ads, % LNG, % Net.
+// o.top: chỉ hiện N sản phẩm doanh số cao nhất, ít cột (Tổng quan, Team).
+function prodTable(rows,withSearch,kpRows,o={}){
   const m=new Map();
   rows.forEach(r=>{let a=m.get(r.code);if(!a){a={code:r.code,name:r.name,ord:0,qty:0,rev:0,ok:0,okRev:0,okCogs:0,ret:0,ship:0,unit:null};m.set(r.code,a)}
     if(r.g==='cancel')return;a.ord+=r.n;a.qty+=r.qty;a.rev+=r.rev;if(r.unit!=null)a.unit=Math.max(a.unit||0,r.unit);if(r.g==='ok'){a.ok+=r.n;a.okRev+=r.rev;a.okCogs+=r.cogs}else if(r.g==='ret')a.ret+=r.n;else if(r.g==='ship')a.ship+=r.n;if(r.name)a.name=r.name});
   let g=[...m.values()];
+  const pm=kpRows?kpProducts(kpRows):new Map();
+  g.forEach(a=>{const k=pm.get(pkey(a.name));a.adsP=k&&k.sent?k.ads/k.sent:NaN;a.gp3=k?k.gp3:NaN;a.lngP=k&&k.ok?k.gp3/k.ok:NaN;a.netP=k&&k.ok?k.net/k.ok:NaN});
   if(withSearch&&pQ){const q=pQ.toLowerCase();g=g.filter(a=>(a.code+' '+(a.name||'')).toLowerCase().includes(q))}
-  const sf={rev:a=>-a.rev,ord:a=>-a.ord,qty:a=>-a.qty,rr:a=>-(retRate(a)||0),gp:a=>-(a.okRev-a.okCogs)};g.sort((x,y)=>(sf[pSort]||sf.rev)(x)-(sf[pSort]||sf.rev)(y));
-  const th=(k,l)=>withSearch?`<th class="sort" data-sort="${k}">${l}${pSort===k?' ↓':''}</th>`:`<th>${l}</th>`;
-  return `<div class="tw"><table><thead><tr><th class="l">Mã</th><th class="l">Sản phẩm</th>${th('rev','Doanh số')}${th('ord','Số đơn')}${th('qty','Số lượng')}<th>Đã giao</th>${th('rr','% hoàn')}<th>Đang giao</th>${SEE_COST?`<th>Giá vốn/SP</th>${th('gp','Lãi gộp (đã giao)')}<th>% lãi gộp</th>`:''}</tr></thead><tbody>
-  ${g.map(a=>`<tr><td class="l mono">${esc(a.code)}</td><td class="l" style="white-space:normal">${esc(a.name||'')}</td><td>${M(a.rev)}</td><td>${N(a.ord)}</td><td>${N(a.qty)}</td><td>${N(a.ok)}</td><td>${retPill(retRate(a))}</td><td>${N(a.ship)}</td>${SEE_COST?`<td>${a.unit!=null?N(a.unit):'<span class="pill p-bad">Chưa có</span>'}</td><td>${a.ok?M(a.okRev-a.okCogs):'–'}</td><td>${a.okRev&&a.unit!=null?P((a.okRev-a.okCogs)/a.okRev):'–'}</td>`:''}</tr>`).join('')||`<tr><td colspan="${SEE_COST?11:8}" class="l muted">Không có sản phẩm.</td></tr>`}
+  const nz=v=>isFinite(v)?v:-Infinity;
+  const sf={rev:a=>-a.rev,ord:a=>-a.ord,qty:a=>-a.qty,rr:a=>-(retRate(a)||0),ads:a=>-nz(a.adsP),lng:a=>-nz(a.lngP),net:a=>-nz(a.netP),gp:a=>-nz(a.gp3)};
+  const sk=o.top?'rev':pSort;g.sort((x,y)=>(sf[sk]||sf.rev)(x)-(sf[sk]||sf.rev)(y));
+  const total=g.length;if(o.top)g=g.slice(0,o.top);
+  const th=(k,l,tk)=>withSearch?`<th class="sort" data-sort="${k}">${l}${tk?' '+tip(tk):''}${pSort===k?' ↓':''}</th>`:`<th>${l}${tk?' '+tip(tk):''}</th>`;
+  const kpLoading=kpRows&&KP.loading&&!KP.rows.length;
+  const pc=(v,neg)=>kpLoading?'<span class="skel" style="display:inline-block;width:40px;height:10px"></span>':isFinite(v)?`<span class="${neg&&v<0?'neg':''}">${P(v)}</span>`:'<span class="muted">–</span>';
+  const name=a=>`<div style="white-space:normal;min-width:150px">${esc(a.name||'')}</div><div class="sub2 mono">${esc(a.code)}</div>`;
+  if(o.top)return `<div class="tw"><table><thead><tr><th class="l">Sản phẩm</th><th>Doanh số</th><th>Số đơn</th><th>% hoàn ${tip('ret')}</th><th>% chi phí ads ${tip('p_ads')}</th>${SEE_COST?`<th>% LNG ${tip('p_lng')}</th>`:''}</tr></thead><tbody>
+    ${g.map((a,i)=>`<tr><td class="l"><div style="display:flex;gap:8px;align-items:baseline"><span class="muted mono" style="min-width:18px">${i+1}</span><div>${name(a)}</div></div></td><td>${M(a.rev)}</td><td>${N(a.ord)}</td><td>${retPill(retRate(a))}</td><td>${pc(a.adsP)}</td>${SEE_COST?`<td>${pc(a.lngP,1)}</td>`:''}</tr>`).join('')||`<tr><td colspan="6">${Shell.empty('box','Chưa có sản phẩm bán ra','Không có đơn trong khoảng đang lọc.')}</td></tr>`}
+    </tbody></table></div>${total>g.length&&ALLOWED.includes('sanpham')?`<div style="margin-top:10px"><button class="lnk" data-go="sanpham:">Xem tất cả ${N(total)} sản phẩm</button></div>`:''}`;
+  // Giá vốn, LNG, % LNG, % Net: chỉ ban lãnh đạo (admin, quản lý, kế toán).
+  return `<div class="tw"><table><thead><tr><th class="l">Sản phẩm</th>${th('rev','Doanh số')}${th('ord','Số đơn')}${th('qty','Số lượng')}<th>Đã giao</th>${th('rr','% hoàn')}${th('ads','% CP ads','p_ads')}${SEE_COST?`<th>Giá vốn/SP</th>${th('gp','LNG')}${th('lng','% LNG','p_lng')}${th('net','% Net','p_net')}`:''}</tr></thead><tbody>
+  ${g.map(a=>`<tr><td class="l">${name(a)}</td><td>${M(a.rev)}</td><td>${N(a.ord)}</td><td>${N(a.qty)}</td><td>${N(a.ok)}</td><td>${retPill(retRate(a))}</td><td>${pc(a.adsP)}</td>${SEE_COST?`<td>${a.unit!=null?N(a.unit):'<span class="pill p-bad">Chưa có</span>'}</td><td>${isFinite(a.gp3)?`<span class="${a.gp3<0?'neg':''}">${M(a.gp3)}</span>`:'<span class="muted">–</span>'}</td><td>${pc(a.lngP,1)}</td><td>${pc(a.netP,1)}</td>`:''}</tr>`).join('')||`<tr><td colspan="${SEE_COST?11:7}" class="l muted">Không có sản phẩm.</td></tr>`}
   </tbody></table></div>`;
 }
 let pSort=store.get('psort2','rev'),pQ='';
 V.sanpham=()=>{
   if(!PRODS)return `<div class="card"><div class="skel" style="height:14px;width:30%"></div>${'<div class="skel" style="height:12px;margin-top:16px"></div>'.repeat(6)}</div>`;
   if(PRODS.err)return `<div class="card"><p class="neg">${esc(PRODS.err)}</p></div>`;
+  ensureKP();
   return `<div class="tools"><input type="search" id="pq" placeholder="Tìm mã hoặc tên sản phẩm" value="${esc(pQ)}"></div>
-  <div class="card"><h2>Hiệu quả sản phẩm</h2><p class="hint">Tính từ dòng sản phẩm trong đơn POS. Doanh số theo giá bán từng dòng, quy về VNĐ. Bấm tiêu đề cột để sắp xếp.</p>${prodTable(PRODS.rows,true)}</div>`;
+  <div class="card"><h2>Hiệu quả sản phẩm</h2><p class="hint">Bấm tiêu đề cột để sắp xếp.${SEE_COST?' % LNG và % Net cho biết sản phẩm nào lời thật sau mọi chi phí, để cân nhắc nhập lại.':''}</p>${prodTable(PRODS.rows,true,KP.rows)}</div>`;
 };
 
 // ---------- đơn hàng ----------
@@ -449,30 +478,6 @@ V.donhang=()=>{
 
 // ---------- KQKD ----------
 let SHOPS=[],FFMS=[];
-V.kqkd=()=>{
-  const multiProj=!F.proj&&new Set(ROWS.map(r=>r.proj)).size>1;
-  const keyFn=multiProj?(r=>r.proj||''):(r=>r.team||'');
-  const nameFn=multiProj?(k=>projName(k||null)):(k=>teamName(k||null));
-  const cols=[['Tổng',tot(ROWS)]].concat(agg(ROWS,keyFn).sort((a,b)=>b.rev-a.rev).map(a=>[nameFn(a.k),a]));
-  const line=(lab,f,cls='')=>`<tr class="${cls}"><td class="${cls.includes('ind')?'ind':''}">${lab}</td>${cols.map(c=>`<td>${f(c[1])}</td>`).join('')}</tr>`;
-  const plTable=ROWS.length?`<div class="tw"><table><thead><tr><th class="l">Chỉ tiêu (VNĐ)</th>${cols.map(c=>`<th>${esc(c[0])}</th>`).join('')}</tr></thead><tbody>
-    ${line('Doanh số (đơn đặt)',a=>M(a.rev),'h')}${line('Số đơn đặt',a=>N(a.ord),'ind')}
-    <tr class="sec"><td>I. Tiền đơn đã giao</td>${cols.map(c=>`<td>${M(c[1].okRev)}</td>`).join('')}</tr>
-    ${line('Tỷ lệ đã giao / doanh số',a=>`<span class="muted">${P(a.okRev/a.rev)}</span>`,'ind')}
-    ${line('Đang giao (chưa về)',a=>M(a.shipRev),'ind')}${line('Hoàn',a=>M(a.retRev),'ind')}${line('Tỷ lệ hoàn',a=>retPill(retRate(a)),'ind')}
-    ${SEE_COST?`<tr class="sec"><td>II. Giá vốn hàng đã giao</td>${cols.map(c=>`<td>${M(c[1].okCogs)}</td>`).join('')}</tr>
-    ${line('Đơn đã giao chưa có giá vốn',a=>a.okMiss?`<span class="neg">${N(a.okMiss)} đơn</span>`:'<span class="muted">0</span>','ind')}
-    <tr class="sec"><td>III. Lợi nhuận gộp (I − II)</td>${cols.map(c=>{const v=c[1].okRev-c[1].okCogs;return `<td class="${v<0?'neg':'pos'}">${M(v)}</td>`}).join('')}</tr>
-    ${line('% lợi nhuận gộp / doanh thu',a=>`<span class="muted">${P((a.okRev-a.okCogs)/a.okRev)}</span>`,'ind')}
-    <tr class="sec"><td>IV. Chi phí khác</td>${cols.map(()=>'<td class="muted">chưa có</td>').join('')}</tr>
-    ${line('Chi phí ads, vận chuyển, FFM, vận hành',()=>'<span class="muted">–</span>','ind')}`:''}
-    </tbody></table></div>`:empty();
-  return `<div class="card pl"><h2>Kết quả kinh doanh · ${esc(RANGES[F.range].toLowerCase())}</h2><p class="hint">Theo ${multiProj?'dự án':'team'}. Tiền về chỉ tính đơn khách đã nhận hàng. ${SEE_COST?'Giá vốn theo giá nhập gần nhất tính đến ngày tạo đơn (Quản trị → Giá vốn). Chi phí ads, vận chuyển, FFM chưa nối; tạm thời dùng ô đối soát file FFM bên dưới để tính tiền về.':''}</p>${plTable}</div>
-  <div class="card" id="jt"><h2>Đối soát file J&amp;T / FFM</h2><p class="hint">Chọn đơn vị FFM, rồi tải file .xlsx hoặc .csv có các cột Mã vận đơn (hoặc Waybill Number), COD, Tên sản phẩm, Order Status. File chỉ đọc trong trình duyệt, không gửi đi đâu.</p>
-  <div class="tools"><label for="jtFfm" class="muted">File của đơn vị</label><select id="jtFfm">${FFMS.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}</select></div>
-  <div class="drop" id="drop"><input type="file" id="jtFile" accept=".xlsx,.xls,.csv" style="max-width:100%"><div style="margin-top:6px;font-size:12px">hoặc kéo thả file vào đây</div></div>
-  <div id="jtOut" style="margin-top:14px"></div></div>`;
-};
 function runJT(file){
   const out=$('#jtOut');if(!out)return;out.innerHTML='<p class="muted">Đang đọc file…</p>';
   const f=FFMS.find(x=>x.id===($('#jtFfm')||{}).value)||null;
@@ -513,11 +518,11 @@ function runJT(file){
 const KDEF={ship_local:60,dvvc_pct:1.12,gip_pct:1.25,ffm_pct:2.55,test_pct:0.7,pack_pct:0,usd_vnd:27000};
 const KFIELDS=[['ship_local','Cước vận chuyển / đơn (₱)'],['dvvc_pct','Phí dịch vụ vận chuyển (% thành công)'],['gip_pct','Phí dịch vụ GIP (% thành công)'],['ffm_pct','Phí fulfill (% gửi đi)'],['test_pct','Chi phí test (% gửi đi)'],['pack_pct','Chi phí bao bì (% gửi đi)'],['usd_vnd','Tỷ giá 1 USD (VNĐ)']];
 const CAN_KSET=['admin','ke_toan'].includes(ME.role);
-let kMode=store.get('kmode','ads')==='rd'?'rd':'ads',kWho='',kSetOpen=false;
+let kShowHow=false,kMode=store.get('kmode','ads')==='rd'?'rd':'ads',kWho='',kSetOpen=false;
 const K={key:'',rows:[],prev:[],set:null,month:'',loading:false,err:''};
 const monthStart=d=>new Date(d.getFullYear(),d.getMonth(),1);
 const fmtM=iso=>iso?iso.slice(5,7)+'/'+iso.slice(0,4):'';
-const kRow=r=>({who:r.who||'~',pk:r.product_key,name:r.product,grp:r.grp,n:+r.orders,sent:+r.sent,ret:+r.ret,ok:+r.ok,cogs:+r.cogs,miss:+r.cogs_missing,sr:+r.ship_rate,usd:+r.ad_usd});
+const kRow=r=>({who:r.who||'~',pk:r.product_key,name:r.product,grp:r.grp,n:+r.orders,sent:+r.sent,ret:+r.ret,ok:+r.ok,cogs:+r.cogs,miss:+r.cogs_missing,sr:+r.ship_rate,usd:+r.ad_usd,okN:+r.ok_n||0,retN:+r.ret_n||0});
 // Supabase trả tối đa 1.000 dòng mỗi lần: đọc từng trang cho đủ (nhiều marketer nhập chi phí hằng ngày sẽ vượt ngưỡng này).
 async function fetchAll(mk){let out=[];for(let i=0;;i+=1000){const r=await mk().range(i,i+999);if(r.error)return r;out=out.concat(r.data||[]);if(!r.data||r.data.length<1000)return {data:out}}}
 async function getKSet(m){
@@ -538,8 +543,8 @@ async function loadKpi(key){
 // Cộng dồn theo khoá, rồi tính từng khoản chi phí và LNG.
 function kSum(list,keyFn){
   const m=new Map();
-  list.forEach(r=>{const k=keyFn(r);let a=m.get(k);if(!a){a={k,name:r.name,grp:r.grp,n:0,sent:0,ret:0,ok:0,cogs:0,miss:0,sr:0,usd:0};m.set(k,a)}
-    ['n','sent','ret','ok','cogs','miss','sr','usd'].forEach(f=>a[f]+=r[f])});
+  list.forEach(r=>{const k=keyFn(r);let a=m.get(k);if(!a){a={k,name:r.name,grp:r.grp,n:0,sent:0,ret:0,ok:0,cogs:0,miss:0,sr:0,usd:0,okN:0,retN:0};m.set(k,a)}
+    ['n','sent','ret','ok','cogs','miss','sr','usd','okN','retN'].forEach(f=>a[f]+=r[f]||0)});
   return [...m.values()];
 }
 function kCalc(a,s){
@@ -637,8 +642,9 @@ const KX=[['Số đơn','n'],['Doanh số gửi đi','sent'],['Hoàn','ret'],['�
   .concat([{label:'% LNG / gửi đi',val:r=>r.sent?Math.round(r.lng/r.sent*10000)/100:''}]);
 function kPL(a,s){
   // Cột "Cách tính" (tỷ lệ phí, cước, tỷ giá) chỉ admin và kế toán thấy.
-  const line=(lab,v,note,cls='')=>{if(!CAN_KSET)note='';return `<tr class="${cls}"><td class="${cls?'':'ind'}">${lab}${note?`<div class="sub2 kpl-n">${note}</div>`:''}</td><td class="${cls.includes('sec')&&v<0?'neg':''}">${M(v)}</td><td class="muted">${pctOf(v,a.sent)}</td>${CAN_KSET?`<td class="l muted kpl-c" style="white-space:normal">${note||''}</td>`:''}</tr>`};
-  return `<div class="tw"><table><thead><tr><th class="l">Khoản</th><th>VNĐ</th><th>% gửi đi</th>${CAN_KSET?'<th class="l kpl-c">Cách tính</th>':''}</tr></thead><tbody>
+  const how=CAN_KSET&&kShowHow;
+  const line=(lab,v,note,cls='')=>{if(!how)note='';return `<tr class="${cls}"><td class="${cls?'':'ind'}">${lab}${note?`<div class="sub2 kpl-n">${note}</div>`:''}</td><td class="${cls.includes('sec')&&v<0?'neg':''}">${M(v)}</td><td class="muted">${pctOf(v,a.sent)}</td>${how?`<td class="l muted kpl-c" style="white-space:normal">${note||''}</td>`:''}</tr>`};
+  return `${CAN_KSET?`<div style="margin:-4px 0 10px"><label class="toggle"><input type="checkbox" data-kshow ${how?'checked':''}> Hiện cách tính (chỉ admin, kế toán thấy nút này)</label></div>`:''}<div class="tw"><table><thead><tr><th class="l">Khoản</th><th>VNĐ</th><th>% gửi đi</th>${how?'<th class="l kpl-c">Cách tính</th>':''}</tr></thead><tbody>
     ${line('Doanh số gửi đi',a.sent,`${N(a.n)} đơn tạo trong kỳ, bỏ đơn huỷ`,'h')}
     ${line('Hoàn',a.ret,'Đơn đang hoàn / đã hoàn')}${line('Đang xử lý',a.proc,'Chưa gửi hoặc đang giao, chưa có kết quả')}
     ${line('Doanh số thành công',a.ok,'Đơn khách đã nhận hàng','sec')}
@@ -812,6 +818,113 @@ function staffDailyCard(staffId){
     if(i>=0)contest=`<div class="msg muted" style="margin:0 0 14px"><b>Tháng ${fmtM(CONTEST.month)}</b> · LNG ${M(list[i].lng)} · hạng <b>${i+1}/${list.length}</b>${team?' trong '+esc(team.name):''}${i<2&&list[i].lng>0?(i?' 🥈':' 🥇'):''}</div>`;
   }
   return dailyBody(SD.rows,SD.usd,{title,teams:team?[team]:[],contest,targets:false});
+}
+
+// ---------- số theo sản phẩm dùng chung (Tổng quan, Team, Nhân sự, Sản phẩm, Kết quả kinh doanh) ----------
+// Lấy từ kpi_report (mỗi đơn tính cho sản phẩm chính): doanh số gửi đi, doanh thu đã giao, giá vốn, cước, phí, quảng cáo.
+const KP={key:'',rows:[],set:KDEF,month:'',other:{},loading:false,err:''};
+const PL_ITEMS=[['qldn_vn','a. Chi phí quản lý doanh nghiệp Việt Nam'],['nguyen_lieu','b. Chi phí nguyên liệu'],['luong_vn','c. Chi phí lương Việt Nam'],['kho_phil','Chi phí vận hành kho Philippines'],['thu_nhap_khac','Thu nhập khác'],['chi_phi_khac','Chi phí khác']];
+function ensureKP(){
+  const key=JSON.stringify([F.proj,F.range,F.from,F.to]);if(key===KP.key)return;
+  KP.key=key;KP.loading=true;KP.rows=[];
+  const [from,to]=rangeDates(),m=isoD(monthStart(from));
+  Promise.all([fetchAll(()=>sbc.rpc('kpi_report',{p_from:from.toISOString(),p_to:to.toISOString(),p_mode:'ads',p_project:F.proj||null}).order('who').order('product_key')),getKSet(m),
+    SEE_COST?sbc.from('pl_other').select('item,amount_vnd').eq('month',m):Promise.resolve({data:[]})]).then(([r,st,o])=>{
+    if(key!==KP.key)return;
+    KP.loading=false;KP.set=st;KP.month=m;KP.other={};(o.data||[]).forEach(x=>KP.other[x.item]=+x.amount_vnd||0);
+    if(r.error){KP.err=r.error.message;KP.rows=[]}else{KP.err='';KP.rows=r.data.map(kRow)}
+    if(['tongquan','team','nhansu','sanpham','kqkd'].includes(view))render();
+  });
+}
+// Phần chi phí chung của tháng ứng với khoảng đang xem (theo số ngày).
+function monthShare(){const [f,t]=rangeDates(),dim=new Date(f.getFullYear(),f.getMonth()+1,0).getDate();return Math.min(1,Math.round((t-f)/864e5)/dim)}
+// Bảng kết quả cho một nhóm đơn: share = phần chi phí chung (Việt Nam, kho, thu / chi khác) gánh, chia theo doanh thu đã giao.
+function plCalc(a,s,share){
+  const c=kCalc(a,s),o=KP.other||{},x=k=>(+o[k]||0)*share;
+  const shipOk=c.n?c.ship*(a.okN||0)/c.n:0,shipRet=c.n?c.ship*(a.retN||0)/c.n:0,shipProc=c.ship-shipOk-shipRet;
+  const direct=c.ship+c.cogs+c.dvvc+c.gip+c.ffm+c.ads,gp3=c.ok-direct;
+  const vn=x('qldn_vn')+x('nguyen_lieu')+x('luong_vn'),kho=x('kho_phil'),net=gp3-c.test-c.pack-vn-kho,profit=net+x('thu_nhap_khac')-x('chi_phi_khac');
+  return Object.assign(c,{shipOk,shipRet,shipProc,direct,gp3,vn,qldn:x('qldn_vn'),nl:x('nguyen_lieu'),luong:x('luong_vn'),kho,tnk:x('thu_nhap_khac'),cpk:x('chi_phi_khac'),net,profit});
+}
+// Theo sản phẩm: chi phí chung chia theo doanh thu đã giao của sản phẩm trên tổng doanh thu đang xem.
+function kpProducts(rows){
+  const totOk=KP.rows.reduce((t,r)=>t+r.ok,0)||1,ms=monthShare();
+  return new Map(kSum(rows,r=>r.pk).map(a=>[a.k,plCalc(a,KP.set,ms*a.ok/totOk)]));
+}
+Object.assign(DEF,{
+  p_ads:'Chi phí quảng cáo của sản phẩm ÷ doanh số gửi đi của sản phẩm (đơn tính cho sản phẩm chính).',
+  p_lng:'Lợi nhuận gộp ÷ doanh thu (đơn đã giao). Lợi nhuận gộp = doanh thu − giá vốn − vận chuyển − phí dịch vụ vận chuyển, GIP, fulfill − quảng cáo.',
+  p_net:'Lợi nhuận NET ÷ doanh thu. NET = lợi nhuận gộp − chi phí test, bao bì − phần chi phí chung (Việt Nam, kho Philippines) chia theo doanh thu.',
+});
+let kqMode=store.get('kqmode','team')==='prod'?'prod':'team';
+const pctCell=(v,base,bad)=>{if(!base||!isFinite(v/base))return '<span class="muted">–</span>';const x=v/base;return `<span class="${(bad?x>bad:x<0)?'neg':''}">${P(x)}</span>`};
+
+function topCard(rows,kp,title){
+  ensureKP();
+  return `<div class="card"><div class="cardhead"><div><h2>${title}</h2><p class="hint">10 sản phẩm doanh số cao nhất trong khoảng đang lọc.</p></div></div>${rows==null?'<div class="skel" style="height:12px"></div>'.repeat(3):prodTable(rows,false,kp,{top:10})}</div>`;
+}
+// ---------- kết quả kinh doanh (theo form báo cáo KQKD) ----------
+V.kqkd=()=>{
+  ensureKP();
+  if(KP.err)return `<div class="card">${Shell.empty('alert','Không tải được số liệu',esc(KP.err)+'<br>Kiểm tra đã chạy file SQL 20261027000000_pl_detail.sql trên Supabase chưa.')}</div>`;
+  if(KP.loading&&!KP.rows.length)return skeleton();
+  if(!KP.rows.length)return empty();
+  const projOf=k=>{const st=byId(CAT.staff,k);if(!st)return '';const t=byId(CAT.teams,st.team_id);return (t&&t.project_id)||st.project_id||''};
+  const teamOf=k=>(byId(CAT.staff,k)||{}).team_id||'';
+  const multiProj=!F.proj&&new Set(KP.rows.map(r=>projOf(r.who))).size>1;
+  const keyFn=multiProj?(r=>projOf(r.who)):(r=>teamOf(r.who)),nameFn=multiProj?(k=>projName(k||null)):(k=>teamName(k||null));
+  const s=KP.set,ms=monthShare(),T0=kSum(KP.rows,()=>'*')[0],totOk=T0.ok||1,byProd=kqMode==='prod';
+  if(byProd&&!PRODS)loadProducts();
+  // Theo sản phẩm (giống form gốc): mỗi sản phẩm một cột, chi phí chung (dòng 9, 10, thu / chi khác) chỉ tính ở cột Tổng.
+  const T=plCalc(T0,s,ms),groups=byProd?kSum(KP.rows,r=>r.pk).sort((a,b)=>b.sent-a.sent).map(a=>[a.name||a.k,plCalc(a,s,0),a.k])
+    :kSum(KP.rows,keyFn).sort((a,b)=>b.ok-a.ok).map(a=>[nameFn(a.k),plCalc(a,s,ms*a.ok/totOk)]);
+  const cols=[['Tổng',T]].concat(groups.length>1||byProd?groups:[]);
+  // Số lượng hàng đã giao và giá vốn 1 sản phẩm theo từng sản phẩm (từ dòng hàng trong đơn).
+  const pq=new Map();if(byProd&&PRODS)PRODS.rows.forEach(r=>{if(r.g!=='ok')return;const k=pkey(r.name);const o=pq.get(k)||{q:0,c:0};o.q+=r.qty;o.c+=r.cogs||0;pq.set(k,o)});
+  const qOf=c=>c[2]!=null?(pq.get(c[2])||{}).q:[...pq.values()].reduce((t,o)=>t+o.q,0);
+  // Mỗi dòng: tên, giá trị, kiểu (sec = mục lớn, h = dòng đậm, ind = dòng con, pct = tỷ lệ), có tô cảnh báo khi chi phí ≥ 10% doanh thu.
+  const L=[
+    ['Doanh số gửi đi (0)',a=>a.sent,'h'],['Số đơn',a=>a.n,'ind','n'],
+    ['I. Doanh thu (đơn đã giao)',a=>a.ok,'sec'],['Hoàn',a=>a.ret,'ind'],['Đang xử lý (chưa có kết quả)',a=>a.proc,'ind'],
+    ['II. Chi phí trực tiếp = 1 + 2 + 3 + 4 + 5 + 6',a=>a.direct,'sec','cost'],
+    ['1. Chi phí vận chuyển',a=>a.ship,'h','cost'],['a. Đơn thành công',a=>a.shipOk,'ind'],['b. Đơn hoàn',a=>a.shipRet,'ind'],['c. Đơn đang xử lý',a=>a.shipProc,'ind'],
+    ['2. Giá vốn hàng đã giao',a=>a.cogs,'h','cost'],...(byProd?[['a. Số lượng hàng đã bán (đã giao)',(a,c)=>qOf(c)||0,'ind','n'],['b. Giá vốn 1 sản phẩm',(a,c)=>{const q=qOf(c);return q?a.cogs/q:0},'ind','unit']]:[]),
+    ['3. Phí dịch vụ vận chuyển',a=>a.dvvc,'h','cost'],['4. Phí dịch vụ GIP',a=>a.gip,'h','cost'],['5. Phí fulfill',a=>a.ffm,'h','cost'],['6. Chi phí marketing (quảng cáo)',a=>a.ads,'h','cost'],
+    ['III. Lợi nhuận gộp = I − II',a=>a.gp3,'sec','res'],['Biên lợi nhuận / doanh thu = III ÷ I',a=>a.ok?a.gp3/a.ok:NaN,'ind','pct'],['Biên lợi nhuận / doanh số = III ÷ (0)',a=>a.sent?a.gp3/a.sent:NaN,'ind','pct'],
+    ['7. Chi phí test',a=>a.test,'h','cost'],['8. Chi phí bao bì',a=>a.pack,'h','cost'],
+    ['9. Chi phí Việt Nam',a=>a.vn,'h','cost','co'],['a. Quản lý doanh nghiệp',a=>a.qldn,'ind',null,'co'],['b. Nguyên liệu',a=>a.nl,'ind',null,'co'],['c. Lương',a=>a.luong,'ind',null,'co'],
+    ['10. Chi phí vận hành kho Philippines',a=>a.kho,'h','cost','co'],
+    ['IV. NET = III − 7 − 8 − 9 − 10',a=>a.net,'sec','res','co'],
+    ['Thu nhập khác',a=>a.tnk,'h',null,'co'],['Chi phí khác',a=>a.cpk,'h','cost','co'],
+    ['V. Lợi nhuận = IV + thu nhập khác − chi phí khác',a=>a.profit,'sec','res','co'],['Biên lợi nhuận = V ÷ I',a=>a.ok?a.profit/a.ok:NaN,'ind','pct','co']];
+  const val=(v,kind)=>kind==='pct'?(isFinite(v)?`<span class="${v<0?'neg':''}">${P(v)}</span>`:'<span class="muted">–</span>'):kind==='n'||kind==='unit'?(v?N(v):'<span class="muted">0</span>'):(v?`<span class="${kind==='res'&&v<0?'neg':''}">${M(v)}</span>`:'<span class="muted">0</span>');
+  // Cột "Tỷ lệ": so với doanh số gửi đi (như form gốc); khoản chi từ 10% trở lên có nhãn cảnh báo.
+  const pctDT=(v,kind)=>{if(kind==='pct'||kind==='n'||kind==='unit'||!T.sent)return '';const x=v/T.sent;if(!isFinite(x)||!v)return '<span class="muted">–</span>';return kind==='cost'&&x>=.1?`<span class="pill p-warn" title="Khoản chi lớn: từ 10% doanh số gửi đi">${P(x)}</span>`:`<span class="${x<0?'neg':'muted'}">${P(x)}</span>`};
+  const body=L.map(([lab,f,cls,kind,co])=>`<tr class="${cls==='sec'?'sec':cls==='h'?'h':''}"><td class="${cls==='ind'?'ind':''}">${lab}</td>${cols.map((c,i)=>`<td>${i&&byProd&&co?'<span class="muted">–</span>':val(f(c[1],c),kind)}</td>${i===0?`<td>${pctDT(f(T,c),kind)}</td>`:''}`).join('')}</tr>`).join('');
+  const missing=T.miss?`<div class="msg neg">${N(T.miss)} đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0. <a href="admin.html#giavon">Mở Giá vốn</a></div>`:'';
+  const noAds=T.sent&&!T.usd?`<div class="msg muted">Kỳ này chưa có chi phí quảng cáo nào được nhập (màn Chi phí ads), nên dòng 6 đang bằng 0.</div>`:'';
+  const o=KP.other||{},hasOther=PL_ITEMS.some(([k])=>+o[k]);
+  const otherCard=`<form class="card" id="plForm" novalidate><div class="cardhead"><div><h2>Chi phí ngoài đơn hàng · tháng ${fmtM(KP.month)}</h2><p class="hint">Số cả tháng (đồng). Báo cáo lấy theo số ngày của khoảng đang xem${ms<1?` (${P(ms,0)} tháng)`:''} và chia cho từng ${multiProj?'dự án':'team'} theo doanh thu.${CAN_KSET?'':' Chỉ admin và kế toán sửa được.'}</p></div></div>
+    <div class="form">${PL_ITEMS.map(([k,l])=>`<label for="pl_${k}">${l.replace(/^[a-c]\. /,'')}<input id="pl_${k}" type="number" step="1" min="0" value="${o[k]?Math.round(o[k]):''}" placeholder="0" ${CAN_KSET?'':'disabled'}></label>`).join('')}</div>
+    ${CAN_KSET?`<div class="formrow"><button class="btn" type="submit">Lưu cho tháng ${fmtM(KP.month)}</button><span class="fmsg" id="plMsg"></span></div>`:''}</form>`;
+  const modeSeg=`<div class="seg" role="group" aria-label="Cột của báo cáo">${[['team',multiProj?'Theo dự án':'Theo team'],['prod','Theo sản phẩm']].map(([k,l])=>`<button type="button" data-kqmode="${k}" class="${kqMode===k?'on':''}" aria-pressed="${kqMode===k}">${l}</button>`).join('')}</div>`;
+  return `<div class="card pl"><div class="cardhead"><div><h2>Báo cáo kết quả kinh doanh · ${esc(rangeLabel())}</h2></div><div class="page-actions">${modeSeg}${exportBtn('tPL')}</div></div>
+    ${missing}${noAds}${!hasOther?`<div class="msg muted">Chưa nhập chi phí Việt Nam, kho Philippines, thu / chi khác của tháng ${fmtM(KP.month)}: các dòng 9, 10 và thu / chi khác đang bằng 0.</div>`:''}
+    <div class="tw"><table id="tPL" class="pltab"><thead><tr><th class="l">Chỉ tiêu (đồng)</th>${cols.map((c,i)=>`<th>${esc(c[0])}</th>${i===0?'<th>Tỷ lệ</th>':''}`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>
+  ${otherCard}
+  <div class="card" id="jt"><h2>Đối soát file J&amp;T / FFM</h2><p class="hint">Chọn đơn vị FFM, rồi tải file .xlsx hoặc .csv có các cột Mã vận đơn (hoặc Waybill Number), COD, Tên sản phẩm, Order Status. File chỉ đọc trong trình duyệt, không gửi đi đâu.</p>
+  <div class="tools"><label for="jtFfm" class="muted">File của đơn vị</label><select id="jtFfm">${FFMS.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}</select></div>
+  <div class="drop" id="drop"><input type="file" id="jtFile" accept=".xlsx,.xls,.csv" style="max-width:100%"><div style="margin-top:6px;font-size:12px">hoặc kéo thả file vào đây</div></div>
+  <div id="jtOut" style="margin-top:14px"></div></div>`;
+};
+// Xuất Excel bảng KQKD: đọc thẳng từ bảng đang hiện.
+async function savePL(){
+  const rows=[],msg=$('#plMsg');
+  for(const [k,l] of PL_ITEMS){const v=val('pl_'+k);const n=v===''?0:parseFloat(v);if(!(n>=0)){msg.className='fmsg neg';msg.textContent=`“${l}” phải là số từ 0 trở lên.`;return}rows.push({month:KP.month,item:k,amount_vnd:n,updated_at:new Date().toISOString()})}
+  msg.className='fmsg muted';msg.textContent='Đang lưu…';
+  const {error}=await sbc.from('pl_other').upsert(rows,{onConflict:'month,item'});
+  if(error){msg.className='fmsg neg';msg.textContent='Chưa lưu được: '+error.message+'. Kiểm tra đã chạy file SQL 20261027000000_pl_detail.sql chưa.';return}
+  Shell.toast(`Đã lưu chi phí ngoài đơn hàng tháng ${fmtM(KP.month)}.`);KP.key='';render();
 }
 
 // ---------- nhập chi phí quảng cáo ----------
@@ -1060,7 +1173,7 @@ function render(){
   keep={__view:view};
   Shell.badge('alertCnt',alerts().length);
 }
-function go(v){view=v;keep={};delArm=null;try{history.replaceState(null,'',hashFor(v))}catch(e){}if((v==='sanpham'||v==='nhansu'||(SEE_COST&&v==='canhbao'))&&!PRODS)loadProducts();render();window.scrollTo(0,0)}
+function go(v){view=v;keep={};delArm=null;try{history.replaceState(null,'',hashFor(v))}catch(e){}if((['sanpham','nhansu','tongquan','team','kqkd'].includes(v)||(SEE_COST&&v==='canhbao'))&&!PRODS)loadProducts();render();window.scrollTo(0,0)}
 function setF(k,v){F[k]=v;store.set({proj:'proj',mkt:'mkt',ch:'ch2',range:'range',from:'from',to:'to',cmp:'cmp'}[k],k==='cmp'?(v?'1':'0'):v);oPage=0;try{history.replaceState(null,'',hashFor(view))}catch(e){}loadData()}
 document.addEventListener('click',e=>{
   const n=e.target.closest('#nav a[data-v]');if(n){e.preventDefault();go(n.dataset.v);return}
@@ -1073,6 +1186,7 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('[data-team]');if(t){curTeam=t.dataset.team;store.set('team',curTeam);render();return}
   const g=e.target.closest('[data-go]');if(g&&g.dataset.go){const i=g.dataset.go.indexOf(':');const v=g.dataset.go.slice(0,i),k=g.dataset.go.slice(i+1);if(v==='chiphi'&&k&&view==='chiphi'&&!adLeave())return;if(v==='team'){curTeam=k;store.set('team',k)}if(v==='nhansu'){curStaff=k;store.set('staff',k)}if(v==='kpi')kWho=k;if(v==='chiphi'&&k){const [d,st]=k.split('|');adDay=d;adStaff=st;adEdit=null}if(ALLOWED.includes(v))go(v);return}
   const kv=e.target.closest('[data-kview]');if(kv){kView=kv.dataset.kview;store.set('kview',kView);render();return}
+  const kq=e.target.closest('[data-kqmode]');if(kq){kqMode=kq.dataset.kqmode;store.set('kqmode',kqMode);render();return}
   const km=e.target.closest('[data-kmode]');if(km){kMode=km.dataset.kmode;store.set('kmode',kMode);kWho='';render();return}
   if(e.target.closest('#kSetBtn')){kSetOpen=!kSetOpen;render();return}
   const ap=e.target.closest('[data-adpick]');if(ap){if(ap.dataset.adpick!==adDay&&adLeave()){adDay=ap.dataset.adpick;adEdit=null;render()}return}
@@ -1097,7 +1211,7 @@ document.addEventListener('click',e=>{
   const df=e.target.closest('[data-del-ffm]');if(df){const id=df.dataset.delFfm;if(delArm==='f:'+id){delArm=null;const nm=(FFMS.find(f=>f.id===id)||{}).name;db.collection('ffm').doc(id).delete().then(()=>{formMsg.ffm=`<span class="muted">Đã xoá ${esc(nm)}.</span>`;if(editFfm===id)editFfm=null;render()}).catch(err=>{formMsg.ffm=`<span class="neg">Chưa xoá được: ${esc(err.message||err.code)}.</span>`;render()})}else{delArm='f:'+id;render()}return}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-go]'))e.target.click()});
-document.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='ffmForm')submitFfm();if(e.target.id==='kSetForm')saveKSet();if(e.target.id==='adForm')saveAds()});
+document.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='ffmForm')submitFfm();if(e.target.id==='kSetForm')saveKSet();if(e.target.id==='adForm')saveAds();if(e.target.id==='plForm')savePL()});
 document.addEventListener('change',e=>{
   if(e.target.id==='fProj')setF('proj',e.target.value);
   if(e.target.id==='fMkt')setF('mkt',e.target.value);
@@ -1108,6 +1222,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='staffSel'){curStaff=e.target.value;store.set('staff',curStaff);render()}
   if(e.target.id==='jtFile'&&e.target.files[0])runJT(e.target.files[0]);
   if(e.target.id==='kWhoSel'){kWho=e.target.value;render()}
+  if(e.target.matches&&e.target.matches('[data-kshow]')){kShowHow=e.target.checked;render()}
   if(e.target.id==='kAllProds'){kAllProds=e.target.checked;store.set('kallp',kAllProds?'1':'0');render()}
   if(e.target.id==='adDay'&&e.target.value){adDay=e.target.value;adEdit=null;render()}
   if(e.target.id==='adStaff'){if(adLeave()){adStaff=e.target.value;store.set('adstaff',adStaff);adEdit=null}render()}
