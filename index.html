@@ -265,12 +265,6 @@ function targetBlock(list,target){
     <div class="tbar" role="img" aria-label="Đạt ${P(done)} target, đã qua ${P(elapsed,0)} tháng"><i style="width:${Math.min(100,done*100).toFixed(1)}%"></i><b style="left:${(elapsed*100).toFixed(1)}%" title="Hôm nay"></b></div>
     <div class="tlegend"><span><b>${P(done)}</b> target đã đạt</span><span>Dự kiến cuối tháng: <b>${M(proj)}</b> (${P(pr,0)} target)</span></div></div>`;
 }
-// Việc cần chú ý: 3 cảnh báo quan trọng nhất, có nút đi tới chỗ xử lý.
-function attention(){
-  const a=alerts();if(!a.length)return '';
-  return `<div class="card attn"><div class="cardhead"><div><h2>Cần chú ý</h2></div>${a.length>3?`<button class="lnk" data-go="canhbao:">Xem tất cả ${a.length}</button>`:''}</div>
-    <div class="alerts">${a.slice(0,3).map(x=>`<div class="alert"><span class="stripe s-${x[0]}"></span><div><div class="t">${esc(x[1])}</div><div class="m">${esc(x[2])}</div></div><span>${x[3]}</span></div>`).join('')}</div></div>`;
-}
 
 // ---------- bảng: sắp xếp, xuất Excel ----------
 // cols: [{k, label, l (căn trái), fmt(row) → html, val(row) → số/chuỗi để sắp xếp và xuất, tip}]
@@ -340,10 +334,11 @@ V.tongquan=()=>{
   const multiProj=!F.proj&&new Set(ROWS.map(r=>r.proj)).size>1;
   const tgt=k=>{const t=byId(CAT.teams,k);return F.range==='month'&&t?+t.target_vnd||0:0};
   const cols=rankCols('Team',(k)=>k?`${esc(teamName(k))}${multiProj?`<div class="sub2">${esc(projName((byId(CAT.teams,k)||{}).project_id))}</div>`:''}`:'<span class="muted">Chưa gán team</span>',{gp:1,target:tgt});
-  const tb=targetBlock(ROWS,target),at=attention();
+  // Cảnh báo không hiện ở Tổng quan nữa: xem ở màn Cảnh báo (số trên menu).
+  const tb=targetBlock(ROWS,target);
   ensureTD();
   const adsT=adsInfo(TD,TD.rows,CAT.teams.filter(t=>TD.rows.some(r=>r.team===t.id)));
-  return `${kpiCards(ROWS,PREV,adsT)}${tb&&at?`<div class="grid2 even">${tb}${at}</div>`:tb+at}
+  return `${kpiCards(ROWS,PREV,adsT)}${tb}
   <div class="${days().length<2?'grid2 even':'grid2'}">
     ${chartCard('Xu hướng theo ngày',ROWS,PREV)}
     <div class="card"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn trên POS.</p>${legend(ROWS,r=>r.ch,chTag,chColor)}
@@ -1063,7 +1058,7 @@ function render(){
   $('#view').innerHTML=(catErr?`<div class="msg neg">Không đọc được danh mục: ${esc(catErr)}. Kiểm tra đã chạy đủ các file SQL trên Supabase chưa.</div>`:'')+V[view]();
   if(keep.__view===view){Object.keys(before).forEach(id=>{if(id==='__focus')return;const e=document.getElementById(id);if(e&&!['pq','oq','staffSel','kWhoSel','adStaff','adDay'].includes(id)&&!e.classList.contains('adName')&&!e.classList.contains('adUsd'))e.value=before[id]});const fe=before.__focus&&document.getElementById(before.__focus);if(fe){fe.focus();if(fe.type==='search'||fe.type==='text')try{fe.setSelectionRange(fe.value.length,fe.value.length)}catch(x){}}}
   keep={__view:view};
-  Shell.badge('alertCnt',alerts().filter(a=>a[0]==='bad').length);
+  Shell.badge('alertCnt',alerts().length);
 }
 function go(v){view=v;keep={};delArm=null;try{history.replaceState(null,'',hashFor(v))}catch(e){}if((v==='sanpham'||v==='nhansu'||(SEE_COST&&v==='canhbao'))&&!PRODS)loadProducts();render();window.scrollTo(0,0)}
 function setF(k,v){F[k]=v;store.set({proj:'proj',mkt:'mkt',ch:'ch2',range:'range',from:'from',to:'to',cmp:'cmp'}[k],k==='cmp'?(v?'1':'0'):v);oPage=0;try{history.replaceState(null,'',hashFor(view))}catch(e){}loadData()}
