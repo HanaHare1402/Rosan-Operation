@@ -617,8 +617,9 @@ const kViewSeg=()=>`<div class="seg" role="group" aria-label="Cách hiện chi p
 const KX=[['Số đơn','n'],['Doanh số gửi đi','sent'],['Hoàn','ret'],['Đang xử lý','proc'],['Doanh số thành công','ok'],['Giá vốn','cogs'],['Cước vận chuyển','ship'],['Phí DV vận chuyển','dvvc'],['Phí DV GIP','gip'],['Phí fulfill','ffm'],['Chi phí quảng cáo (USD)','usd'],['Chi phí quảng cáo (VNĐ)','ads'],['Chi phí test','test'],['Chi phí bao bì','pack'],['Lợi nhuận gộp','lng']].map(([label,k])=>({label,val:r=>Math.round(r[k]*100)/100}))
   .concat([{label:'% LNG / gửi đi',val:r=>r.sent?Math.round(r.lng/r.sent*10000)/100:''}]);
 function kPL(a,s){
-  const line=(lab,v,note,cls='')=>`<tr class="${cls}"><td class="${cls?'':'ind'}">${lab}${note?`<div class="sub2 kpl-n">${note}</div>`:''}</td><td class="${cls.includes('sec')&&v<0?'neg':''}">${M(v)}</td><td class="muted">${pctOf(v,a.sent)}</td><td class="l muted kpl-c" style="white-space:normal">${note||''}</td></tr>`;
-  return `<div class="tw"><table><thead><tr><th class="l">Khoản</th><th>VNĐ</th><th>% gửi đi</th><th class="l kpl-c">Cách tính</th></tr></thead><tbody>
+  // Cột "Cách tính" (tỷ lệ phí, cước, tỷ giá) chỉ admin và kế toán thấy.
+  const line=(lab,v,note,cls='')=>{if(!CAN_KSET)note='';return `<tr class="${cls}"><td class="${cls?'':'ind'}">${lab}${note?`<div class="sub2 kpl-n">${note}</div>`:''}</td><td class="${cls.includes('sec')&&v<0?'neg':''}">${M(v)}</td><td class="muted">${pctOf(v,a.sent)}</td>${CAN_KSET?`<td class="l muted kpl-c" style="white-space:normal">${note||''}</td>`:''}</tr>`};
+  return `<div class="tw"><table><thead><tr><th class="l">Khoản</th><th>VNĐ</th><th>% gửi đi</th>${CAN_KSET?'<th class="l kpl-c">Cách tính</th>':''}</tr></thead><tbody>
     ${line('Doanh số gửi đi',a.sent,`${N(a.n)} đơn tạo trong kỳ, bỏ đơn huỷ`,'h')}
     ${line('Hoàn',a.ret,'Đơn đang hoàn / đã hoàn')}${line('Đang xử lý',a.proc,'Chưa gửi hoặc đang giao, chưa có kết quả')}
     ${line('Doanh số thành công',a.ok,'Đơn khách đã nhận hàng','sec')}
@@ -639,7 +640,7 @@ V.kpi=()=>{
   const modeLabel=kMode==='rd'?'R&D':'Nhân viên ADS';
   const head=`<div class="tools"><div class="seg" role="group" aria-label="Loại KPI">${[['ads','Nhân viên ADS'],['rd','R&D']].map(([k,l])=>`<button type="button" data-kmode="${k}" class="${kMode===k?'on':''}" aria-pressed="${kMode===k}">${l}</button>`).join('')}</div>
     <span class="muted" style="font-size:12.5px">${kMode==='rd'?'Tính trên mọi đơn của sản phẩm người R&D phụ trách.':'Tính trên đơn của từng marketer.'}</span><span class="grow"></span>
-    <button class="btn ghost sm" type="button" id="kSetBtn" aria-expanded="${kSetOpen}">${Shell.icon('settings',' style="width:14px;height:14px"')} Thông số tính</button></div>${kSetOpen&&K.set?kSettingsCard():''}`;
+    ${CAN_KSET?`<button class="btn ghost sm" type="button" id="kSetBtn" aria-expanded="${kSetOpen}">${Shell.icon('settings',' style="width:14px;height:14px"')} Thông số tính</button>`:''}</div>${kSetOpen&&K.set?kSettingsCard():''}`;
   if(K.err)return head+`<div class="card">${Shell.empty('alert','Không tải được KPI',esc(K.err)+'<br>Kiểm tra đã chạy file SQL 20261026000000_kpi.sql trên Supabase chưa.')}</div>`;
   if(K.loading&&!K.rows.length)return head+skeleton();
   const s=K.set||KDEF;
