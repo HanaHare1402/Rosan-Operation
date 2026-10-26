@@ -424,3 +424,11 @@ tbody tr[data-go]:focus-visible td{background:var(--accent-soft)}
 #tKpi thead th:first-child,#tKpiP thead th:first-child,#tKpi tfoot td:first-child,#tKpiP tfoot td:first-child{background:var(--panel-2)}
 #tKpi th,#tKpi td,#tKpiP th,#tKpiP td{padding-left:7px;padding-right:7px}
 #tKpi th,#tKpiP th{letter-spacing:.02em}
+/* bảng theo dõi theo ngày: giữ cột chỉ số và cột tổng khi cuộn ngang */
+table.daily th,table.daily td{padding-left:8px;padding-right:8px}
+table.daily th:first-child,table.daily td:first-child{position:sticky;left:0;z-index:1;min-width:200px;max-width:200px;white-space:normal;background:var(--panel);box-shadow:1px 0 0 var(--line)}
+table.daily th:nth-child(2),table.daily td:nth-child(2){position:sticky;left:200px;z-index:1;background:var(--panel-2);box-shadow:1px 0 0 var(--line)}
+table.daily thead th:first-child{background:var(--panel-2)}
+table.daily tr.h td{font-weight:650}
+table.daily td.ind{padding-left:22px;color:var(--muted);font-style:italic}
+@media (max-width:640px){table.daily th:first-child,table.daily td:first-child{min-width:140px;max-width:140px}table.daily th:nth-child(2),table.daily td:nth-child(2){position:static}}

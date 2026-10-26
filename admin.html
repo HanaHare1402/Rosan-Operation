@@ -245,9 +245,11 @@
         { k: "name", label: "Tên team", req: true },
         { k: "project_id", label: "Dự án", type: "select", options: () => myProjects().map((p) => [p.id, p.name]), blank: "Chọn dự án", req: true },
         { k: "target_vnd", label: "Target doanh số/tháng (VNĐ)", type: "number" },
+        { k: "target_g2_vnd", label: "Target doanh số nhóm 2/tháng (VNĐ)", type: "number" },
+        { k: "ads_pct_max", label: "Trần % chi phí ads / doanh số (VD 27)", type: "number" },
         { k: "active", label: "Trạng thái", type: "bool" },
       ],
-      cell: { project_id: (r) => esc(projName(r.project_id) || "–"), target_vnd: (r) => r.target_vnd ? nf.format(r.target_vnd) : "–" },
+      cell: { project_id: (r) => esc(projName(r.project_id) || "–"), target_vnd: (r) => r.target_vnd ? nf.format(r.target_vnd) : "–", target_g2_vnd: (r) => r.target_g2_vnd ? nf.format(r.target_g2_vnd) : "–", ads_pct_max: (r) => r.ads_pct_max ? "≤ " + String(r.ads_pct_max).replace(".", ",") + "%" : "–" },
       extra: [["Nhân sự", (r) => C.staff.filter((s) => s.team_id === r.id && s.active).length]],
     },
     staff: {
