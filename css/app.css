@@ -432,3 +432,32 @@ table.daily thead th:first-child{background:var(--panel-2)}
 table.daily tr.h td{font-weight:650}
 table.daily td.ind{padding-left:22px;color:var(--muted);font-style:italic}
 @media (max-width:640px){table.daily th:first-child,table.daily td:first-child{min-width:140px;max-width:140px}table.daily th:nth-child(2),table.daily td:nth-child(2){position:static}}
+/* màn Chi phí ads: lịch tháng, dòng nhập, danh sách ai đã nhập */
+.adside>.card{margin-bottom:16px}.adside>.card:last-child{margin-bottom:0}
+.adcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.adcal .wd{font-size:11px;color:var(--muted);text-align:center;font-weight:600;padding:2px 0 4px}
+.adcal button{min-height:46px;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:4px 2px;font:inherit;color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:0}
+.adcal button:hover:not(:disabled){border-color:var(--line-2);background:var(--sunk)}
+.adcal .d{font-weight:650;font-size:13px;font-variant-numeric:tabular-nums}
+.adcal .v{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.adcal button.ok{background:var(--good-soft);border-color:transparent}.adcal button.ok .v{color:var(--good);font-weight:600}
+.adcal button.miss{background:var(--warn-soft);border-color:transparent}.adcal button.miss .v{color:var(--warn);font-weight:600}
+.adcal button.on{outline:2px solid var(--accent);outline-offset:1px}
+.adcal button.today .d{text-decoration:underline;text-underline-offset:3px}
+.adcal button:disabled{opacity:.45;cursor:default}
+.adsum{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.adsum>div{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+.adsum .l{font-size:12px;color:var(--muted)}.adsum b{font-size:16px}
+.adrow{display:grid;grid-template-columns:minmax(0,1fr) 130px 84px 32px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+.adrow.adhead{font-size:11px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding-top:0}
+.adrow .adName{width:100%}.adrow .vnd{text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums}
+.adrow .adwarn{grid-column:1/-1;font-size:12px;color:var(--warn)}
+.adusd{position:relative;display:block}.adusd span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none}
+.adusd input{width:100%;padding-left:22px;text-align:right}
+.adbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.adbar b{font-size:15px}
+.adwho{display:flex;flex-direction:column;gap:4px;max-height:420px;overflow:auto}
+.adwho button{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;border:1px solid transparent;background:none;border-radius:8px;padding:7px 8px;font:inherit;color:var(--ink);cursor:pointer;min-height:40px}
+.adwho button:hover{background:var(--sunk)}.adwho button.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+.adwho .sub2{display:block}
+@media (max-width:640px){.adrow{grid-template-columns:minmax(0,1fr) 108px 32px}.adrow .vnd{display:none}.adcal button{min-height:42px}}

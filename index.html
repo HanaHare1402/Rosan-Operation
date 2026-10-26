@@ -382,6 +382,7 @@ V.nhansu=()=>{
   return head+kpiCards(list,plist)+
   `<div class="${days().length<2?'grid2 even':'grid2'}">${chartCard('Xu hướng theo ngày',list,plist)}
    <div class="card"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn.</p>${legend(list,r=>r.ch,chTag,chColor)}</div></div>
+  ${staffDailyCard(curStaff)}
   <div class="card"><div class="cardhead"><div><h2>Sản phẩm đã bán</h2></div></div>${prods==null?'<div class="skel" style="height:12px"></div>':prodTable(prods,false)}</div>`;
 };
 function prodTable(rows,withSearch){
@@ -697,7 +698,7 @@ V.kpi=()=>{
 // ---------- theo dõi theo ngày (giống sheet của từng team) ----------
 // Hàng: chi phí ads / doanh số / số đơn / % chi phí / chi phí mỗi đơn, tách theo nhóm sản phẩm. Cột: tổng kỳ và từng ngày.
 const TD={key:'',rows:[],usd:KDEF.usd_vnd,loading:false,err:''};
-const CONTEST={key:'',rows:null,month:''};
+const CONTEST={key:null,rows:null,month:''};
 async function loadTD(key){
   const [from,to]=rangeDates();
   const [r,s]=await Promise.all([fetchAll(()=>sbc.rpc('team_daily',{p_from:from.toISOString(),p_to:to.toISOString(),p_project:F.proj||null}).order('day').order('team_id').order('grp')),getKSet(isoD(monthStart(from)))]);
@@ -712,7 +713,7 @@ async function loadContest(key){
   const [r,s]=await Promise.all([fetchAll(()=>sbc.rpc('kpi_report',{p_from:pf.toISOString(),p_to:pt.toISOString(),p_mode:'ads',p_project:F.proj||null}).order('who').order('product_key')),getKSet(isoD(pf))]);
   if(key!==CONTEST.key)return;
   CONTEST.month=isoD(pf);CONTEST.rows=r.error?[]:kSum(r.data.map(kRow),x=>x.who).filter(a=>a.k!=='~').map(a=>kCalc(a,s));
-  if(view==='team'||view==='tongquan')render();
+  if(view==='team'||view==='tongquan'||view==='nhansu')render();
 }
 const WD=['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
 const GNAME=g=>g?'Nhóm '+g:'Chưa xếp nhóm';
@@ -723,15 +724,25 @@ function dailyCard(teamId){
   const title=teamId?'Theo dõi theo ngày · '+esc(teamName(teamId)):'Theo dõi theo ngày · tất cả team';
   if(TD.err)return `<div class="card"><h2>${title}</h2>${Shell.empty('alert','Chưa tải được bảng theo dõi',esc(TD.err)+'<br>Kiểm tra đã chạy file SQL 20261026010000_team_daily.sql trên Supabase chưa.')}</div>`;
   if(TD.loading&&!TD.rows.length)return `<div class="card"><h2>${title}</h2><div class="skel" style="height:14px;margin-top:14px"></div><div class="skel" style="height:180px;margin-top:12px"></div></div>`;
-  const rows=teamId?TD.rows.filter(r=>r.team===teamId):TD.rows,rate=TD.usd,ds=days(),today=isoD(new Date());
+  const rows=teamId?TD.rows.filter(r=>r.team===teamId):TD.rows;
+  // Target: của team, hoặc cộng các team trong phạm vi.
+  const teams=teamId?[byId(CAT.teams,teamId)].filter(Boolean):CAT.teams.filter(t=>t.active!==false&&TD.rows.some(r=>r.team===t.id));
+  let contest='';
+  if(CONTEST.rows&&CONTEST.rows.length){
+    const top=CONTEST.rows.filter(a=>!teamId||(byId(CAT.staff,a.k)||{}).team_id===teamId).filter(a=>a.lng>0).sort((a,b)=>b.lng-a.lng).slice(0,2);
+    if(top.length)contest=`<div class="msg muted" style="margin:0 0 14px"><b>Kết quả thi đua tháng ${fmtM(CONTEST.month)}</b> · ${top.map((a,i)=>`${i?'🥈 Hạng 2':'🥇 Hạng 1'}: <b>${esc(staffName(a.k))}</b> (LNG ${M(a.lng)})`).join(' · ')}</div>`;
+  }
+  return dailyBody(rows,TD.usd,{title,teams,contest,targets:true});
+}
+// Vẽ bảng theo dõi: rows = [{day, grp, n, rev, usd}]. o.teams: lấy target / trần % chi phí; o.targets=false thì chỉ hiện trần.
+function dailyBody(rows,rate,o){
+  const ds=days(),today=isoD(new Date()),title=o.title,teams=o.teams||[],contest=o.contest||'';
   const G=[1,2,3].concat(rows.some(r=>r.grp==null&&(r.n||r.usd))?[null]:[]);
   const Z=()=>({n:0,rev:0,usd:0}),add=(a,r)=>{a.n+=r.n;a.rev+=r.rev;a.usd+=r.usd};
   const by=new Map(),tot=Z();
   rows.forEach(r=>{[r.day+'|'+r.grp,r.day+'|*','*|'+r.grp,'*|*'].forEach(k=>{if(!by.has(k))by.set(k,Z());add(by.get(k),r)})});
   const get=(d,g)=>by.get(d+'|'+(g===undefined?'*':g))||Z();
-  // Target: của team, hoặc cộng các team trong phạm vi.
-  const teams=teamId?[byId(CAT.teams,teamId)].filter(Boolean):CAT.teams.filter(t=>t.active!==false&&TD.rows.some(r=>r.team===t.id));
-  const tgt=teams.reduce((a,t)=>a+(+t.target_vnd||0),0),g2=teams.reduce((a,t)=>a+(+t.target_g2_vnd||0),0);
+  const tgt=o.targets===false?0:teams.reduce((a,t)=>a+(+t.target_vnd||0),0),g2=o.targets===false?0:teams.reduce((a,t)=>a+(+t.target_g2_vnd||0),0);
   const caps=[...new Set(teams.map(t=>+t.ads_pct_max||0).filter(Boolean))],cap=caps.length===1?caps[0]:0;
   const pct=(a,strong)=>{if(!a.rev)return '<span class="muted">–</span>';const v=a.usd*rate/a.rev,over=cap&&v*100>cap;return over?`<b class="neg" title="Vượt trần ${PF(cap)}%">${P(v)} ▲</b>`:(strong?`<b>${P(v)}</b>`:P(v))};
   const lines=[
@@ -743,20 +754,45 @@ function dailyCard(teamId){
   const head=`<tr><th class="l">Chỉ số</th><th>Tổng<div class="sub2">${esc(rangeLabel())}</div></th>${ds.map(d=>`<th>${WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
   const body=lines.map(([lab,f,cls,g])=>`<tr class="${cls==='h'?'h':''}"><td class="${cls==='ind'?'ind':''}">${lab}</td><td><b>${f(get('*',g))}</b></td>${ds.map(d=>{const k=isoD(d);return `<td>${k>today?'<span class="muted">–</span>':f(get(k,g))}</td>`}).join('')}</tr>`).join('');
   const T=get('*'),T2=get('*',2),dim=new Date(ds[0].getFullYear(),ds[0].getMonth()+1,0).getDate();
-  const strip=tgt||g2||cap?`<div class="statstrip" style="margin:4px 0 14px">
-    <div><span class="l">Target tháng</span><b>${tgt?M(tgt):'–'}</b><span class="muted">${tgt?`đã đạt ${M(T.rev)} · ${P(T.rev/tgt)}`:'Chưa đặt target'}</span></div>
-    <div><span class="l">Target tuần · ngày</span><b>${tgt?M(tgt/dim*7):'–'}</b><span class="muted">${tgt?'ngày '+M(tgt/dim):''}</span></div>
-    <div><span class="l">Target doanh số nhóm 2</span><b>${g2?M(g2):'–'}</b><span class="muted">${g2?`đã đạt ${M(T2.rev)} · ${P(T2.rev/g2)} · ngày ${M(g2/dim)}`:'Chưa đặt'}</span></div>
-    <div><span class="l">% chi phí ads${cap?` (trần ${PF(cap)}%)`:''}</span><b class="${cap&&T.rev&&T.usd*rate/T.rev*100>cap?'neg':''}">${T.rev?P(T.usd*rate/T.rev):'–'}</b><span class="muted">${cap?(T.rev&&T.usd*rate/T.rev*100>cap?'▲ đang vượt trần':'trong mức cho phép'):'Chưa đặt trần'}</span></div></div>`:'';
-  let contest='';
-  if(CONTEST.rows&&CONTEST.rows.length){
-    const top=CONTEST.rows.filter(a=>!teamId||(byId(CAT.staff,a.k)||{}).team_id===teamId).filter(a=>a.lng>0).sort((a,b)=>b.lng-a.lng).slice(0,2);
-    if(top.length)contest=`<div class="msg muted" style="margin:0 0 14px"><b>Kết quả thi đua tháng ${fmtM(CONTEST.month)}</b> · ${top.map((a,i)=>`${i?'🥈 Hạng 2':'🥇 Hạng 1'}: <b>${esc(staffName(a.k))}</b> (LNG ${M(a.lng)})`).join(' · ')}</div>`;
-  }
+  // Dải chỉ số trên bảng: target (nếu có) và % chi phí so với trần. Chỉ hiện ô có số.
+  const pv=T.rev?T.usd*rate/T.rev:NaN,over=cap&&pv*100>cap;
+  const cells=[];
+  if(tgt)cells.push(['Target tháng',M(tgt),`đã đạt ${M(T.rev)} · ${P(T.rev/tgt)}`],['Target tuần · ngày',M(tgt/dim*7),'ngày '+M(tgt/dim)]);
+  if(g2)cells.push(['Target doanh số nhóm 2',M(g2),`đã đạt ${M(T2.rev)} · ${P(T2.rev/g2)} · ngày ${M(g2/dim)}`]);
+  if(o.targets===false)cells.push(['Chi phí ads',M(T.usd*rate),`${U(T.usd)} USD`],['Doanh số',M(T.rev),`${N(T.n)} đơn`]);
+  cells.push([`% chi phí ads${cap?` (trần ${PF(cap)}%)`:''}`,`<span class="${over?'neg':''}">${isFinite(pv)?P(pv):'–'}</span>`,cap?(over?'▲ đang vượt trần':'trong mức cho phép'):'Chưa đặt trần']);
+  if(o.targets===false)cells.push(['Chi phí / đơn',T.n?N(T.usd*rate/T.n):'–','']);
+  const strip=tgt||g2||cap||o.targets===false?`<div class="statstrip" style="margin:4px 0 14px">${cells.slice(0,4).map(([l,v,sub])=>`<div><span class="l">${l}</span><b>${v}</b><span class="muted">${sub}</span></div>`).join('')}</div>`:'';
   const canTgt=['admin','quan_ly'].includes(ME.role);
-  return `<div class="card"><div class="cardhead"><div><h2>${title}</h2><p class="hint">Chi phí ads (USD × ${N(rate)}) theo team của người nhập; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn. Bảng này không lọc theo kênh.${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}</p></div></div>
+  return `<div class="card"><div class="cardhead"><div><h2>${title}</h2><p class="hint">Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn. Bảng này không lọc theo kênh.${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}</p></div></div>
     ${contest}${strip}
     ${rows.length?`<div class="tw"><table class="daily">${'<thead>'+head+'</thead>'}<tbody>${body}</tbody></table></div>`:Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
+}
+
+// Bản cho một nhân sự (màn Nhân sự): cùng chỉ số, trần % chi phí theo team của người đó, kèm hạng LNG tháng trước.
+const SD={key:'',rows:[],usd:KDEF.usd_vnd,loading:false,err:''};
+async function loadSD(key,staff){
+  const [from,to]=rangeDates();
+  const [r,s]=await Promise.all([fetchAll(()=>sbc.rpc('staff_daily',{p_from:from.toISOString(),p_to:to.toISOString(),p_staff:staff}).order('day').order('grp')),getKSet(isoD(monthStart(from)))]);
+  if(key!==SD.key)return;
+  SD.loading=false;SD.usd=s.usd_vnd;
+  if(r.error){SD.err=r.error.message;SD.rows=[]}else{SD.err='';SD.rows=r.data.map(x=>({day:x.day,grp:x.grp,n:+x.orders,rev:+x.revenue,usd:+x.ad_usd}))}
+  if(view==='nhansu')render();
+}
+function staffDailyCard(staffId){
+  const key=JSON.stringify([staffId,F.range,F.from,F.to]);
+  if(key!==SD.key){SD.key=key;SD.loading=true;SD.rows=[];loadSD(key,staffId)}
+  if(CONTEST.key!==F.proj){CONTEST.key=F.proj;CONTEST.rows=null;loadContest(F.proj)}
+  const title='Theo dõi theo ngày · '+esc(staffName(staffId));
+  if(SD.err)return `<div class="card"><h2>${title}</h2>${Shell.empty('alert','Chưa tải được bảng theo dõi',esc(SD.err)+'<br>Kiểm tra đã chạy file SQL 20261026020000_staff_daily.sql trên Supabase chưa.')}</div>`;
+  if(SD.loading&&!SD.rows.length)return `<div class="card"><h2>${title}</h2><div class="skel" style="height:14px;margin-top:14px"></div><div class="skel" style="height:180px;margin-top:12px"></div></div>`;
+  const st=byId(CAT.staff,staffId)||{},team=byId(CAT.teams,st.team_id);
+  let contest='';
+  if(CONTEST.rows&&CONTEST.rows.length){
+    const list=CONTEST.rows.filter(a=>!st.team_id||(byId(CAT.staff,a.k)||{}).team_id===st.team_id).sort((a,b)=>b.lng-a.lng),i=list.findIndex(a=>a.k===staffId);
+    if(i>=0)contest=`<div class="msg muted" style="margin:0 0 14px"><b>Tháng ${fmtM(CONTEST.month)}</b> · LNG ${M(list[i].lng)} · hạng <b>${i+1}/${list.length}</b>${team?' trong '+esc(team.name):''}${i<2&&list[i].lng>0?(i?' 🥈':' 🥇'):''}</div>`;
+  }
+  return dailyBody(SD.rows,SD.usd,{title,teams:team?[team]:[],contest,targets:false});
 }
 
 // ---------- nhập chi phí quảng cáo ----------
@@ -782,50 +818,88 @@ async function loadAds(key){
   if(view==='chiphi')render();
 }
 function adRowsFor(){return AD.rows.filter(r=>r.day===adDay&&r.staff_id===adStaff).map(r=>({name:r.product_name,usd:String(+r.usd)}))}
-function readAdForm(){return [...document.querySelectorAll('#adForm tbody tr[data-i]')].map(tr=>({name:tr.querySelector('.adName').value,usd:tr.querySelector('.adUsd').value}))}
+function readAdForm(){return [...document.querySelectorAll('#adForm .adrow[data-i]')].map(r=>({name:r.querySelector('.adName').value,usd:r.querySelector('.adUsd').value}))}
+const usdOf=v=>{const x=parseFloat(String(v).replace(',','.'));return x>=0?x:0};
+const adNorm=list=>JSON.stringify(list.filter(r=>String(r.name).trim()||String(r.usd).trim()).map(r=>[pkey(r.name),usdOf(r.usd)]).sort());
+const adDirty=()=>adEdit!==null&&adNorm(adEdit)!==adNorm(adRowsFor());
+// Đổi ngày / người khi còn thay đổi chưa lưu thì hỏi trước.
+function adLeave(){if(adEdit!==null)adEdit=readAdForm();if(!adDirty())return true;if(!confirm('Chi phí đang nhập chưa được lưu. Bỏ các thay đổi này?'))return false;adEdit=null;return true}
+const WD_LONG=['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+let adTblAll=false;
 V.chiphi=()=>{
   const list=adStaffList();
   if(!list.length)return `<div class="card">${Shell.empty('user','Chưa có nhân sự để nhập',ME.scope==='self'?'Tài khoản của cậu chưa được liên kết với nhân sự nào. Nhờ admin liên kết ở Quản trị → Tài khoản.':'Chưa có nhân sự trong phạm vi của cậu.')}</div>`;
   if(!list.some(s=>s.id===adStaff))adStaff=ME.staff_id&&list.some(s=>s.id===ME.staff_id)?ME.staff_id:list[0].id;
-  const d=new Date(adDay+'T00:00:00'),key=isoD(monthStart(d));
+  const d=new Date(adDay+'T00:00:00'),key=isoD(monthStart(d)),todayIso=isoD(new Date()),multi=list.length>1;
   if(key!==AD.key){AD.key=key;AD.loading=true;adEdit=null;loadAds(key)}
   if(!PRODLIST){PRODLIST=[];fetchAll(()=>sbc.rpc('kpi_products',{p_days:60}).order('product_key')).then(({data})=>{PRODLIST=(data||[]).sort((a,b)=>b.orders-a.orders);if(view==='chiphi')render()})}
+  const known=new Set(PRODLIST.map(p=>p.product_key)),mineRows=AD.rows.filter(r=>r.staff_id===adStaff);
+  // Lịch tháng của người đang chọn: ngày đã nhập (tổng USD), ngày đã qua chưa nhập.
+  const byDay=new Map();mineRows.forEach(r=>byDay.set(r.day,(byDay.get(r.day)||0)+ +r.usd));
+  const y=d.getFullYear(),mo=d.getMonth(),dim=new Date(y,mo+1,0).getDate(),lead=(new Date(y,mo,1).getDay()+6)%7;
+  let past=0,done=0;const cal=[];
+  for(let k=1;k<=dim;k++){const iso=`${y}-${p2(mo+1)}-${p2(k)}`,v=byDay.get(iso),fut=iso>todayIso,isPast=iso<todayIso;if(isPast)past++;if(isPast&&v!=null)done++;
+    const cls=[v!=null?'ok':isPast?'miss':'',iso===adDay?'on':'',iso===todayIso?'today':''].join(' ');
+    cal.push(`<button type="button" class="${cls}" data-adpick="${iso}" ${fut?'disabled':''} aria-pressed="${iso===adDay}" aria-label="${k}/${mo+1}: ${v!=null?U(v)+' USD':fut?'chưa tới':'chưa nhập'}"><span class="d">${k}</span><span class="v">${v!=null?U(v)+' $':fut?'':isPast?'Thiếu':'Hôm nay'}</span></button>`)}
+  const monthUsd=mineRows.reduce((t,r)=>t+ +r.usd,0),missN=past-done;
+  const curM=monthStart(new Date()),atLatest=monthStart(d).getTime()>=curM.getTime();
   const rows=adEdit||adRowsFor();if(!rows.length||rows[rows.length-1].name||rows[rows.length-1].usd)rows.push({name:'',usd:''});
-  const known=new Set(PRODLIST.map(p=>p.product_key));
-  const usdOf=v=>{const x=parseFloat(String(v).replace(',','.'));return x>=0?x:0};
-  const total=rows.reduce((t,r)=>t+usdOf(r.usd),0);
-  const mine=[...new Map(AD.rows.filter(r=>r.staff_id===adStaff).map(r=>[r.product_key,r.product_name])).entries()].filter(([k])=>!rows.some(r=>pkey(r.name)===k)).slice(0,8);
-  const staffSel=list.length>1?`<label class="flabel" for="adStaff">Nhân sự</label><select id="adStaff">${list.map(s=>`<option value="${esc(s.id)}" ${s.id===adStaff?'selected':''}>${esc(s.name)}</option>`).join('')}</select>`:`<b>${esc(staffName(adStaff))}</b>`;
-  const monthRows=AD.rows.filter(r=>list.some(s=>s.id===r.staff_id));
-  const byStaff=new Map();monthRows.forEach(r=>byStaff.set(r.staff_id,(byStaff.get(r.staff_id)||0)+ +r.usd));
+  const total=rows.reduce((t,r)=>t+usdOf(r.usd),0),saved=adRowsFor(),dirty=adDirty();
+  const state=dirty?'<span class="pill p-warn" id="adState">Chưa lưu thay đổi</span>':saved.length?'<span class="pill p-good" id="adState">Đã lưu</span>':'<span class="pill p-mute" id="adState">Chưa nhập</span>';
+  // Chép danh sách sản phẩm từ ngày gần nhất trước đó đã nhập (số tiền để trống).
+  const prevDay=[...byDay.keys()].filter(k=>k<adDay).sort().pop();
+  const quick=[...new Map(mineRows.map(r=>[r.product_key,r.product_name])).entries()].filter(([k])=>!rows.some(r=>pkey(r.name)===k)).slice(0,8);
+  const canNext=addD(d,1)<=new Date();
+  const form=`<form class="card" id="adForm" novalidate>
+    <div class="cardhead"><div><h2>Chi phí ${WD_LONG[d.getDay()]}, ${fmtDY(d)}</h2><p class="hint">${esc(staffName(adStaff))} · nhập số USD đã chi cho từng sản phẩm. Tên sản phẩm chọn trong danh sách gợi ý để khớp đơn trên POS.</p></div>
+      <div class="page-actions">${state}<button class="icon-btn" type="button" data-adshift="-1" aria-label="Ngày trước" title="Ngày trước">‹</button><button class="icon-btn" type="button" data-adshift="1" aria-label="Ngày sau" title="Ngày sau" ${canNext?'':'disabled'}>›</button></div></div>
+    ${AD.err?`<div class="msg neg">Không tải được chi phí: ${esc(AD.err)}. Kiểm tra đã chạy file SQL 20261026000000_kpi.sql chưa.</div>`:''}
+    <div class="adrow adhead" aria-hidden="true"><span>Sản phẩm</span><span style="text-align:right">Chi phí (USD)</span><span class="vnd" style="text-align:right">≈ VNĐ</span><span></span></div>
+    ${rows.map((r,i)=>`<div class="adrow" data-i="${i}">
+      <input class="adName" type="text" list="prodList" value="${esc(r.name)}" placeholder="Gõ tên sản phẩm…" aria-label="Sản phẩm dòng ${i+1}">
+      <label class="adusd"><span aria-hidden="true">$</span><input class="adUsd" type="number" step="0.01" min="0" inputmode="decimal" value="${esc(r.usd)}" placeholder="0,00" aria-label="Chi phí USD dòng ${i+1}"></label>
+      <span class="vnd muted">${r.usd!==''?M(usdOf(r.usd)*AD.usd):'–'}</span>
+      ${r.name||r.usd?`<button class="icon-btn" type="button" data-adrm="${i}" aria-label="Xoá dòng ${i+1}" title="Xoá dòng">×</button>`:'<span></span>'}
+      ${r.name&&PRODLIST.length&&!known.has(pkey(r.name))?'<span class="adwarn">Chưa thấy đơn nào có tên này trong 60 ngày qua, kiểm tra lại chính tả.</span>':''}</div>`).join('')}
+    <datalist id="prodList">${(PRODLIST||[]).map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist>
+    <div class="tools" style="margin:12px 0 0"><button class="btn ghost sm" type="button" id="adAdd">${Shell.icon('plus',' style="width:14px;height:14px"')} Thêm sản phẩm</button>
+      ${prevDay&&!saved.length&&!(adEdit||[]).some(r=>r.name)?`<button class="btn ghost sm" type="button" data-adcopy="${prevDay}">Chép sản phẩm từ ngày ${fmtD(new Date(prevDay+'T00:00:00'))}</button>`:''}
+      ${quick.length?`<span class="flabel">Thêm nhanh</span><div class="chips">${quick.map(([k,n])=>`<button type="button" class="chip" data-adadd="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>`:''}</div>
+    <div class="adbar"><div><span class="muted">Tổng ngày</span> <b id="adTotUsd">${U(total)} USD</b> <span class="muted">≈ <span id="adTotVnd">${M(total*AD.usd)}</span> · tỷ giá ${N(AD.usd)} đ</span></div>
+      <div class="formrow" style="margin:0"><span class="fmsg" id="adMsg"></span>${dirty?'<button class="btn ghost" type="button" id="adReset">Bỏ thay đổi</button>':''}<button class="btn" type="submit" ${AD.loading?'disabled':''}>Lưu chi phí</button></div></div>
+  </form>`;
+  const calCard=`<div class="card"><div class="cardhead"><div><h2>Lịch tháng ${fmtM(key)}</h2><p class="hint">${esc(staffName(adStaff))} · bấm một ngày để nhập / sửa.</p></div>
+      <div class="page-actions"><button class="icon-btn" type="button" data-admon="-1" aria-label="Tháng trước" title="Tháng trước">‹</button><button class="icon-btn" type="button" data-admon="1" aria-label="Tháng sau" title="Tháng sau" ${atLatest?'disabled':''}>›</button></div></div>
+    <div class="adcal">${['T2','T3','T4','T5','T6','T7','CN'].map(w=>`<span class="wd">${w}</span>`).join('')}${'<span></span>'.repeat(lead)}${cal.join('')}</div>
+    <div class="adsum"><div><span class="l">Cả tháng</span><b>${U(monthUsd)} USD</b><span class="muted">≈ ${M(monthUsd*AD.usd)}</span></div>
+      <div><span class="l">Ngày đã nhập</span><b>${done}/${past}</b>${missN?`<span class="pill p-warn">Còn ${missN} ngày chưa nhập</span>`:past?'<span class="pill p-good">Đủ ngày</span>':''}</div></div></div>`;
+  // Người quản lý: ai đã nhập ngày đang chọn. Marketer: chi phí tháng theo sản phẩm.
+  let side='';
+  if(multi){
+    const dayBy=new Map();AD.rows.filter(r=>r.day===adDay).forEach(r=>dayBy.set(r.staff_id,(dayBy.get(r.staff_id)||0)+ +r.usd));
+    const st=list.map(s=>({s,v:dayBy.get(s.id)})).sort((a,b)=>(a.v!=null)-(b.v!=null)||a.s.name.localeCompare(b.s.name,'vi'));
+    const n=st.filter(x=>x.v!=null).length;
+    side=`<div class="card"><div class="cardhead"><div><h2>Ai đã nhập ngày ${fmtD(d)}</h2><p class="hint">${n}/${list.length} người đã nhập. Bấm tên để mở chi phí của người đó.</p></div></div>
+      <div class="adwho">${st.map(x=>`<button type="button" class="${x.s.id===adStaff?'on':''}" data-adwho="${esc(x.s.id)}"><span>${esc(x.s.name)}<span class="sub2">${esc(teamName(x.s.team_id))}</span></span>${x.v!=null?`<span class="pill p-good">✓ ${U(x.v)} $</span>`:'<span class="pill p-warn">Chưa nhập</span>'}</button>`).join('')}</div></div>`;
+  }else{
+    const byP=new Map();mineRows.forEach(r=>{const o=byP.get(r.product_key)||{n:r.product_name,v:0};o.v+= +r.usd;byP.set(r.product_key,o)});
+    side=`<div class="card"><h2>Theo sản phẩm · tháng ${fmtM(key)}</h2><p class="hint">Chi phí đã nhập của ${esc(staffName(adStaff))}.</p>
+      <div class="legend">${[...byP.values()].sort((a,b)=>b.v-a.v).map(o=>`<div class="row"><span class="k">${esc(o.n)}</span><span>${U(o.v)} $</span><span class="s">${M(o.v*AD.usd)}</span></div>`).join('')||'<span class="muted">Chưa có chi phí nào trong tháng.</span>'}</div></div>`;
+  }
+  const tblRows=multi&&adTblAll?AD.rows.filter(r=>list.some(s=>s.id===r.staff_id)):mineRows;
   const cols=[{k:'day',label:'Ngày',l:1,fmt:r=>fmtDY(new Date(r.day+'T00:00:00')),val:r=>r.day},
-    {k:'staff',label:'Nhân sự',l:1,fmt:r=>esc(staffName(r.staff_id)),val:r=>staffName(r.staff_id)},
-    {k:'prod',label:'Sản phẩm',l:1,fmt:r=>esc(r.product_name)+(PRODLIST.length&&!known.has(r.product_key)?' <span class="pill p-warn" title="Không thấy đơn nào 60 ngày qua có tên sản phẩm này, nên chi phí sẽ không khớp đơn. Kiểm tra lại chính tả.">Không khớp đơn</span>':''),val:r=>r.product_name},
+    ...(multi&&adTblAll?[{k:'staff',label:'Nhân sự',l:1,fmt:r=>esc(staffName(r.staff_id)),val:r=>staffName(r.staff_id)}]:[]),
+    {k:'prod',label:'Sản phẩm',l:1,fmt:r=>esc(r.product_name)+(PRODLIST.length&&!known.has(r.product_key)?' <span class="pill p-warn" title="Không thấy đơn nào 60 ngày qua có tên sản phẩm này, nên chi phí sẽ không khớp đơn.">Không khớp đơn</span>':''),val:r=>r.product_name},
     {k:'usd',label:'USD',fmt:r=>U(+r.usd),val:r=>+r.usd},
     {k:'vnd',label:'≈ VNĐ',fmt:r=>M(r.usd*AD.usd),val:r=>Math.round(r.usd*AD.usd)}];
-  const sumUsd=monthRows.reduce((t,r)=>t+ +r.usd,0);
-  return `<div class="tools"><label class="flabel" for="adDay">Ngày</label><input type="date" id="adDay" value="${esc(adDay)}" max="${isoD(new Date())}">
-    <button class="btn ghost sm" type="button" data-adday="-1">Hôm qua</button><button class="btn ghost sm" type="button" data-adday="0">Hôm nay</button><span class="sep"></span>${staffSel}
-    <span class="grow"></span>${CAN_IMPORT_ADS?`<button class="btn ghost sm" type="button" id="adImpBtn" aria-expanded="${adImpOpen}">Tải file Excel</button>`:''}</div>
+  const sumT=tblRows.reduce((t,r)=>t+ +r.usd,0);
+  return `${multi||CAN_IMPORT_ADS?`<div class="tools">${multi?`<label class="flabel" for="adStaff">Nhân sự</label><select id="adStaff">${list.map(s=>`<option value="${esc(s.id)}" ${s.id===adStaff?'selected':''}>${esc(s.name)}</option>`).join('')}</select>`:''}
+    <span class="grow"></span>${CAN_IMPORT_ADS?`<button class="btn ghost sm" type="button" id="adImpBtn" aria-expanded="${adImpOpen}">Tải file Excel</button>`:''}</div>`:''}
   ${adImpOpen?adImportCard():''}
-  <div class="grid2"><form class="card" id="adForm" novalidate>
-    <div class="cardhead"><div><h2>Chi phí ngày ${fmtDY(d)} · ${esc(staffName(adStaff))}</h2><p class="hint">Nhập số tiền quảng cáo (USD) đã chi cho từng sản phẩm. Tên sản phẩm phải trùng tên trên POS để khớp đơn; gõ vài chữ rồi chọn trong danh sách gợi ý.</p></div></div>
-    ${AD.err?`<div class="msg neg">Không tải được chi phí: ${esc(AD.err)}. Kiểm tra đã chạy file SQL 20261026000000_kpi.sql chưa.</div>`:''}
-    <div class="tw"><table><thead><tr><th class="l">Sản phẩm</th><th>USD</th><th>≈ VNĐ</th><th><span class="sr">Xoá</span></th></tr></thead><tbody>
-    ${rows.map((r,i)=>`<tr data-i="${i}"><td class="l" style="min-width:200px"><input class="adName" type="text" list="prodList" value="${esc(r.name)}" placeholder="Gõ tên sản phẩm" aria-label="Sản phẩm dòng ${i+1}" style="width:100%"></td>
-      <td style="min-width:110px"><input class="adUsd" type="number" step="0.01" min="0" inputmode="decimal" value="${esc(r.usd)}" placeholder="0" aria-label="USD dòng ${i+1}" style="width:100%;text-align:right"></td>
-      <td class="muted">${r.usd!==''?M(usdOf(r.usd)*AD.usd):'–'}</td>
-      <td>${r.name||r.usd?`<button class="icon-btn" type="button" data-adrm="${i}" aria-label="Xoá dòng ${i+1}" title="Xoá dòng">×</button>`:''}</td></tr>`).join('')}
-    </tbody><tfoot><tr><td class="l"><b>Tổng ngày</b></td><td><b>${U(total)}</b></td><td><b>${M(total*AD.usd)}</b></td><td></td></tr></tfoot></table></div>
-    <datalist id="prodList">${(PRODLIST||[]).map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist>
-    ${mine.length?`<div class="tools" style="margin:12px 0 0"><span class="flabel">Thêm nhanh</span><div class="chips">${mine.map(([k,n])=>`<button type="button" class="chip" data-adadd="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div></div>`:''}
-    <div class="formrow"><button class="btn" type="submit" ${AD.loading?'disabled':''}>Lưu chi phí ngày này</button><span class="muted" style="font-size:12.5px">Tỷ giá ${N(AD.usd)} đ/USD</span><span class="fmsg" id="adMsg"></span></div>
-  </form>
-  <div class="card"><h2>Tổng tháng ${fmtM(key)}</h2><p class="hint">Theo nhân sự, đã nhập đến hiện tại.</p>
-    <div class="legend">${[...byStaff.entries()].sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="row"><span class="k">${esc(staffName(k))}</span><span>${U(v)} USD</span><span class="s">${M(v*AD.usd)}</span></div>`).join('')||'<span class="muted">Chưa có chi phí nào trong tháng.</span>'}</div>
-    ${sumUsd?`<p class="hint" style="margin:14px 0 0">Cả tháng: <b>${U(sumUsd)} USD</b> ≈ <b>${M(sumUsd*AD.usd)}</b></p>`:''}</div></div>
-  <div class="card"><div class="cardhead"><div><h2>Đã nhập trong tháng ${fmtM(key)}</h2><p class="hint">Bấm một dòng để mở ngày đó ở khung nhập và sửa.</p></div>${exportBtn('tAds')}</div>
-  ${AD.loading&&!AD.rows.length?'<div class="skel" style="height:12px"></div>':dataTable('tAds',cols,monthRows,{name:'Chi phí ads',sortKey:'day',click:r=>'chiphi:'+r.day+'|'+r.staff_id})}</div>`;
+  <div class="grid2"><div>${form}</div><div class="adside">${calCard}${side}</div></div>
+  <div class="card"><div class="cardhead"><div><h2>Đã nhập trong tháng ${fmtM(key)}</h2><p class="hint">${N(tblRows.length)} dòng · ${U(sumT)} USD ≈ ${M(sumT*AD.usd)}. Bấm một dòng để mở ngày đó ở khung nhập.</p></div>
+    <div class="page-actions">${multi?`<div class="seg" role="group" aria-label="Phạm vi bảng"><button type="button" data-adtbl="0" class="${adTblAll?'':'on'}" aria-pressed="${!adTblAll}">${esc(staffName(adStaff))}</button><button type="button" data-adtbl="1" class="${adTblAll?'on':''}" aria-pressed="${adTblAll}">Cả ${list.length} người</button></div>`:''}${exportBtn('tAds')}</div></div>
+  ${AD.loading&&!AD.rows.length?'<div class="skel" style="height:12px"></div>':dataTable('tAds',cols,tblRows,{name:'Chi phí ads',sortKey:'day',click:r=>'chiphi:'+r.day+'|'+r.staff_id})}</div>`;
 };
 async function saveAds(){
   const msg=$('#adMsg'),bad=t=>{msg.className='fmsg neg';msg.textContent=t};
@@ -978,11 +1052,19 @@ document.addEventListener('click',e=>{
   if(e.target.id==='fReset'){Object.assign(F,{proj:'',mkt:'',ch:'all'});['proj','mkt'].forEach(k=>store.set(k,''));store.set('ch2','all');setF('range',ME.scope==='self'?'today':'month');return}
   const c=e.target.closest('[data-ch]');if(c){setF('ch',c.dataset.ch);return}
   const t=e.target.closest('[data-team]');if(t){curTeam=t.dataset.team;store.set('team',curTeam);render();return}
-  const g=e.target.closest('[data-go]');if(g&&g.dataset.go){const i=g.dataset.go.indexOf(':');const v=g.dataset.go.slice(0,i),k=g.dataset.go.slice(i+1);if(v==='team'){curTeam=k;store.set('team',k)}if(v==='nhansu'){curStaff=k;store.set('staff',k)}if(v==='kpi')kWho=k;if(v==='chiphi'&&k){const [d,st]=k.split('|');adDay=d;adStaff=st;adEdit=null}if(ALLOWED.includes(v))go(v);return}
+  const g=e.target.closest('[data-go]');if(g&&g.dataset.go){const i=g.dataset.go.indexOf(':');const v=g.dataset.go.slice(0,i),k=g.dataset.go.slice(i+1);if(v==='chiphi'&&k&&view==='chiphi'&&!adLeave())return;if(v==='team'){curTeam=k;store.set('team',k)}if(v==='nhansu'){curStaff=k;store.set('staff',k)}if(v==='kpi')kWho=k;if(v==='chiphi'&&k){const [d,st]=k.split('|');adDay=d;adStaff=st;adEdit=null}if(ALLOWED.includes(v))go(v);return}
   const kv=e.target.closest('[data-kview]');if(kv){kView=kv.dataset.kview;store.set('kview',kView);render();return}
   const km=e.target.closest('[data-kmode]');if(km){kMode=km.dataset.kmode;store.set('kmode',kMode);kWho='';render();return}
   if(e.target.closest('#kSetBtn')){kSetOpen=!kSetOpen;render();return}
-  const ad=e.target.closest('[data-adday]');if(ad){adDay=isoD(addD(sod(new Date()),+ad.dataset.adday));adEdit=null;render();return}
+  const ap=e.target.closest('[data-adpick]');if(ap){if(ap.dataset.adpick!==adDay&&adLeave()){adDay=ap.dataset.adpick;adEdit=null;render()}return}
+  const ash=e.target.closest('[data-adshift]');if(ash){const n=addD(new Date(adDay+'T00:00:00'),+ash.dataset.adshift);if(n<=new Date()&&adLeave()){adDay=isoD(n);adEdit=null;render()}return}
+  const amo=e.target.closest('[data-admon]');if(amo){if(!adLeave())return;const c=new Date(adDay+'T00:00:00'),m=new Date(c.getFullYear(),c.getMonth()+ +amo.dataset.admon,1),t=sod(new Date());
+    adDay=isoD(m.getFullYear()===t.getFullYear()&&m.getMonth()===t.getMonth()?(t.getDate()>1?addD(t,-1):t):m>t?t:new Date(m.getFullYear(),m.getMonth()+1,0));adEdit=null;render();return}
+  const aw=e.target.closest('[data-adwho]');if(aw){if(aw.dataset.adwho!==adStaff&&adLeave()){adStaff=aw.dataset.adwho;store.set('adstaff',adStaff);adEdit=null;render()}return}
+  const at=e.target.closest('[data-adtbl]');if(at){adTblAll=at.dataset.adtbl==='1';render();return}
+  if(e.target.closest('#adAdd')){const r=readAdForm().filter(x=>x.name||x.usd);r.push({name:'',usd:''});adEdit=r;render();const ins=document.querySelectorAll('#adForm .adName');if(ins.length)ins[ins.length-1].focus();return}
+  if(e.target.id==='adReset'){adEdit=null;render();return}
+  const acp=e.target.closest('[data-adcopy]');if(acp){const names=[...new Map(AD.rows.filter(r=>r.staff_id===adStaff&&r.day===acp.dataset.adcopy).map(r=>[r.product_key,r.product_name])).values()];adEdit=readAdForm().filter(x=>x.name||x.usd).concat(names.map(n=>({name:n,usd:''})));render();const u=document.querySelector('#adForm .adUsd');if(u)u.focus();return}
   const arm=e.target.closest('[data-adrm]');if(arm){const r=readAdForm();r.splice(+arm.dataset.adrm,1);adEdit=r;render();return}
   const aa=e.target.closest('[data-adadd]');if(aa){const r=readAdForm().filter(x=>x.name||x.usd);r.push({name:aa.dataset.adadd,usd:''});adEdit=r;render();const ins=document.querySelectorAll('#adForm .adUsd');if(ins.length>1)ins[ins.length-2].focus();return}
   if(e.target.id==='adImpBtn'){adImpOpen=!adImpOpen;render();return}
@@ -1007,18 +1089,25 @@ document.addEventListener('change',e=>{
   if(e.target.id==='kWhoSel'){kWho=e.target.value;render()}
   if(e.target.id==='kAllProds'){kAllProds=e.target.checked;store.set('kallp',kAllProds?'1':'0');render()}
   if(e.target.id==='adDay'&&e.target.value){adDay=e.target.value;adEdit=null;render()}
-  if(e.target.id==='adStaff'){adStaff=e.target.value;store.set('adstaff',adStaff);adEdit=null;render()}
+  if(e.target.id==='adStaff'){if(adLeave()){adStaff=e.target.value;store.set('adstaff',adStaff);adEdit=null}render()}
   if(e.target.id==='adFile'&&e.target.files[0])readAdFile(e.target.files[0]);
-  if(e.target.matches&&e.target.matches('#adForm .adName')){const r=readAdForm();adEdit=r;const i=+e.target.closest('tr').dataset.i;if(i===r.length-1&&r[i].name){render();const n=document.querySelector(`#adForm tr[data-i="${i}"] .adUsd`);if(n)n.focus()}}
+  if(e.target.matches&&e.target.matches('#adForm .adName')){const r=readAdForm();adEdit=r;const i=+e.target.closest('.adrow').dataset.i;if(i===r.length-1&&r[i].name){render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adUsd`);if(n)n.focus()}}
 });
 function liveSearch(id,set){document.addEventListener('input',e=>{if(e.target.id!==id)return;set(e.target.value);const pos=e.target.selectionStart;render();const el=$('#'+id);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(x){}}})}
 liveSearch('pq',v=>pQ=v);
-document.addEventListener('input',e=>{if(!(e.target.matches&&e.target.matches('#adForm .adUsd')))return;
-  // Gõ USD: chỉ cập nhật cột VNĐ và dòng tổng, không vẽ lại cả màn để giữ con trỏ.
-  adEdit=readAdForm();const u=v=>{const x=parseFloat(String(v).replace(',','.'));return x>=0?x:0};
-  e.target.closest('tr').children[2].textContent=e.target.value!==''?M(u(e.target.value)*AD.usd):'–';
-  const t=adEdit.reduce((s,r)=>s+u(r.usd),0),td=document.querySelectorAll('#adForm tfoot td');
-  if(td.length>2){td[1].innerHTML='<b>'+U(t)+'</b>';td[2].innerHTML='<b>'+M(t*AD.usd)+'</b>'}});
+document.addEventListener('input',e=>{if(!(e.target.matches&&e.target.matches('#adForm .adUsd, #adForm .adName')))return;
+  // Gõ: chỉ cập nhật VNĐ, tổng và trạng thái "chưa lưu", không vẽ lại cả màn để giữ con trỏ.
+  adEdit=readAdForm();
+  if(e.target.classList.contains('adUsd'))e.target.closest('.adrow').querySelector('.vnd').textContent=e.target.value!==''?M(usdOf(e.target.value)*AD.usd):'–';
+  const t=adEdit.reduce((s,r)=>s+usdOf(r.usd),0);$('#adTotUsd').textContent=U(t)+' USD';$('#adTotVnd').textContent=M(t*AD.usd);
+  const st=$('#adState');if(st&&adDirty()){st.className='pill p-warn';st.textContent='Chưa lưu thay đổi'}});
+// Enter: tên sản phẩm → ô USD; ô USD → dòng sau (thêm dòng mới nếu đang ở dòng cuối). Không gửi form khi bấm Enter.
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||!e.target.closest||!e.target.closest('#adForm .adrow'))return;
+  e.preventDefault();const row=e.target.closest('.adrow');
+  if(e.target.classList.contains('adName')){row.querySelector('.adUsd').focus();return}
+  const nx=row.nextElementSibling;if(nx&&nx.classList.contains('adrow')){nx.querySelector('.adName').focus();return}
+  const r=readAdForm();if(r[r.length-1].name||r[r.length-1].usd){r.push({name:'',usd:''})}adEdit=r;render();const ins=document.querySelectorAll('#adForm .adName');if(ins.length)ins[ins.length-1].focus()});
 ['dragover','dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{const d=e.target.closest&&e.target.closest('#drop');if(!d)return;e.preventDefault();d.classList.toggle('over',ev==='dragover');if(ev==='drop'&&e.dataTransfer.files[0])runJT(e.dataTransfer.files[0])}));
 
 // Trang mở đầu theo vai trò: kế toán → KQKD, vận đơn / kho → Đơn hàng, còn lại → Tổng quan.
