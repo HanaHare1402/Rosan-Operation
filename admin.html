@@ -145,7 +145,7 @@
     <!-- ---------- nhóm sản phẩm ---------- -->
     <section id="tab-nhomsp" hidden>
       <div class="card">
-        <div class="cardhead"><div><h2>Nhóm sản phẩm và người R&amp;D</h2><p class="hint">Nhóm 1 là sản phẩm dễ đẩy, nhóm 3 khó đẩy. Người R&amp;D dùng cho bảng KPI R&amp;D. Mỗi tháng cập nhật một lần; sản phẩm nào tháng này chưa đổi thì giữ nhóm của tháng gần nhất trước đó.</p></div>
+        <div class="cardhead"><div><h2>Nhóm sản phẩm và người R&amp;D</h2><p class="hint">Nhóm 1: hàng khó đẩy · Nhóm 2: có khả năng đẩy được nhưng chưa đẩy mạnh · Nhóm 3: dễ đẩy. Người R&amp;D dùng cho bảng KPI R&amp;D. Mỗi tháng cập nhật một lần; sản phẩm nào tháng này chưa đổi thì giữ nhóm của tháng gần nhất trước đó.</p></div>
           <div class="page-actions"><label class="flabel" for="gpMonth">Tháng</label><input type="month" id="gpMonth"><button class="btn ghost sm" type="button" id="gpImpOpen">Tải file Excel</button></div></div>
         <div id="gpImp" class="editor" hidden>
           <div class="edtitle">Tải nhóm từ file <button class="lnk" type="button" id="gpImpClose">Đóng</button></div>
@@ -208,7 +208,7 @@
     taikhoan: ["Tài khoản", "Tạo tài khoản, cấp vai trò và phạm vi xem", ["admin"]],
     pos: ["Kết nối POS", "Shop, API key Pancake POS và đồng bộ đơn", ["admin"]],
     giavon: ["Giá vốn", "Dữ liệu nhập hàng, giá vốn theo giá nhập gần nhất", ["admin", "quan_ly", "ke_toan"]],
-    nhomsp: ["Nhóm sản phẩm", "Phân nhóm dễ / khó đẩy và người R&D theo tháng", ["admin", "quan_ly", "ke_toan"]],
+    nhomsp: ["Nhóm sản phẩm", "Phân nhóm khó / dễ đẩy và người R&D theo tháng", ["admin", "quan_ly", "ke_toan"]],
     nhatky: ["Nhật ký đồng bộ", "Lịch sử kéo đơn từ POS", ["admin"]],
   };
   const allowedTab = (t) => TABS[t] && TABS[t][2].includes(me.role);
@@ -995,7 +995,7 @@
     const m = gpM();
     $("#gpRows").innerHTML = rows.slice(0, 400).map((x) => { const c = cur(x), d = gpDirty.has(x.k);
       return `<tr${d ? ' class="editing"' : ""}><td class="l" style="white-space:normal">${esc(x.name)}</td><td>${nf.format(x.orders)}</td>
-      <td class="l"><select data-gpg="${esc(x.k)}" aria-label="Nhóm của ${esc(x.name)}">${opts([[1, "Nhóm 1 · dễ đẩy"], [2, "Nhóm 2"], [3, "Nhóm 3 · khó đẩy"]], c.grp, "Chưa xếp nhóm")}</select></td>
+      <td class="l"><select data-gpg="${esc(x.k)}" aria-label="Nhóm của ${esc(x.name)}">${opts([[1, "Nhóm 1 · khó đẩy"], [2, "Nhóm 2 · chưa đẩy mạnh"], [3, "Nhóm 3 · dễ đẩy"]], c.grp, "Chưa xếp nhóm")}</select></td>
       <td class="l"><select style="min-width:150px" data-gpr="${esc(x.k)}" aria-label="R&D của ${esc(x.name)}">${opts(staffOpts, c.rd, "Chưa gán")}</select></td>
       <td class="l">${d ? '<span class="pill p-warn">Chưa lưu</span>' : x.from === m ? '<span class="pill p-good">Tháng này</span>' : x.from ? `<span class="pill p-mute">Theo tháng ${fmtMon(x.from)}</span>` : '<span class="muted">–</span>'}</td></tr>`; }).join("")
       + (rows.length > 400 ? `<tr><td colspan="5" class="l muted">Còn ${nf.format(rows.length - 400)} sản phẩm, gõ tên vào ô tìm để lọc.</td></tr>` : "")
@@ -1037,24 +1037,37 @@
     fr.onload = (ev) => {
       try {
         const w = /\.csv$/i.test(file.name) ? XLSX.read(new TextDecoder("utf-8").decode(ev.target.result).replace(/^\ufeff/, ""), { type: "string" }) : XLSX.read(new Uint8Array(ev.target.result), { type: "array" });
-        const data = XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]], { defval: "", raw: true });
-        const keys = data.length ? Object.keys(data[0]) : [];
-        const find = (...c) => { for (const x of c) { const k = keys.find((k) => norm(k) === x) || keys.find((k) => norm(k).includes(x)); if (k) return k; } };
-        const kN = find("ten san pham tieng anh", "product", "ten san pham", "san pham"), kG = find("nhom", "group", "phan loai"), kR = find("r&d", "nhan vien test", "rd", "nguoi phu trach");
-        if (!kN || (!kG && !kR)) { say($("#gpImpMsg"), `Không tìm thấy cột Tên sản phẩm và Nhóm (hoặc R&D). Các cột trong file: ${esc(keys.join(", ")) || "(trống)"}.`, "neg"); $("#gpImpGo").hidden = true; return; }
+        // Nhận cột theo nội dung, không tin hẳn vào tiêu đề (tiêu đề hay bị dính / trống, VD "Tên sản phẩmNhóm").
+        const grid = XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]], { header: 1, defval: "", raw: true });
+        const width = Math.max(0, ...grid.slice(0, 200).map((r) => r.length));
+        const GRP = /^\s*(nh[oó]m|group)?\s*[1-3]\s*$/i, cell = (r, c) => String(r[c] ?? "").trim();
+        let gCol = -1, best = 0;
+        for (let c = 0; c < width; c++) { const vals = grid.map((r) => cell(r, c)).filter(Boolean); const hit = vals.filter((v) => GRP.test(v)).length; if (vals.length && hit / vals.length >= 0.5 && hit > best) { best = hit; gCol = c; } }
+        // Dòng dữ liệu bắt đầu từ dòng đầu tiên có ô nhóm hợp lệ; dòng ngay trước là tiêu đề.
+        let start = gCol >= 0 ? grid.findIndex((r) => GRP.test(cell(r, gCol))) : grid.findIndex((r) => r.filter((x) => String(x).trim()).length >= 2) + 1;
+        if (start < 0) start = 0;
+        const head = start > 0 ? grid[start - 1].map((x) => norm(x)) : [];
+        const byHead = (keys, skip) => { for (const k of keys) { const c = head.findIndex((h, j) => !skip.includes(j) && h && (h === k || h.includes(k))); if (c >= 0) return c; } return -1; };
+        const rCol = byHead(["r&d", "nhan vien test", "nguoi phu trach", "rd"], [gCol]);
+        let nCol = byHead(["ten san pham tieng anh", "product", "ten san pham", "san pham"], [gCol, rCol]);
+        if (nCol < 0) { let most = -1; for (let c = 0; c < width; c++) { if (c === gCol || c === rCol) continue; const n = grid.slice(start).filter((r) => { const v = cell(r, c); return v && !/^[\d.,\s]+$/.test(v); }).length; if (n > most) { most = n; nCol = c; } } }
+        if (nCol < 0 || (gCol < 0 && rCol < 0)) { say($("#gpImpMsg"), `Không nhận ra cột tên sản phẩm và cột nhóm (1, 2, 3 hoặc “Nhóm 1”). Kiểm tra file có 2 cột: tên sản phẩm, nhóm.`, "neg"); $("#gpImpGo").hidden = true; return; }
+        const colName = (c) => c < 0 ? "–" : `${String.fromCharCode(65 + c)}${head[c] ? " (" + esc(String(grid[start - 1][c]).trim()) + ")" : ""}`;
         const staff = C.staff.filter((s) => s.active !== false), who = (n) => { const q = pk(n); if (!q) return undefined; const ex = staff.filter((s) => pk(s.name) === q || (s.pos_names || []).some((p) => pk(p) === q)); if (ex.length === 1) return ex[0].id; const t = staff.filter((s) => pk(s.name).split(/\s+/).pop() === q); return t.length === 1 ? t[0].id : null; };
         const byKey = new Map(gpList.map((x) => [x.k, x])), m = new Map(), skip = [], unknownRd = new Set();
-        data.forEach((r, i) => {
-          const name = String(r[kN]).trim(); if (!name) return;
-          const g = kG ? parseInt(String(r[kG]).replace(/\D/g, ""), 10) : NaN;
-          if (kG && String(r[kG]).trim() && !(g >= 1 && g <= 3)) { skip.push(`dòng ${i + 2}: nhóm “${r[kG]}”`); return; }
+        grid.slice(start).forEach((r, i) => {
+          const name = cell(r, nCol); if (!name) return;
+          const gv = gCol >= 0 ? cell(r, gCol) : "";
+          const g = gv ? parseInt(gv.replace(/\D/g, ""), 10) : NaN;
+          if (gv && !(g >= 1 && g <= 3)) { skip.push(`dòng ${start + i + 1}: nhóm “${gv}”`); return; }
           const old = byKey.get(pk(name)) || {};
           let rd = old.rd ?? null;
-          if (kR && String(r[kR]).trim()) { const id = who(r[kR]); if (id) rd = id; else unknownRd.add(String(r[kR]).trim()); }
+          if (rCol >= 0 && cell(r, rCol)) { const id = who(cell(r, rCol)); if (id) rd = id; else unknownRd.add(cell(r, rCol)); }
           m.set(pk(name), { month: gpM(), product_key: pk(name), name, grp: g >= 1 ? g : (old.grp ?? null), rd_staff_id: rd });
         });
+        const sold = new Set(gpList.filter((x) => x.orders > 0).map((x) => x.k)), matched = [...m.keys()].filter((k) => sold.has(k)).length;
         gpImpRows = [...m.values()];
-        say($("#gpImpMsg"), `Đọc được <b>${nf.format(gpImpRows.length)}</b> sản phẩm cho tháng ${fmtMon(gpM())}.${skip.length ? ` Bỏ qua ${skip.length} dòng (${esc(skip.slice(0, 4).join("; "))}${skip.length > 4 ? "…" : ""}).` : ""}${unknownRd.size ? ` Không nhận ra R&D: ${esc([...unknownRd].slice(0, 6).join(", "))} (giữ nguyên người cũ).` : ""}`, gpImpRows.length ? "muted" : "neg");
+        say($("#gpImpMsg"), `Đọc được <b>${nf.format(gpImpRows.length)}</b> sản phẩm cho tháng ${fmtMon(gpM())} (cột tên: ${colName(nCol)} · cột nhóm: ${colName(gCol)}${rCol >= 0 ? " · cột R&D: " + colName(rCol) : ""}). <b>${nf.format(matched)}</b> tên trùng sản phẩm đã bán 60 ngày qua; các tên còn lại vẫn được lưu, sẽ khớp khi có đơn đúng tên.${skip.length ? ` Bỏ qua ${skip.length} dòng (${esc(skip.slice(0, 4).join("; "))}${skip.length > 4 ? "…" : ""}).` : ""}${unknownRd.size ? ` Không nhận ra R&D: ${esc([...unknownRd].slice(0, 6).join(", "))} (giữ nguyên người cũ).` : ""}`, gpImpRows.length ? "muted" : "neg");
         $("#gpImpGo").hidden = !gpImpRows.length; $("#gpImpGo").textContent = `Ghi ${nf.format(gpImpRows.length)} sản phẩm vào tháng ${fmtMon(gpM())}`;
       } catch (err) { say($("#gpImpMsg"), "Không đọc được file: " + esc(err.message), "neg"); }
     };

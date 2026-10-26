@@ -561,7 +561,8 @@ Object.assign(DEF,{
   k_set:'Các tỷ lệ phí, cước và tỷ giá dùng để tính. Mỗi tháng một bộ; tháng chưa đặt thì dùng tháng gần nhất trước đó.',
 });
 const kWhoName=k=>k==='~'?`<span class="muted">${kMode==='rd'?'Chưa gán R&D':'Chưa gán nhân sự'}</span>`:esc(staffName(k));
-const grpPill=g=>g?`<span class="pill p-info">Nhóm ${g}</span>`:'<span class="pill p-mute">Chưa xếp nhóm</span>';
+const GRP_MEAN={1:'Khó đẩy',2:'Có khả năng đẩy được nhưng chưa đẩy mạnh',3:'Dễ đẩy'};
+const grpPill=g=>g?`<span class="pill p-info" title="${GRP_MEAN[g]||''}">Nhóm ${g}</span>`:'<span class="pill p-mute">Chưa xếp nhóm</span>';
 const pctOf=(v,base)=>base?P(v/base):'–';
 function kCards(a,p){
   const four=[
@@ -716,7 +717,7 @@ async function loadContest(key){
   if(view==='team'||view==='tongquan'||view==='nhansu')render();
 }
 const WD=['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
-const GNAME=g=>g?'Nhóm '+g:'Chưa xếp nhóm';
+const GNAME=g=>g?'Nhóm '+g+' ('+{1:'khó đẩy',2:'chưa đẩy mạnh',3:'dễ đẩy'}[g]+')':'Chưa xếp nhóm';
 function dailyCard(teamId){
   const key=JSON.stringify([F.proj,F.range,F.from,F.to]);
   if(key!==TD.key){TD.key=key;TD.loading=true;TD.rows=[];loadTD(key)}
