@@ -51,6 +51,7 @@ const nf=new Intl.NumberFormat('vi-VN');
 const N=v=>nf.format(Math.round(v||0));
 function M(v){v=v||0;const a=Math.abs(v),s=v<0?'−':'';if(a>=1e9)return s+(a/1e9).toFixed(2).replace('.',',')+' tỷ';if(a>=1e6)return s+(a/1e6).toFixed(1).replace('.',',')+' tr';return s+N(a)}
 const PF=v=>String(v).replace('.',',');
+const U=v=>new Intl.NumberFormat('vi-VN',{maximumFractionDigits:2}).format(v||0);
 const P=(v,d=1)=>isFinite(v)?(v*100).toFixed(d).replace('.',',')+'%':'–';
 const store={get(k,d){try{const v=localStorage.getItem('tv_'+k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem('tv_'+k,v)}catch(e){}}};
 const byId=(l,id)=>l.find(x=>x.id===id);
@@ -125,8 +126,12 @@ function renderFilters(){
   const custom=F.range==='custom'?`<span class="drange"><input type="date" id="fFrom" value="${esc(F.from)}" aria-label="Từ ngày"> → <input type="date" id="fTo" value="${esc(F.to)}" aria-label="Đến ngày"></span>`:'';
   const cmp=`<label class="toggle" title="Hiện mức tăng / giảm so với ${cmpLabel()}"><input type="checkbox" id="fCmp" ${F.cmp?'checked':''}> So với ${cmpLabel()}</label>`;
   $('#filters').innerHTML=pSel+mSel+'<span class="sep"></span>'+range+custom+'<span class="grow"></span>'+cmp;
-  $('#toolbar').hidden=view==='caidat';
-  $('#filters2').hidden=view==='canhbao'||!CAT.channels.length;
+  $('#toolbar').hidden=view==='caidat'||view==='chiphi';
+  // KPI tính theo cả dự án như file gốc: không lọc kênh / thị trường.
+  $('#filters2').hidden=view==='canhbao'||view==='kpi'||!CAT.channels.length;
+  if(view==='kpi'&&$('#fMkt'))$('#fMkt').hidden=true;
+  // KPI R&D gộp đơn mọi dự án của sản phẩm: bỏ chọn dự án cho khỏi hiểu nhầm.
+  if(view==='kpi'&&kMode==='rd'&&$('#fProj')){$('#fProj').hidden=true;$('#fProj').previousElementSibling.hidden=true}
   $('#filters2').innerHTML=`<span class="flabel">Kênh</span><div class="chips" role="group" aria-label="Lọc theo kênh"><button class="chip ${F.ch==='all'?'on':''}" data-ch="all">Tất cả</button>${CAT.channels.map(c=>`<button class="chip ${F.ch===c.id?'on':''}" data-ch="${esc(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</button>`).join('')}</div>${isDefault()?'':'<span class="grow"></span><button class="lnk" type="button" id="fReset">Xoá bộ lọc</button>'}`;
 }
 
@@ -269,7 +274,7 @@ function dataTable(id,cols,rows,o={}){
   const s=SORT[id]||(SORT[id]={k:o.sortKey||cols[1].k,dir:-1});
   const c=cols.find(x=>x.k===s.k)||cols[1];
   const sorted=rows.slice().sort((a,b)=>{const x=c.val(a),y=c.val(b);return (typeof x==='string'?String(x).localeCompare(String(y),'vi'):(isFinite(x)?x:-Infinity)-(isFinite(y)?y:-Infinity))*s.dir});
-  TBL[id]={cols,rows:sorted,name:o.name||id};
+  TBL[id]={cols,xcols:o.xcols||[],rows:sorted,name:o.name||id};
   const th=x=>`<th class="${x.l?'l ':''}sort" data-sortt="${id}:${x.k}" aria-sort="${s.k===x.k?(s.dir>0?'ascending':'descending'):'none'}" title="Bấm để sắp xếp">${x.label}${x.tip?' '+tip(x.tip):''}${s.k===x.k?`<span class="sarr">${s.dir>0?'↑':'↓'}</span>`:''}</th>`;
   return `<div class="tw"><table id="${id}"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>
   ${sorted.map(r=>`<tr class="${o.click&&o.click(r)?'click':''}" ${o.click&&o.click(r)?`data-go="${esc(o.click(r))}" tabindex="0"`:''}>${cols.map(x=>`<td class="${x.l?'l':''}">${x.fmt(r)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}">${Shell.empty('inbox','Không có dữ liệu','Thử đổi bộ lọc hoặc khoảng ngày.')}</td></tr>`}
@@ -279,7 +284,8 @@ const exportBtn=id=>`<button class="btn ghost sm" type="button" data-export="${i
 function exportTable(id){
   const t=TBL[id];if(!t)return;
   const cell=v=>{if(typeof v==='number'&&!isFinite(v))return '';const s=String(v??'').replace(/<[^>]+>/g,'');return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
-  const lines=[t.cols.map(c=>cell(c.label.replace(/<[^>]+>/g,''))).join(',')].concat(t.rows.map(r=>t.cols.map(c=>cell(c.val(r))).join(',')));
+  const cs=t.xcols.length?[t.cols[0]].concat(t.xcols):t.cols;
+  const lines=[cs.map(c=>cell(c.label.replace(/<[^>]+>/g,''))).join(',')].concat(t.rows.map(r=>cs.map(c=>cell(c.val(r))).join(',')));
   const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${t.name} ${rangeLabel().replace(/[\/ –]+/g,'-')}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
@@ -495,6 +501,287 @@ function runJT(file){
   fr.readAsArrayBuffer(file);
 }
 
+// ---------- KPI: lợi nhuận gộp tính lương ----------
+// Giống bảng "KPI Nhân Viên" / "KPI R&D": số gốc từ kpi_report (VNĐ), các khoản phí % và cước theo thông số tháng (kpi_settings).
+const KDEF={ship_local:60,dvvc_pct:1.12,gip_pct:1.25,ffm_pct:2.55,test_pct:0.7,pack_pct:0,usd_vnd:27000};
+const KFIELDS=[['ship_local','Cước vận chuyển / đơn (₱)'],['dvvc_pct','Phí dịch vụ vận chuyển (% thành công)'],['gip_pct','Phí dịch vụ GIP (% thành công)'],['ffm_pct','Phí fulfill (% gửi đi)'],['test_pct','Chi phí test (% gửi đi)'],['pack_pct','Chi phí bao bì (% gửi đi)'],['usd_vnd','Tỷ giá 1 USD (VNĐ)']];
+const CAN_KSET=['admin','ke_toan'].includes(ME.role);
+let kMode=store.get('kmode','ads')==='rd'?'rd':'ads',kWho='',kSetOpen=false;
+const K={key:'',rows:[],prev:[],set:null,month:'',loading:false,err:''};
+const monthStart=d=>new Date(d.getFullYear(),d.getMonth(),1);
+const fmtM=iso=>iso?iso.slice(5,7)+'/'+iso.slice(0,4):'';
+const kRow=r=>({who:r.who||'~',pk:r.product_key,name:r.product,grp:r.grp,n:+r.orders,sent:+r.sent,ret:+r.ret,ok:+r.ok,cogs:+r.cogs,miss:+r.cogs_missing,sr:+r.ship_rate,usd:+r.ad_usd});
+async function getKSet(m){
+  const {data}=await sbc.from('kpi_settings').select('*').lte('month',m).order('month',{ascending:false}).limit(1);
+  const s=Object.assign({},KDEF);const r=(data||[])[0];if(r)KFIELDS.forEach(([k])=>{if(r[k]!=null)s[k]=+r[k]});s.from=r?r.month:'';return s;
+}
+async function loadKpi(key){
+  const [from,to]=rangeDates(),[pf,pt]=prevDates(),m=isoD(monthStart(from));
+  const args=(f,t)=>({p_from:f.toISOString(),p_to:t.toISOString(),p_mode:kMode,p_project:F.proj||null});
+  const [cur,prev,set]=await Promise.all([sbc.rpc('kpi_report',args(from,to)),F.cmp?sbc.rpc('kpi_report',args(pf,pt)):Promise.resolve({data:[]}),getKSet(m)]);
+  if(key!==K.key)return;
+  K.loading=false;K.month=m;K.set=set;
+  if(cur.error){K.err=cur.error.message;K.rows=[]}else{K.err='';K.rows=cur.data.map(kRow)}
+  K.prev=prev.error?[]:(prev.data||[]).map(kRow);
+  if(view==='kpi')render();
+}
+// Cộng dồn theo khoá, rồi tính từng khoản chi phí và LNG.
+function kSum(list,keyFn){
+  const m=new Map();
+  list.forEach(r=>{const k=keyFn(r);let a=m.get(k);if(!a){a={k,name:r.name,grp:r.grp,n:0,sent:0,ret:0,ok:0,cogs:0,miss:0,sr:0,usd:0};m.set(k,a)}
+    ['n','sent','ret','ok','cogs','miss','sr','usd'].forEach(f=>a[f]+=r[f])});
+  return [...m.values()];
+}
+function kCalc(a,s){
+  a=a||{n:0,sent:0,ret:0,ok:0,cogs:0,miss:0,sr:0,usd:0};
+  const proc=a.sent-a.ret-a.ok,ship=a.sr*s.ship_local,dvvc=a.ok*s.dvvc_pct/100,gip=a.ok*s.gip_pct/100,ffm=a.sent*s.ffm_pct/100,
+    ads=a.usd*s.usd_vnd,test=a.sent*s.test_pct/100,pack=a.sent*s.pack_pct/100,cost=a.cogs+ship+dvvc+gip+ffm+ads+test+pack;
+  return Object.assign({},a,{proc,ship,dvvc,gip,ffm,ads,test,pack,cost,lng:a.ok-cost,rr:a.ret+a.ok>0?a.ret/(a.ret+a.ok):NaN});
+}
+Object.assign(DEF,{
+  k_sent:'Tổng COD các đơn tạo trong kỳ (theo ngày tạo đơn), không tính đơn huỷ / đã xoá, quy ra VNĐ.',
+  k_ok:'COD các đơn khách đã nhận hàng. Đây là gốc để tính lợi nhuận gộp.',
+  k_rr:'Hoàn ÷ (đã giao + hoàn), tính theo tiền COD. Đơn đang xử lý chưa tính vì chưa có kết quả.',
+  k_lng:'Doanh số thành công trừ giá vốn, cước, phí vận chuyển, phí GIP, fulfill, quảng cáo, test, bao bì. Dùng để tính lương.',
+  k_cost:'Tổng các khoản trừ: giá vốn, cước, phí vận chuyển, GIP, fulfill, quảng cáo, test, bao bì.',
+  k_ads:'Chi phí quảng cáo nhập ở màn Chi phí ads (USD × tỷ giá của tháng).',
+  k_set:'Các tỷ lệ phí, cước và tỷ giá dùng để tính. Mỗi tháng một bộ; tháng chưa đặt thì dùng tháng gần nhất trước đó.',
+});
+const kWhoName=k=>k==='~'?`<span class="muted">${kMode==='rd'?'Chưa gán R&D':'Chưa gán nhân sự'}</span>`:esc(staffName(k));
+const grpPill=g=>g?`<span class="pill p-info">Nhóm ${g}</span>`:'<span class="pill p-mute">Chưa xếp nhóm</span>';
+const pctOf=(v,base)=>base?P(v/base):'–';
+function kCards(a,p){
+  const four=[
+    ['k_lng','Lợi nhuận gộp (tính lương)',M(a.lng),p?delta(a.lng,p.lng):'',`${pctOf(a.lng,a.sent)} doanh số gửi đi`],
+    ['k_ok','Doanh số thành công',M(a.ok),p?delta(a.ok,p.ok):'',`${pctOf(a.ok,a.sent)} doanh số gửi đi`],
+    ['k_sent','Doanh số gửi đi',M(a.sent),p?delta(a.sent,p.sent):'',`${N(a.n)} đơn · đang xử lý ${M(a.proc)}`],
+    ['k_rr','Tỷ lệ hoàn',P(a.rr),p?delta(a.rr,p.rr,{pp:1,lowerBetter:1}):'',`hoàn ${M(a.ret)}`],
+  ];
+  return `<div class="kpis kpis4">${four.map(([k,l,v,d,sub],i)=>`<div class="kpi${i===0?' primary':''}"><div class="l">${l} ${tip(k)}</div><div class="v ${i===0&&a.lng<0?'neg':''}">${v}</div><div class="n">${d||''}<div>${sub}</div></div></div>`).join('')}</div>`;
+}
+function kWarn(a){
+  const out=[],[f,t]=rangeDates();
+  if(a.sent>0&&!a.usd)out.push(['warn','Chưa có chi phí quảng cáo','Kỳ này chưa ai nhập chi phí ads, nên lợi nhuận gộp đang chưa trừ quảng cáo.',ALLOWED.includes('chiphi')?'<button class="btn ghost sm" data-go="chiphi:">Nhập chi phí ads</button>':'']);
+  if(a.miss)out.push(['warn','Đơn chưa có giá vốn',`${N(a.miss)} đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0.`,SEE_COST?'<a class="btn ghost sm" href="admin.html#giavon">Mở Giá vốn</a>':'']);
+  if(monthStart(f).getTime()!==monthStart(addD(t,-1)).getTime())out.push(['info','Kỳ dài hơn 1 tháng',`Phí và tỷ giá dùng thông số tháng ${fmtM(K.month)}. Xem từng tháng để khớp bảng lương.`,'']);
+  return out.length?`<div class="alerts" style="margin-bottom:16px">${out.map(x=>`<div class="alert"><span class="stripe s-${x[0]}"></span><div><div class="t">${esc(x[1])}</div><div class="m">${esc(x[2])}</div></div><span>${x[3]}</span></div>`).join('')}</div>`:'';
+}
+function kSettingsCard(){
+  const s=K.set||KDEF,from=s.from&&s.from!==K.month?` (đang dùng của tháng ${fmtM(s.from)})`:s.from?'':' (mặc định theo file KPI)';
+  return `<form class="card" id="kSetForm" novalidate><div class="cardhead"><div><h2>Thông số tính tháng ${fmtM(K.month)} ${tip('k_set')}</h2><p class="hint">Áp dụng cho kỳ bắt đầu trong tháng ${fmtM(K.month)}${from}.${CAN_KSET?'':' Chỉ admin và kế toán sửa được.'}</p></div></div>
+    <div class="form">${KFIELDS.map(([k,l])=>`<label for="ks_${k}">${l}<input id="ks_${k}" type="number" step="any" min="0" value="${esc(s[k])}" ${CAN_KSET?'':'disabled'}></label>`).join('')}</div>
+    ${CAN_KSET?`<div class="formrow"><button class="btn" type="submit">Lưu cho tháng ${fmtM(K.month)}</button><span class="fmsg" id="kSetMsg"></span></div>`:''}</form>`;
+}
+async function saveKSet(){
+  const row={month:K.month,updated_at:new Date().toISOString()};
+  for(const [k,l] of KFIELDS){const v=parseFloat(val('ks_'+k));if(!(v>=0)){const m=$('#kSetMsg');m.className='fmsg neg';m.textContent=`“${l}” phải là số từ 0 trở lên.`;$('#ks_'+k).focus();return}row[k]=v}
+  const {error}=await sbc.from('kpi_settings').upsert(row);
+  if(error){const m=$('#kSetMsg');m.className='fmsg neg';m.textContent='Chưa lưu được: '+error.message;return}
+  Shell.toast(`Đã lưu thông số tháng ${fmtM(K.month)}.`);K.key='';render();
+}
+// Cột bảng KPI (người hoặc sản phẩm). Xuất Excel kèm đủ các khoản như file gốc.
+function kCols(first,prevMap){
+  return [first,
+    {k:'sent',label:'Gửi đi',tip:'k_sent',fmt:r=>M(r.sent),val:r=>r.sent},
+    {k:'rr',label:'Tỷ lệ hoàn',tip:'k_rr',fmt:r=>retPill(r.rr),val:r=>r.rr},
+    {k:'ok',label:'Thành công',tip:'k_ok',fmt:r=>M(r.ok),val:r=>r.ok},
+    {k:'cost',label:'Tổng chi phí',tip:'k_cost',fmt:r=>`<div class="num2"><b>${M(r.cost)}</b><span class="muted">ads ${M(r.ads)}</span></div>`,val:r=>r.cost},
+    {k:'lng',label:'Lợi nhuận gộp',tip:'k_lng',fmt:r=>`<div class="num2"><b class="${r.lng<0?'neg':''}">${M(r.lng)}</b>${prevMap&&prevMap.has(r.k)?delta(r.lng,prevMap.get(r.k).lng,{short:1}):`<span class="muted">${pctOf(r.lng,r.sent)}</span>`}</div>`,val:r=>r.lng}];
+}
+const KX=[['Số đơn','n'],['Doanh số gửi đi','sent'],['Hoàn','ret'],['Đang xử lý','proc'],['Doanh số thành công','ok'],['Giá vốn','cogs'],['Cước vận chuyển','ship'],['Phí DV vận chuyển','dvvc'],['Phí DV GIP','gip'],['Phí fulfill','ffm'],['Chi phí quảng cáo (USD)','usd'],['Chi phí quảng cáo (VNĐ)','ads'],['Chi phí test','test'],['Chi phí bao bì','pack'],['Lợi nhuận gộp','lng']].map(([label,k])=>({label,val:r=>Math.round(r[k]*100)/100}))
+  .concat([{label:'% LNG / gửi đi',val:r=>r.sent?Math.round(r.lng/r.sent*10000)/100:''}]);
+function kPL(a,s){
+  const line=(lab,v,note,cls='')=>`<tr class="${cls}"><td class="${cls?'':'ind'}">${lab}${note?`<div class="sub2 kpl-n">${note}</div>`:''}</td><td class="${cls.includes('sec')&&v<0?'neg':''}">${M(v)}</td><td class="muted">${pctOf(v,a.sent)}</td><td class="l muted kpl-c" style="white-space:normal">${note||''}</td></tr>`;
+  return `<div class="tw"><table><thead><tr><th class="l">Khoản</th><th>VNĐ</th><th>% gửi đi</th><th class="l kpl-c">Cách tính</th></tr></thead><tbody>
+    ${line('Doanh số gửi đi',a.sent,`${N(a.n)} đơn tạo trong kỳ, bỏ đơn huỷ`,'h')}
+    ${line('Hoàn',a.ret,'Đơn đang hoàn / đã hoàn')}${line('Đang xử lý',a.proc,'Chưa gửi hoặc đang giao, chưa có kết quả')}
+    ${line('Doanh số thành công',a.ok,'Đơn khách đã nhận hàng','sec')}
+    ${line('− Giá vốn',a.cogs,a.miss?`<span class="neg">${N(a.miss)} đơn chưa có giá vốn</span>`:'Giá nhập gần nhất tính đến ngày tạo đơn')}
+    ${line('− Cước vận chuyển',a.ship,`${N(a.n)} đơn × ${PF(s.ship_local)} ₱`)}
+    ${line('− Phí dịch vụ vận chuyển',a.dvvc,`${PF(s.dvvc_pct)}% doanh số thành công`)}
+    ${line('− Phí dịch vụ GIP',a.gip,`${PF(s.gip_pct)}% doanh số thành công`)}
+    ${line('− Phí fulfill',a.ffm,`${PF(s.ffm_pct)}% doanh số gửi đi`)}
+    ${line('− Chi phí quảng cáo',a.ads,`${U(a.usd)} USD × ${N(s.usd_vnd)}`)}
+    ${line('− Chi phí test',a.test,`${PF(s.test_pct)}% doanh số gửi đi`)}
+    ${line('− Chi phí bao bì',a.pack,`${PF(s.pack_pct)}% doanh số gửi đi`)}
+    ${line('Lợi nhuận gộp (tính lương)',a.lng,'Doanh số thành công − các khoản trên','sec')}
+  </tbody></table></div>`;
+}
+V.kpi=()=>{
+  const key=JSON.stringify([F.proj,F.range,F.from,F.to,F.cmp,kMode]);
+  if(key!==K.key){K.key=key;K.loading=true;loadKpi(key)}
+  const modeLabel=kMode==='rd'?'R&D':'Nhân viên ADS';
+  const head=`<div class="tools"><div class="seg" role="group" aria-label="Loại KPI">${[['ads','Nhân viên ADS'],['rd','R&D']].map(([k,l])=>`<button type="button" data-kmode="${k}" class="${kMode===k?'on':''}" aria-pressed="${kMode===k}">${l}</button>`).join('')}</div>
+    <span class="muted" style="font-size:12.5px">${kMode==='rd'?'Tính trên mọi đơn của sản phẩm người R&D phụ trách.':'Tính trên đơn của từng marketer.'}</span><span class="grow"></span>
+    <button class="btn ghost sm" type="button" id="kSetBtn" aria-expanded="${kSetOpen}">${Shell.icon('settings',' style="width:14px;height:14px"')} Thông số tính</button></div>${kSetOpen&&K.set?kSettingsCard():''}`;
+  if(K.err)return head+`<div class="card">${Shell.empty('alert','Không tải được KPI',esc(K.err)+'<br>Kiểm tra đã chạy file SQL 20261026000000_kpi.sql trên Supabase chưa.')}</div>`;
+  if(K.loading&&!K.rows.length)return head+skeleton();
+  const s=K.set||KDEF;
+  const people=kSum(K.rows,r=>r.who).map(a=>kCalc(a,s)),prevMap=new Map(kSum(K.prev,r=>r.who).map(a=>[a.k,kCalc(a,s)]));
+  if(!people.length){
+    const canGrp=['admin','quan_ly','ke_toan'].includes(ME.role);
+    return head+`<div class="card">${kMode==='rd'?Shell.empty('tag','Chưa có số R&D trong kỳ này','Gán người R&D phụ trách cho từng sản phẩm ở Quản trị → Nhóm sản phẩm, rồi quay lại đây.',canGrp?'<a class="btn ghost sm" href="admin.html#nhomsp">Gán R&D cho sản phẩm</a>':'')
+      :Shell.empty('inbox','Chưa có đơn trong khoảng này','Thử chọn khoảng ngày dài hơn.',F.range!=='month'?'<button class="btn ghost sm" data-range="month">Xem cả tháng này</button>':'')}</div>`;
+  }
+  const solo=people.length===1&&ME.scope==='self';
+  const who=solo?people[0].k:(people.some(p=>p.k===kWho)?kWho:'');
+  if(!who){
+    const T=kCalc(kSum(K.rows,()=>'all')[0],s),PT=F.cmp&&K.prev.length?kCalc(kSum(K.prev,()=>'all')[0],s):null;
+    const first={k:'name',label:kMode==='rd'?'Người R&D':'Nhân sự',l:1,fmt:r=>kWhoName(r.k)+(r.k!=='~'&&byId(CAT.staff,r.k)?`<div class="sub2">${esc(teamName(byId(CAT.staff,r.k).team_id))}</div>`:''),val:r=>r.k==='~'?'':staffName(r.k)};
+    const foot={name:'<b>Tổng</b>',sent:`<b>${M(T.sent)}</b>`,rr:retPill(T.rr),ok:`<b>${M(T.ok)}</b>`,cost:M(T.cost),lng:`<b class="${T.lng<0?'neg':''}">${M(T.lng)}</b>`};
+    return head+kCards(T,PT)+kWarn(T)+
+    `<div class="card"><div class="cardhead"><div><h2>KPI ${modeLabel} · ${esc(rangeLabel())}</h2><p class="hint">Bấm vào tên để xem bảng tính chi tiết và từng sản phẩm. Bấm tiêu đề cột để sắp xếp. “Xuất Excel” có đủ các khoản như file KPI.</p></div>${exportBtn('tKpi')}</div>
+    ${dataTable('tKpi',kCols(first,F.cmp?prevMap:null),people,{name:'KPI '+modeLabel,sortKey:'lng',click:r=>r.k==='~'?'':'kpi:'+r.k,foot,xcols:KX})}</div>
+    <div class="card pl"><h2>Bảng tính tổng</h2><p class="hint">Cộng tất cả ${kMode==='rd'?'người R&D':'nhân sự'} trong phạm vi đang xem.</p>${kPL(T,s)}</div>`;
+  }
+  const me1=people.find(p=>p.k===who),pv=prevMap.get(who)||null,rows=K.rows.filter(r=>r.who===who);
+  const prods=kSum(rows,r=>r.pk).map(a=>kCalc(a,s)),pprev=new Map(kSum(K.prev.filter(r=>r.who===who),r=>r.pk).map(a=>[a.k,kCalc(a,s)]));
+  const sel=people.length>1?`<span class="flabel">${kMode==='rd'?'Người R&D':'Nhân sự'}</span><select id="kWhoSel">${people.slice().sort((a,b)=>String(a.k==='~'?'':staffName(a.k)).localeCompare(staffName(b.k),'vi')).map(p=>`<option value="${esc(p.k)}" ${p.k===who?'selected':''}>${p.k==='~'?(kMode==='rd'?'Chưa gán R&D':'Chưa gán nhân sự'):esc(staffName(p.k))}</option>`).join('')}</select>`:`<b style="font-size:15px">${kWhoName(who)}</b>`;
+  const first={k:'name',label:'Sản phẩm',l:1,fmt:r=>`${esc(r.name||r.k)} ${grpPill(r.grp)}`,val:r=>r.name||r.k};
+  const foot={name:'<b>Tổng</b>',sent:`<b>${M(me1.sent)}</b>`,rr:retPill(me1.rr),ok:`<b>${M(me1.ok)}</b>`,cost:M(me1.cost),lng:`<b class="${me1.lng<0?'neg':''}">${M(me1.lng)}</b>`};
+  const nm=who==='~'?(kMode==='rd'?'Chưa gán R&D':'Chưa gán nhân sự'):staffName(who);
+  return (solo?'':crumbs([['KPI · '+modeLabel,'kpi:'],[nm,'']]))+head+`<div class="tools">${sel}<span class="muted">${who!=='~'&&byId(CAT.staff,who)?esc(teamName(byId(CAT.staff,who).team_id)):''}</span></div>`+
+  kCards(me1,F.cmp?pv:null)+kWarn(me1)+
+  `<div class="card pl"><h2>Bảng tính lợi nhuận gộp</h2><p class="hint">${esc(nm)} · ${esc(rangeLabel())}</p>${kPL(me1,s)}</div>
+  <div class="card"><div class="cardhead"><div><h2>Từng sản phẩm</h2><p class="hint">Mỗi đơn tính cho sản phẩm chính của đơn (dòng hàng giá trị lớn nhất, không tính hàng tặng).</p></div>${exportBtn('tKpiP')}</div>
+    ${dataTable('tKpiP',kCols(first,F.cmp?pprev:null),prods,{name:'KPI '+nm,sortKey:'lng',foot,xcols:[{label:'Nhóm',val:r=>r.grp||''}].concat(KX)})}</div>`;
+};
+
+// ---------- nhập chi phí quảng cáo ----------
+// Marketer nhập USD chi cho từng sản phẩm mỗi ngày; trưởng team / quản lý / kế toán / admin nhập hộ trong phạm vi của mình.
+const CAN_IMPORT_ADS=['admin','quan_ly','ke_toan'].includes(ME.role);
+function adStaffList(){
+  const act=CAT.staff.filter(s=>s.active!==false);
+  if(ME.scope==='all')return act;
+  if(ME.scope==='project')return act.filter(s=>{const t=byId(CAT.teams,s.team_id);return (ME.project_ids||[]).includes(t?t.project_id:s.project_id)});
+  if(ME.scope==='team')return act.filter(s=>s.team_id===ME.team_id);
+  return act.filter(s=>s.id===ME.staff_id);
+}
+const pkey=s=>String(s||'').trim().toLowerCase();
+let adDay=isoD(addD(sod(new Date()),-1)),adStaff=store.get('adstaff',''),adEdit=null,adImp=null,adImpOpen=false;
+const AD={key:'',rows:[],loading:false,err:'',usd:KDEF.usd_vnd,usdFrom:''};
+let PRODLIST=null;
+async function loadAds(key){
+  const d=new Date(adDay+'T00:00:00'),m0=isoD(monthStart(d)),m1=isoD(new Date(d.getFullYear(),d.getMonth()+1,1));
+  const [r,s]=await Promise.all([sbc.from('ad_spend').select('day,staff_id,product_key,product_name,usd').gte('day',m0).lt('day',m1).order('day',{ascending:false}).limit(10000),getKSet(m0)]);
+  if(key!==AD.key)return;
+  AD.loading=false;AD.usd=s.usd_vnd;
+  if(r.error){AD.err=r.error.message;AD.rows=[]}else{AD.err='';AD.rows=r.data}
+  if(view==='chiphi')render();
+}
+function adRowsFor(){return AD.rows.filter(r=>r.day===adDay&&r.staff_id===adStaff).map(r=>({name:r.product_name,usd:String(+r.usd)}))}
+function readAdForm(){return [...document.querySelectorAll('#adForm tbody tr[data-i]')].map(tr=>({name:tr.querySelector('.adName').value,usd:tr.querySelector('.adUsd').value}))}
+V.chiphi=()=>{
+  const list=adStaffList();
+  if(!list.length)return `<div class="card">${Shell.empty('user','Chưa có nhân sự để nhập',ME.scope==='self'?'Tài khoản của cậu chưa được liên kết với nhân sự nào. Nhờ admin liên kết ở Quản trị → Tài khoản.':'Chưa có nhân sự trong phạm vi của cậu.')}</div>`;
+  if(!list.some(s=>s.id===adStaff))adStaff=ME.staff_id&&list.some(s=>s.id===ME.staff_id)?ME.staff_id:list[0].id;
+  const d=new Date(adDay+'T00:00:00'),key=isoD(monthStart(d));
+  if(key!==AD.key){AD.key=key;AD.loading=true;adEdit=null;loadAds(key)}
+  if(!PRODLIST){PRODLIST=[];sbc.rpc('kpi_products',{p_days:60}).then(({data})=>{PRODLIST=(data||[]).sort((a,b)=>b.orders-a.orders);if(view==='chiphi')render()})}
+  const rows=adEdit||adRowsFor();if(!rows.length||rows[rows.length-1].name||rows[rows.length-1].usd)rows.push({name:'',usd:''});
+  const known=new Set(PRODLIST.map(p=>p.product_key));
+  const usdOf=v=>{const x=parseFloat(String(v).replace(',','.'));return x>=0?x:0};
+  const total=rows.reduce((t,r)=>t+usdOf(r.usd),0);
+  const mine=[...new Map(AD.rows.filter(r=>r.staff_id===adStaff).map(r=>[r.product_key,r.product_name])).entries()].filter(([k])=>!rows.some(r=>pkey(r.name)===k)).slice(0,8);
+  const staffSel=list.length>1?`<label class="flabel" for="adStaff">Nhân sự</label><select id="adStaff">${list.map(s=>`<option value="${esc(s.id)}" ${s.id===adStaff?'selected':''}>${esc(s.name)}</option>`).join('')}</select>`:`<b>${esc(staffName(adStaff))}</b>`;
+  const monthRows=AD.rows.filter(r=>list.some(s=>s.id===r.staff_id));
+  const byStaff=new Map();monthRows.forEach(r=>byStaff.set(r.staff_id,(byStaff.get(r.staff_id)||0)+ +r.usd));
+  const cols=[{k:'day',label:'Ngày',l:1,fmt:r=>fmtDY(new Date(r.day+'T00:00:00')),val:r=>r.day},
+    {k:'staff',label:'Nhân sự',l:1,fmt:r=>esc(staffName(r.staff_id)),val:r=>staffName(r.staff_id)},
+    {k:'prod',label:'Sản phẩm',l:1,fmt:r=>esc(r.product_name)+(PRODLIST.length&&!known.has(r.product_key)?' <span class="pill p-warn" title="Không thấy đơn nào 60 ngày qua có tên sản phẩm này, nên chi phí sẽ không khớp đơn. Kiểm tra lại chính tả.">Không khớp đơn</span>':''),val:r=>r.product_name},
+    {k:'usd',label:'USD',fmt:r=>U(+r.usd),val:r=>+r.usd},
+    {k:'vnd',label:'≈ VNĐ',fmt:r=>M(r.usd*AD.usd),val:r=>Math.round(r.usd*AD.usd)}];
+  const sumUsd=monthRows.reduce((t,r)=>t+ +r.usd,0);
+  return `<div class="tools"><label class="flabel" for="adDay">Ngày</label><input type="date" id="adDay" value="${esc(adDay)}" max="${isoD(new Date())}">
+    <button class="btn ghost sm" type="button" data-adday="-1">Hôm qua</button><button class="btn ghost sm" type="button" data-adday="0">Hôm nay</button><span class="sep"></span>${staffSel}
+    <span class="grow"></span>${CAN_IMPORT_ADS?`<button class="btn ghost sm" type="button" id="adImpBtn" aria-expanded="${adImpOpen}">Tải file Excel</button>`:''}</div>
+  ${adImpOpen?adImportCard():''}
+  <div class="grid2"><form class="card" id="adForm" novalidate>
+    <div class="cardhead"><div><h2>Chi phí ngày ${fmtDY(d)} · ${esc(staffName(adStaff))}</h2><p class="hint">Nhập số tiền quảng cáo (USD) đã chi cho từng sản phẩm. Tên sản phẩm phải trùng tên trên POS để khớp đơn; gõ vài chữ rồi chọn trong danh sách gợi ý.</p></div></div>
+    ${AD.err?`<div class="msg neg">Không tải được chi phí: ${esc(AD.err)}. Kiểm tra đã chạy file SQL 20261026000000_kpi.sql chưa.</div>`:''}
+    <div class="tw"><table><thead><tr><th class="l">Sản phẩm</th><th>USD</th><th>≈ VNĐ</th><th><span class="sr">Xoá</span></th></tr></thead><tbody>
+    ${rows.map((r,i)=>`<tr data-i="${i}"><td class="l" style="min-width:200px"><input class="adName" type="text" list="prodList" value="${esc(r.name)}" placeholder="Gõ tên sản phẩm" aria-label="Sản phẩm dòng ${i+1}" style="width:100%"></td>
+      <td style="min-width:110px"><input class="adUsd" type="number" step="0.01" min="0" inputmode="decimal" value="${esc(r.usd)}" placeholder="0" aria-label="USD dòng ${i+1}" style="width:100%;text-align:right"></td>
+      <td class="muted">${r.usd!==''?M(usdOf(r.usd)*AD.usd):'–'}</td>
+      <td>${r.name||r.usd?`<button class="icon-btn" type="button" data-adrm="${i}" aria-label="Xoá dòng ${i+1}" title="Xoá dòng">×</button>`:''}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td class="l"><b>Tổng ngày</b></td><td><b>${U(total)}</b></td><td><b>${M(total*AD.usd)}</b></td><td></td></tr></tfoot></table></div>
+    <datalist id="prodList">${(PRODLIST||[]).map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist>
+    ${mine.length?`<div class="tools" style="margin:12px 0 0"><span class="flabel">Thêm nhanh</span><div class="chips">${mine.map(([k,n])=>`<button type="button" class="chip" data-adadd="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div></div>`:''}
+    <div class="formrow"><button class="btn" type="submit" ${AD.loading?'disabled':''}>Lưu chi phí ngày này</button><span class="muted" style="font-size:12.5px">Tỷ giá ${N(AD.usd)} đ/USD</span><span class="fmsg" id="adMsg"></span></div>
+  </form>
+  <div class="card"><h2>Tổng tháng ${fmtM(key)}</h2><p class="hint">Theo nhân sự, đã nhập đến hiện tại.</p>
+    <div class="legend">${[...byStaff.entries()].sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="row"><span class="k">${esc(staffName(k))}</span><span>${U(v)} USD</span><span class="s">${M(v*AD.usd)}</span></div>`).join('')||'<span class="muted">Chưa có chi phí nào trong tháng.</span>'}</div>
+    ${sumUsd?`<p class="hint" style="margin:14px 0 0">Cả tháng: <b>${U(sumUsd)} USD</b> ≈ <b>${M(sumUsd*AD.usd)}</b></p>`:''}</div></div>
+  <div class="card"><div class="cardhead"><div><h2>Đã nhập trong tháng ${fmtM(key)}</h2><p class="hint">Bấm một dòng để mở ngày đó ở khung nhập và sửa.</p></div>${exportBtn('tAds')}</div>
+  ${AD.loading&&!AD.rows.length?'<div class="skel" style="height:12px"></div>':dataTable('tAds',cols,monthRows,{name:'Chi phí ads',sortKey:'day',click:r=>'chiphi:'+r.day+'|'+r.staff_id})}</div>`;
+};
+async function saveAds(){
+  const msg=$('#adMsg'),bad=t=>{msg.className='fmsg neg';msg.textContent=t};
+  const rows=readAdForm().map((r,i)=>({i,name:r.name.trim(),usd:String(r.usd).trim()})).filter(r=>r.name||r.usd);
+  const seen=new Map();
+  for(const r of rows){
+    if(!r.name)return bad(`Dòng ${r.i+1}: chưa có tên sản phẩm.`);
+    const v=parseFloat(r.usd.replace(',','.'));if(!(v>=0))return bad(`Dòng ${r.i+1} (${r.name}): chi phí phải là số từ 0 trở lên.`);
+    if(seen.has(pkey(r.name)))return bad(`“${r.name}” bị nhập 2 lần; gộp lại thành một dòng.`);
+    seen.set(pkey(r.name),{day:adDay,staff_id:adStaff,product_key:pkey(r.name),product_name:r.name,usd:Math.round(v*100)/100,updated_at:new Date().toISOString()});
+  }
+  const before=AD.rows.filter(r=>r.day===adDay&&r.staff_id===adStaff),gone=before.filter(r=>!seen.has(r.product_key)).map(r=>r.product_key);
+  msg.className='fmsg muted';msg.textContent='Đang lưu…';
+  const up=seen.size?await sbc.from('ad_spend').upsert([...seen.values()],{onConflict:'day,staff_id,product_key'}):{};
+  if(up.error)return bad('Chưa lưu được: '+up.error.message);
+  if(gone.length){const del=await sbc.from('ad_spend').delete().eq('day',adDay).eq('staff_id',adStaff).in('product_key',gone);if(del.error)return bad('Chưa xoá được dòng cũ: '+del.error.message)}
+  const day=adDay,st=adStaff;
+  Shell.toast(`Đã lưu chi phí ngày ${fmtDY(new Date(day+'T00:00:00'))} cho ${staffName(st)}.`,{undo:async()=>{
+    await sbc.from('ad_spend').delete().eq('day',day).eq('staff_id',st);
+    if(before.length)await sbc.from('ad_spend').insert(before.map(r=>({day:r.day,staff_id:r.staff_id,product_key:r.product_key,product_name:r.product_name,usd:r.usd})));
+    AD.key='';K.key='';render();
+  }});
+  adEdit=null;AD.key='';K.key='';render();
+}
+// Tải file: mỗi dòng một khoản chi (ngày, nhân sự, sản phẩm, USD). File không có cột ngày thì ghi vào ngày đang chọn.
+function adImportCard(){
+  const x=adImp;
+  return `<div class="card"><div class="cardhead"><div><h2>Tải chi phí từ file Excel</h2><p class="hint">File .xlsx hoặc .csv, mỗi dòng một khoản chi, có các cột <b>Ngày</b>, <b>Nhân sự</b> (tên hoặc mã nhận diện), <b>Sản phẩm</b> (tên tiếng Anh như trên POS), <b>USD</b>. Không có cột ngày thì ghi hết vào ngày ${fmtDY(new Date(adDay+'T00:00:00'))}. Tải lại cùng ngày, nhân sự, sản phẩm thì số mới thay số cũ.</p></div><button class="lnk" type="button" id="adImpClose">Đóng</button></div>
+    <div class="drop"><input type="file" id="adFile" accept=".xlsx,.xls,.csv" style="max-width:100%"></div>
+    ${x?`<div class="msg ${x.err?'neg':x.rows.length?'muted':'neg'}">${x.err?esc(x.err):`Đọc được <b>${N(x.rows.length)}</b> dòng hợp lệ · tổng <b>${U(x.rows.reduce((t,r)=>t+r.usd,0))} USD</b>${x.noDate?' · không có cột ngày, ghi vào ngày đang chọn':''}.${x.skip.length?`<br>Bỏ qua ${N(x.skip.length)} dòng: ${esc(x.skip.slice(0,6).join('; '))}${x.skip.length>6?'…':''}`:''}`}</div>
+    ${x.rows.length?`<div class="formrow"><button class="btn" type="button" id="adImpGo">Ghi ${N(x.rows.length)} dòng</button><span class="fmsg" id="adImpMsg"></span></div>`:''}`:''}</div>`;
+}
+function readAdFile(file){
+  const fr=new FileReader();
+  fr.onload=e=>{try{
+    const wb=/\.csv$/i.test(file.name)?XLSX.read(new TextDecoder('utf-8').decode(e.target.result).replace(/^﻿/,''),{type:'string'}):XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+    const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:true});
+    if(!data.length){adImp={err:'File không có dòng dữ liệu nào.',rows:[],skip:[]};render();return}
+    const keys=Object.keys(data[0]),nk=k=>k.normalize('NFC').toLowerCase().trim(),find=(...c)=>{for(const x of c){const k=keys.find(k=>nk(k)===x||nk(k).includes(x));if(k)return k}};
+    const kD=find('ngày','date','day'),kS=find('nhân sự','nhân viên','marketer','mkt','ads','người'),kP=find('product','sản phẩm','tên sp'),kU=find('usd','chi phí','tổng','spend','tiền');
+    if(!kS||!kP||!kU){adImp={err:`Không tìm thấy đủ cột Nhân sự, Sản phẩm, USD. Các cột trong file: ${keys.join(', ')}.`,rows:[],skip:[]};render();return}
+    const staff=adStaffList(),match=n=>{const q=pkey(n);if(!q)return null;const ex=staff.filter(s=>pkey(s.name)===q||(s.pos_names||[]).some(p=>pkey(p)===q));if(ex.length===1)return ex[0].id;const tail=staff.filter(s=>pkey(s.name).split(/\s+/).pop()===q);return tail.length===1?tail[0].id:null};
+    const day=v=>{if(typeof v==='number'&&v>20000){const d=new Date(Math.round((v-25569)*864e5));return isoD(new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()))}const m=String(v).trim().match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);if(m)return `${m[3]}-${p2(m[2])}-${p2(m[1])}`;const m2=String(v).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);return m2?m2[0].slice(0,10):null};
+    const rows=new Map(),skip=[];
+    data.forEach((r,i)=>{const ln=i+2,name=String(r[kP]).trim(),u=typeof r[kU]==='number'?r[kU]:parseFloat(String(r[kU]).replace(/[^\d,.-]/g,'').replace(',','.'));
+      if(!name&&!r[kS])return;
+      const sid=match(r[kS]);if(!sid){skip.push(`dòng ${ln}: không nhận ra nhân sự “${r[kS]}”`);return}
+      if(!name){skip.push(`dòng ${ln}: thiếu sản phẩm`);return}
+      if(!(u>=0)){skip.push(`dòng ${ln}: USD không hợp lệ`);return}
+      if(!u)return;
+      const d=kD?day(r[kD]):adDay;if(!d){skip.push(`dòng ${ln}: ngày “${r[kD]}” không đọc được`);return}
+      const k=d+'|'+sid+'|'+pkey(name),o=rows.get(k);
+      if(o)o.usd=Math.round((o.usd+u)*100)/100;else rows.set(k,{day:d,staff_id:sid,product_key:pkey(name),product_name:name,usd:Math.round(u*100)/100});
+    });
+    adImp={rows:[...rows.values()],skip,noDate:!kD};render();
+  }catch(err){adImp={err:'Không đọc được file: '+err.message,rows:[],skip:[]};render()}};
+  fr.readAsArrayBuffer(file);
+}
+async function runAdImport(){
+  const rows=adImp.rows,msg=$('#adImpMsg');
+  for(let i=0;i<rows.length;i+=500){
+    msg.className='fmsg muted';msg.textContent=`Đang ghi ${N(Math.min(rows.length,i+500))}/${N(rows.length)}…`;
+    const {error}=await sbc.from('ad_spend').upsert(rows.slice(i,i+500).map(r=>Object.assign({updated_at:new Date().toISOString()},r)),{onConflict:'day,staff_id,product_key'});
+    if(error){msg.className='fmsg neg';msg.textContent='Dừng ở dòng '+(i+1)+': '+error.message;return}
+  }
+  Shell.toast(`Đã ghi ${N(rows.length)} dòng chi phí.`);adImp=null;adImpOpen=false;AD.key='';K.key='';render();
+}
+
 // ---------- cảnh báo ----------
 let UNMAPPED=null;
 function alerts(){
@@ -551,7 +838,7 @@ async function submitFfm(){
 }
 
 // ---------- khung ----------
-const TITLES={tongquan:[ME.scope==='self'?'Số của tôi':'Tổng quan','Doanh số, đơn, giao hàng và hoàn'],team:['Team','Từng team và nhân sự trong team'],nhansu:['Nhân sự','Chỉ số từng người và sản phẩm đã bán'],sanpham:['Sản phẩm','Hiệu quả từng sản phẩm'],donhang:['Đơn hàng','Tra cứu đơn từ POS'],kqkd:['Kết quả kinh doanh','Doanh thu, giá vốn, lợi nhuận gộp theo team / dự án'],canhbao:['Cảnh báo','Việc cần xử lý ngay'],caidat:['Cài đặt','Tài khoản và đơn vị FFM']};
+const TITLES={tongquan:[ME.scope==='self'?'Số của tôi':'Tổng quan','Doanh số, đơn, giao hàng và hoàn'],team:['Team','Từng team và nhân sự trong team'],nhansu:['Nhân sự','Chỉ số từng người và sản phẩm đã bán'],sanpham:['Sản phẩm','Hiệu quả từng sản phẩm'],donhang:['Đơn hàng','Tra cứu đơn từ POS'],kqkd:['Kết quả kinh doanh','Doanh thu, giá vốn, lợi nhuận gộp theo team / dự án'],kpi:['KPI',''],chiphi:['Chi phí ads','Nhập chi phí quảng cáo theo ngày, nhân sự, sản phẩm'],canhbao:['Cảnh báo','Việc cần xử lý ngay'],caidat:['Cài đặt','Tài khoản và đơn vị FFM']};
 let view='tongquan',keep={};
 function snapForm(){const k={};document.querySelectorAll('#view input:not([type=file]),#view select').forEach(e=>{if(e.id)k[e.id]=e.value});k.__focus=document.activeElement&&document.activeElement.id;return k}
 function render(){
@@ -559,12 +846,12 @@ function render(){
   const before=snapForm();
   const scopeTxt=F.proj?projName(F.proj):ME.scope==='team'?teamName(ME.team_id):ME.scope==='self'?staffName(ME.staff_id):ME.scope==='project'&&projOpts.length===1?projOpts[0].name:'';
   const [f,t]=rangeDates(F.range);const last=new Date(t);last.setDate(last.getDate()-1);
-  $('#title').textContent=TITLES[view][0];
-  $('#subtitle').textContent=(scopeTxt?scopeTxt+' · ':'')+(view==='caidat'?TITLES[view][1]:rangeLabel());
+  $('#title').textContent=view==='kpi'?'KPI · '+(kMode==='rd'?'R&D':'Nhân viên ADS'):TITLES[view][0];
+  $('#subtitle').textContent=(scopeTxt?scopeTxt+' · ':'')+(view==='caidat'||view==='chiphi'?TITLES[view][1]:rangeLabel()+(view==='kpi'?' · lợi nhuận gộp tính lương':''));
   document.querySelectorAll('#nav a[data-v]').forEach(a=>a.classList.toggle('on',a.dataset.v===view));
   renderFilters();
   $('#view').innerHTML=(catErr?`<div class="msg neg">Không đọc được danh mục: ${esc(catErr)}. Kiểm tra đã chạy đủ các file SQL trên Supabase chưa.</div>`:'')+V[view]();
-  if(keep.__view===view){Object.keys(before).forEach(id=>{if(id==='__focus')return;const e=document.getElementById(id);if(e&&!['pq','oq','staffSel'].includes(id))e.value=before[id]});const fe=before.__focus&&document.getElementById(before.__focus);if(fe){fe.focus();if(fe.type==='search'||fe.type==='text')try{fe.setSelectionRange(fe.value.length,fe.value.length)}catch(x){}}}
+  if(keep.__view===view){Object.keys(before).forEach(id=>{if(id==='__focus')return;const e=document.getElementById(id);if(e&&!['pq','oq','staffSel','kWhoSel','adStaff','adDay'].includes(id)&&!e.classList.contains('adName')&&!e.classList.contains('adUsd'))e.value=before[id]});const fe=before.__focus&&document.getElementById(before.__focus);if(fe){fe.focus();if(fe.type==='search'||fe.type==='text')try{fe.setSelectionRange(fe.value.length,fe.value.length)}catch(x){}}}
   keep={__view:view};
   Shell.badge('alertCnt',alerts().filter(a=>a[0]==='bad').length);
 }
@@ -579,7 +866,15 @@ document.addEventListener('click',e=>{
   if(e.target.id==='fReset'){Object.assign(F,{proj:'',mkt:'',ch:'all'});['proj','mkt'].forEach(k=>store.set(k,''));store.set('ch2','all');setF('range',ME.scope==='self'?'today':'month');return}
   const c=e.target.closest('[data-ch]');if(c){setF('ch',c.dataset.ch);return}
   const t=e.target.closest('[data-team]');if(t){curTeam=t.dataset.team;store.set('team',curTeam);render();return}
-  const g=e.target.closest('[data-go]');if(g&&g.dataset.go){const i=g.dataset.go.indexOf(':');const v=g.dataset.go.slice(0,i),k=g.dataset.go.slice(i+1);if(v==='team'){curTeam=k;store.set('team',k)}if(v==='nhansu'){curStaff=k;store.set('staff',k)}if(ALLOWED.includes(v))go(v);return}
+  const g=e.target.closest('[data-go]');if(g&&g.dataset.go){const i=g.dataset.go.indexOf(':');const v=g.dataset.go.slice(0,i),k=g.dataset.go.slice(i+1);if(v==='team'){curTeam=k;store.set('team',k)}if(v==='nhansu'){curStaff=k;store.set('staff',k)}if(v==='kpi')kWho=k;if(v==='chiphi'&&k){const [d,st]=k.split('|');adDay=d;adStaff=st;adEdit=null}if(ALLOWED.includes(v))go(v);return}
+  const km=e.target.closest('[data-kmode]');if(km){kMode=km.dataset.kmode;store.set('kmode',kMode);kWho='';render();return}
+  if(e.target.closest('#kSetBtn')){kSetOpen=!kSetOpen;render();return}
+  const ad=e.target.closest('[data-adday]');if(ad){adDay=isoD(addD(sod(new Date()),+ad.dataset.adday));adEdit=null;render();return}
+  const arm=e.target.closest('[data-adrm]');if(arm){const r=readAdForm();r.splice(+arm.dataset.adrm,1);adEdit=r;render();return}
+  const aa=e.target.closest('[data-adadd]');if(aa){const r=readAdForm().filter(x=>x.name||x.usd);r.push({name:aa.dataset.adadd,usd:''});adEdit=r;render();const ins=document.querySelectorAll('#adForm .adUsd');if(ins.length>1)ins[ins.length-2].focus();return}
+  if(e.target.id==='adImpBtn'){adImpOpen=!adImpOpen;render();return}
+  if(e.target.id==='adImpClose'){adImpOpen=false;adImp=null;render();return}
+  if(e.target.id==='adImpGo'){e.target.disabled=true;runAdImport();return}
   const so=e.target.closest('[data-sort]');if(so){pSort=so.dataset.sort;store.set('psort2',pSort);render();return}
   const st=e.target.closest('[data-st]');if(st){oSt=st.dataset.st;oPage=0;render();return}
   if(e.target.id==='pPrev'){oPage--;render();return} if(e.target.id==='pNext'){oPage++;render();return}
@@ -588,7 +883,7 @@ document.addEventListener('click',e=>{
   const df=e.target.closest('[data-del-ffm]');if(df){const id=df.dataset.delFfm;if(delArm==='f:'+id){delArm=null;const nm=(FFMS.find(f=>f.id===id)||{}).name;db.collection('ffm').doc(id).delete().then(()=>{formMsg.ffm=`<span class="muted">Đã xoá ${esc(nm)}.</span>`;if(editFfm===id)editFfm=null;render()}).catch(err=>{formMsg.ffm=`<span class="neg">Chưa xoá được: ${esc(err.message||err.code)}.</span>`;render()})}else{delArm='f:'+id;render()}return}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-go]'))e.target.click()});
-document.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='ffmForm')submitFfm()});
+document.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='ffmForm')submitFfm();if(e.target.id==='kSetForm')saveKSet();if(e.target.id==='adForm')saveAds()});
 document.addEventListener('change',e=>{
   if(e.target.id==='fProj')setF('proj',e.target.value);
   if(e.target.id==='fMkt')setF('mkt',e.target.value);
@@ -596,9 +891,20 @@ document.addEventListener('change',e=>{
   if(e.target.id==='fFrom'||e.target.id==='fTo'){const k=e.target.id==='fFrom'?'from':'to';if(e.target.value){F[k]=e.target.value;store.set(k,F[k]);setF('range','custom')}}
   if(e.target.id==='staffSel'){curStaff=e.target.value;store.set('staff',curStaff);render()}
   if(e.target.id==='jtFile'&&e.target.files[0])runJT(e.target.files[0]);
+  if(e.target.id==='kWhoSel'){kWho=e.target.value;render()}
+  if(e.target.id==='adDay'&&e.target.value){adDay=e.target.value;adEdit=null;render()}
+  if(e.target.id==='adStaff'){adStaff=e.target.value;store.set('adstaff',adStaff);adEdit=null;render()}
+  if(e.target.id==='adFile'&&e.target.files[0])readAdFile(e.target.files[0]);
+  if(e.target.matches&&e.target.matches('#adForm .adName')){const r=readAdForm();adEdit=r;const i=+e.target.closest('tr').dataset.i;if(i===r.length-1&&r[i].name){render();const n=document.querySelector(`#adForm tr[data-i="${i}"] .adUsd`);if(n)n.focus()}}
 });
 function liveSearch(id,set){document.addEventListener('input',e=>{if(e.target.id!==id)return;set(e.target.value);const pos=e.target.selectionStart;render();const el=$('#'+id);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(x){}}})}
-liveSearch('pq',v=>pQ=v);liveSearch('oq',v=>{oQ=v;oPage=0});
+liveSearch('pq',v=>pQ=v);
+document.addEventListener('input',e=>{if(!(e.target.matches&&e.target.matches('#adForm .adUsd')))return;
+  // Gõ USD: chỉ cập nhật cột VNĐ và dòng tổng, không vẽ lại cả màn để giữ con trỏ.
+  adEdit=readAdForm();const u=v=>{const x=parseFloat(String(v).replace(',','.'));return x>=0?x:0};
+  e.target.closest('tr').children[2].textContent=e.target.value!==''?M(u(e.target.value)*AD.usd):'–';
+  const t=adEdit.reduce((s,r)=>s+u(r.usd),0),td=document.querySelectorAll('#adForm tfoot td');
+  if(td.length>2){td[1].innerHTML='<b>'+U(t)+'</b>';td[2].innerHTML='<b>'+M(t*AD.usd)+'</b>'}});
 ['dragover','dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{const d=e.target.closest&&e.target.closest('#drop');if(!d)return;e.preventDefault();d.classList.toggle('over',ev==='dragover');if(ev==='drop'&&e.dataTransfer.files[0])runJT(e.dataTransfer.files[0])}));
 
 // Trang mở đầu theo vai trò: kế toán → KQKD, vận đơn / kho → Đơn hàng, còn lại → Tổng quan.

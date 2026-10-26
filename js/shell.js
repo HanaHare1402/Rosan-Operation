@@ -33,15 +33,18 @@
     inbox: '<path d="M3 13.5 5.5 5h13L21 13.5V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 13.5h5l1.5 2.5h5l1.5-2.5h5"/>',
     lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
     check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+    target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8"/>',
+    pen: '<path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-4-4L4 16z"/><path d="m14 6 4 4"/>',
+    tag: '<path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9z"/><circle cx="8" cy="8" r="1.4"/>',
   };
   const icon = (n, extra) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra || ""}>${P[n] || ""}</svg>`;
 
   const REPORT = [
     ["tongquan", "Tổng quan", "home"], ["team", "Team", "users"], ["nhansu", "Nhân sự", "user"], ["sanpham", "Sản phẩm", "box"],
-    ["donhang", "Đơn hàng", "receipt"], ["kqkd", "Kết quả kinh doanh", "chart"], ["canhbao", "Cảnh báo", "bell", "alertCnt"], ["caidat", "Cài đặt", "settings"],
+    ["donhang", "Đơn hàng", "receipt"], ["kqkd", "Kết quả kinh doanh", "chart"], ["kpi", "KPI", "target"], ["chiphi", "Chi phí ads", "pen"], ["canhbao", "Cảnh báo", "bell", "alertCnt"], ["caidat", "Cài đặt", "settings"],
   ];
   const ADMIN = [
-    ["danhmuc", "Danh mục", "folder"], ["chuakhaibao", "Chưa khai báo", "alert", "unmappedCnt"], ["giavon", "Giá vốn", "coins"],
+    ["danhmuc", "Danh mục", "folder"], ["chuakhaibao", "Chưa khai báo", "alert", "unmappedCnt"], ["giavon", "Giá vốn", "coins"], ["nhomsp", "Nhóm sản phẩm", "tag"],
     ["pos", "Kết nối POS", "plug"], ["taikhoan", "Tài khoản", "shield"], ["nhatky", "Nhật ký đồng bộ", "list"],
   ];
 
