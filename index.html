@@ -763,16 +763,16 @@ function dailyBody(rows,rate,o){
   const pct=(a,strong)=>{if(!a.rev)return '<span class="muted">–</span>';const v=a.usd*rate/a.rev,over=cap&&v*100>cap;
     if(!cap)return strong?`<b>${P(v)}</b>`:P(v);
     return `<span class="pill ${over?'p-bad':'p-good'}" title="${over?'Vượt':'Trong'} trần ${PF(cap)}%">${P(v)}${over?' ▲':''}</span>`};
-  // Tiền trong bảng cùng một đơn vị: triệu đồng (ghi ở đầu cột chỉ số).
-  const Tr=v=>{if(!v)return '<span class="muted">0</span>';const x=v/1e6,d=Math.abs(x)<10?2:1;return new Intl.NumberFormat('vi-VN',{minimumFractionDigits:d,maximumFractionDigits:d}).format(x)};
+  // Tiền trong bảng cùng một đơn vị: đồng (ghi ở đầu cột chỉ số).
+  const Tr=v=>v?N(v):'<span class="muted">0</span>';
   const lines=[
     ['Tổng chi phí ads (1)',a=>Tr(a.usd*rate),'h',undefined,'cost'],...G.map(g=>[GNAME(g),a=>Tr(a.usd*rate),'ind',g,'cost']),
     ['Doanh số tổng (2)',a=>Tr(a.rev),'h',undefined,'rev'],...G.map(g=>[GNAME(g),a=>Tr(a.rev),'ind',g,'rev']),
     ['Số đơn (3)',a=>a.n?N(a.n):'<span class="muted">0</span>','h',undefined,'ord'],
     ['% chi phí = (1) ÷ (2)',a=>pct(a,1),'h',undefined,'pct'],...G.map(g=>[GNAME(g),a=>pct(a),'ind',g,'pct']),
-    ['Chi phí / đơn = (1) ÷ (3) · đồng',a=>a.n?N(a.usd*rate/a.n):'<span class="muted">–</span>','h',undefined,'cpo']];
+    ['Chi phí / đơn = (1) ÷ (3)',a=>a.n?N(a.usd*rate/a.n):'<span class="muted">–</span>','h',undefined,'cpo']];
   const we=d=>d.getDay()===0||d.getDay()===6;
-  const head=`<tr><th class="l">Chỉ số<div class="sub2">tiền: triệu đồng</div></th><th class="tot">Tổng<div class="sub2">${esc(rangeLabel())}</div></th>${ds.map(d=>`<th class="${we(d)?'we':''}">${WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
+  const head=`<tr><th class="l">Chỉ số<div class="sub2">tiền: đồng</div></th><th class="tot">Tổng<div class="sub2">${esc(rangeLabel())}</div></th>${ds.map(d=>`<th class="${we(d)?'we':''}">${WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
   const gdot=g=>g===undefined?'':`<span class="gdot g${g||0}" aria-hidden="true"></span>`;
   const body=lines.map(([lab,f,cls,g,sec],i)=>`<tr class="${cls==='h'?'h':''} s-${sec}${cls==='h'&&i?' first':''}"><td class="${cls==='ind'?'ind':''}">${gdot(g)}${lab}</td><td class="tot">${f(get('*',g))}</td>${ds.map(d=>{const k=isoD(d);return `<td class="${we(d)?'we':''}">${k>today?'<span class="muted">–</span>':f(get(k,g))}</td>`}).join('')}</tr>`).join('');
   const T=get('*'),T2=get('*',2),dim=new Date(ds[0].getFullYear(),ds[0].getMonth()+1,0).getDate();
