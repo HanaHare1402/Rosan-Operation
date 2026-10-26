@@ -419,10 +419,10 @@ tbody tr[data-go]:focus-visible td{background:var(--accent-soft)}
 .kpl-n{display:none}
 @media (max-width:640px){.kpl-c{display:none}.kpl-n{display:block}}
 /* bảng KPI nhiều cột: giữ cột tên khi cuộn ngang */
-#tKpi th:first-child,#tKpi td:first-child,#tKpiP th:first-child,#tKpiP td:first-child{position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:1px 0 0 var(--line)}
-#tKpi thead th:first-child,#tKpiP thead th:first-child,#tKpi tfoot td:first-child,#tKpiP tfoot td:first-child{background:var(--panel-2)}
-#tKpi th,#tKpi td,#tKpiP th,#tKpiP td{padding-left:7px;padding-right:7px}
-#tKpi th,#tKpiP th{letter-spacing:.02em}
+#tKpi th:first-child, #tKpi td:first-child, #tKpiP th:first-child, #tKpiP td:first-child, #tKpih th:first-child, #tKpiPh th:first-child{position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:1px 0 0 var(--line)}
+#tKpi thead th:first-child, #tKpiP thead th:first-child, #tKpi tfoot td:first-child, #tKpiP tfoot td:first-child, #tKpih thead th:first-child, #tKpiPh thead th:first-child{background:var(--panel-2)}
+#tKpi th, #tKpi td, #tKpiP th, #tKpiP td, #tKpih th, #tKpiPh th{padding-left:7px;padding-right:7px}
+#tKpi th, #tKpiP th, #tKpih th, #tKpiPh th{letter-spacing:.02em}
 /* bảng theo dõi theo ngày: một đơn vị tiền, khối màu theo phần, chấm màu theo nhóm; cột chỉ số + tổng đứng yên khi cuộn ngang */
 table.daily{width:auto;min-width:100%;border-collapse:separate;border-spacing:0}
 table.daily th,table.daily td{padding:8px 10px;min-width:74px;font-variant-numeric:tabular-nums}
@@ -513,14 +513,14 @@ table.kpl tr.sec td{border-top:1px solid var(--line-2)}
 table.kpl tr.sec td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 table.kpl tr.h td{font-weight:650}
 /* bảng KPI theo người / sản phẩm: cột số đều nhau, dòng thoáng */
-#tKpi,#tKpiP{min-width:100%}
-#tKpi td,#tKpiP td{padding-top:11px;padding-bottom:11px}
-#tKpi thead th,#tKpiP thead th{border-bottom:1px solid var(--line-2);vertical-align:bottom;white-space:normal;min-width:76px}
-#tKpi tbody tr:hover td,#tKpiP tbody tr:hover td{background:color-mix(in srgb,var(--accent) 7%,var(--panel))}
+#tKpi, #tKpiP{min-width:100%}
+#tKpi td, #tKpiP td{padding-top:11px;padding-bottom:11px}
+#tKpi thead th, #tKpiP thead th, #tKpih thead th, #tKpiPh thead th{border-bottom:1px solid var(--line-2);vertical-align:bottom;white-space:normal;min-width:76px}
+#tKpi tbody tr:hover td, #tKpiP tbody tr:hover td{background:color-mix(in srgb,var(--accent) 7%,var(--panel))}
 /* bảng KPI nhiều cột: chữ số gọn hơn, cột LNG luôn hiện ở mép phải khi cuộn ngang */
-#tKpi td,#tKpiP td{font-size:12px}
-#tKpi th:last-child,#tKpi td:last-child,#tKpiP th:last-child,#tKpiP td:last-child{position:sticky;right:0;z-index:1;background:var(--panel);box-shadow:inset 1px 0 0 var(--line-2)}
-#tKpi thead th:last-child,#tKpiP thead th:last-child,#tKpi tfoot td:last-child,#tKpiP tfoot td:last-child{background:var(--panel-2)}
+#tKpi td, #tKpiP td{font-size:12px}
+#tKpi th:last-child, #tKpi td:last-child, #tKpiP th:last-child, #tKpiP td:last-child, #tKpih th:last-child, #tKpiPh th:last-child{position:sticky;right:0;z-index:1;background:var(--panel);box-shadow:inset 1px 0 0 var(--line-2)}
+#tKpi thead th:last-child, #tKpiP thead th:last-child, #tKpi tfoot td:last-child, #tKpiP tfoot td:last-child, #tKpih thead th:last-child, #tKpiPh thead th:last-child{background:var(--panel-2)}
 /* thanh menu trái: nền xanh đậm (cả giao diện sáng và tối), chữ sáng, mục đang chọn có nền sáng + vạch */
 :root{--side-bg:#0f3b2e;--side-bg-2:#0b2f24;--side-ink:#e6f3ee;--side-muted:#a7c9bc;--side-faint:#8fb5a7;--side-hover:rgba(255,255,255,.08);--side-on:rgba(255,255,255,.14);--side-line:rgba(255,255,255,.12);--side-accent:#6ee7b7}
 :root[data-theme="dark"]{--side-bg:#0d1f19;--side-bg-2:#0a1813}
@@ -554,11 +554,21 @@ table.pltab tbody tr.sec td:nth-child(-n+3){background:var(--sunk)}
 table.pltab th:nth-child(3),table.pltab td:nth-child(3){box-shadow:inset -1px 0 0 var(--line-2),6px 0 8px -6px rgba(0,0,0,.12)}
 table.daily .tot{box-shadow:inset -1px 0 0 var(--line-2),6px 0 8px -6px rgba(0,0,0,.12)}
 /* hàng tiêu đề đang bám dưới đầu trang: nền đặc, bóng mờ phía dưới */
-table.sthead thead th{position:relative;z-index:3;will-change:transform}
 table.sthead thead th:first-child{z-index:5}
-table.sthead thead.stuck th{box-shadow:0 6px 8px -6px rgba(0,0,0,.18),inset 0 -1px 0 var(--line-2)}
 table.sthead thead th{background:var(--sunk)}
-.tw:has(> table.sthead){border:1px solid var(--line);border-radius:10px}
 /* ô tiêu đề đứng yên (cột Tổng, cột LNG) nằm trên các ô nội dung đứng yên khi hàng tiêu đề trượt xuống */
 table.sthead thead th.tot{z-index:4}
-#tKpi thead th:last-child,#tKpiP thead th:last-child{z-index:4}
+#tKpi thead th:last-child, #tKpiP thead th:last-child, #tKpih thead th:last-child, #tKpiPh thead th:last-child{z-index:4}
+/* hàng tiêu đề tách riêng của bảng KQKD / theo dõi theo ngày: dính dưới phần đầu trang (sticky thật, mượt) */
+.fh{position:sticky;top:var(--sht,0px);z-index:8;overflow:hidden;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:var(--sunk);box-shadow:0 6px 8px -8px rgba(0,0,0,.25)}
+.fh table{table-layout:fixed;width:100%}
+.fh thead th{border-bottom:1px solid var(--line-2)}
+.tw.fhb{border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px}
+table.daily{table-layout:fixed}
+.fh::-webkit-scrollbar{display:none}
+/* khung tiêu đề chép ra: ô đứng yên trong khung tiêu đề nằm trên các ô khác */
+.fh thead th{position:relative}
+.fh thead th:first-child{z-index:2}
+/* bảng có tiêu đề tách riêng: cột đầu đứng yên cả ở thân bảng lẫn tiêu đề, để kéo ngang luôn khớp */
+.tw.fhb td:first-child{position:sticky;left:0;z-index:1;background:var(--panel)}
+.fh th:first-child{position:sticky;left:0;z-index:2;background:var(--sunk)}
