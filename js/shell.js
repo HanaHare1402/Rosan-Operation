@@ -89,6 +89,9 @@
     const paint = () => { const t = getTheme(); tb.innerHTML = icon(t === "dark" ? "moon" : t === "light" ? "sun" : "auto"); tb.title = LABEL[t] + " (bấm để đổi)"; tb.setAttribute("aria-label", LABEL[t]); };
     tb.onclick = () => { const order = ["auto", "light", "dark"]; const n = order[(order.indexOf(getTheme()) + 1) % 3]; try { localStorage.setItem(THEME_KEY, n); } catch (e) {} applyTheme(n); paint(); };
     paint();
+    // Bóng mờ dưới phần đầu trang khi đã cuộn xuống, cho biết nội dung đang trượt bên dưới.
+    const sh = document.querySelector(".stickhead");
+    if (sh) { const onS = () => sh.classList.toggle("scrolled", window.scrollY > 4); window.addEventListener("scroll", onS, { passive: true }); onS(); }
     return aside;
   }
 
