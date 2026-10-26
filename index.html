@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261027d">
+<link rel="stylesheet" href="css/app.css?v=20261027g">
 </head>
 <body>
 
@@ -31,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261027d"></script>
-<script src="js/settings-db.js?v=20261027d"></script>
-<script src="js/shell.js?v=20261027d"></script>
+<script src="js/auth.js?v=20261027g"></script>
+<script src="js/settings-db.js?v=20261027g"></script>
+<script src="js/shell.js?v=20261027g"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -278,7 +278,7 @@ function dataTable(id,cols,rows,o={}){
   const sorted=rows.slice().sort((a,b)=>{const x=c.val(a),y=c.val(b);return (typeof x==='string'?String(x).localeCompare(String(y),'vi'):(isFinite(x)?x:-Infinity)-(isFinite(y)?y:-Infinity))*s.dir});
   TBL[id]={cols,xcols:o.xcols||[],rows:sorted,name:o.name||id};
   const th=x=>`<th class="${x.l?'l ':''}sort" data-sortt="${id}:${x.k}" aria-sort="${s.k===x.k?(s.dir>0?'ascending':'descending'):'none'}" title="Bấm để sắp xếp">${x.label}${x.tip?' '+tip(x.tip):''}${s.k===x.k?`<span class="sarr">${s.dir>0?'↑':'↓'}</span>`:''}</th>`;
-  return `<div class="tw"><table id="${id}"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>
+  return `<div class="tw"><table id="${id}" class="sthead"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>
   ${sorted.map(r=>`<tr class="${o.click&&o.click(r)?'click':''}" ${o.click&&o.click(r)?`data-go="${esc(o.click(r))}" tabindex="0"`:''}>${cols.map(x=>`<td class="${x.l?'l':''}">${x.fmt(r)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}">${Shell.empty('inbox','Không có dữ liệu','Thử đổi bộ lọc hoặc khoảng ngày.')}</td></tr>`}
   </tbody>${o.foot&&sorted.length>1?`<tfoot><tr>${cols.map(x=>`<td class="${x.l?'l':''}">${o.foot[x.k]??''}</td>`).join('')}</tr></tfoot>`:''}</table></div>`;
 }
@@ -425,7 +425,7 @@ function prodTable(rows,withSearch,kpRows,o={}){
     ${g.map((a,i)=>`<tr><td class="l"><div style="display:flex;gap:8px;align-items:baseline"><span class="muted mono" style="min-width:18px">${i+1}</span><div>${name(a)}</div></div></td><td>${M(a.rev)}</td><td>${N(a.ord)}</td><td>${retPill(retRate(a))}</td><td>${pc(a.adsP)}</td>${SEE_COST?`<td>${pc(a.lngP,1)}</td>`:''}</tr>`).join('')||`<tr><td colspan="6">${Shell.empty('box','Chưa có sản phẩm bán ra','Không có đơn trong khoảng đang lọc.')}</td></tr>`}
     </tbody></table></div>${total>g.length&&ALLOWED.includes('sanpham')?`<div style="margin-top:10px"><button class="lnk" data-go="sanpham:">Xem tất cả ${N(total)} sản phẩm</button></div>`:''}`;
   // Giá vốn, LNG, % LNG, % Net: chỉ ban lãnh đạo (admin, quản lý, kế toán).
-  return `<div class="tw"><table><thead><tr><th class="l">Sản phẩm</th>${th('rev','Doanh số')}${th('ord','Số đơn')}${th('qty','Số lượng')}<th>Đã giao</th>${th('rr','% hoàn')}${th('ads','% CP ads','p_ads')}${SEE_COST?`<th>Giá vốn/SP</th>${th('gp','LNG')}${th('lng','% LNG','p_lng')}${th('net','% Net','p_net')}`:''}</tr></thead><tbody>
+  return `<div class="tw"><table class="sthead"><thead><tr><th class="l">Sản phẩm</th>${th('rev','Doanh số')}${th('ord','Số đơn')}${th('qty','Số lượng')}<th>Đã giao</th>${th('rr','% hoàn')}${th('ads','% CP ads','p_ads')}${SEE_COST?`<th>Giá vốn/SP</th>${th('gp','LNG')}${th('lng','% LNG','p_lng')}${th('net','% Net','p_net')}`:''}</tr></thead><tbody>
   ${g.map(a=>`<tr><td class="l">${name(a)}</td><td>${M(a.rev)}</td><td>${N(a.ord)}</td><td>${N(a.qty)}</td><td>${N(a.ok)}</td><td>${retPill(retRate(a))}</td><td>${pc(a.adsP)}</td>${SEE_COST?`<td>${a.unit!=null?N(a.unit):'<span class="pill p-bad">Chưa có</span>'}</td><td>${isFinite(a.gp3)?`<span class="${a.gp3<0?'neg':''}">${M(a.gp3)}</span>`:'<span class="muted">–</span>'}</td><td>${pc(a.lngP,1)}</td><td>${pc(a.netP,1)}</td>`:''}</tr>`).join('')||`<tr><td colspan="${SEE_COST?11:7}" class="l muted">Không có sản phẩm.</td></tr>`}
   </tbody></table></div>`;
 }
@@ -791,7 +791,7 @@ function dailyBody(rows,rate,o){
   const dtip=`<span class="tip" tabindex="0" role="note" aria-label="${esc(dtipTxt)}" data-tip="${esc(dtipTxt)}">?</span>`;
   return `<div class="card"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div></div>
     ${contest}${strip}
-    ${rows.length?`<div class="tw"><table class="daily">${'<thead>'+head+'</thead>'}<tbody>${body}</tbody></table></div>`:Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
+    ${rows.length?`<div class="tw"><table class="daily sthead">${'<thead>'+head+'</thead>'}<tbody>${body}</tbody></table></div>`:Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
 }
 
 // Bản cho một nhân sự (màn Nhân sự): cùng chỉ số, trần % chi phí theo team của người đó, kèm hạng LNG tháng trước.
@@ -911,7 +911,7 @@ V.kqkd=()=>{
   const modeSeg=`<div class="seg" role="group" aria-label="Cột của báo cáo">${[['team',multiProj?'Theo dự án':'Theo team'],['prod','Theo sản phẩm']].map(([k,l])=>`<button type="button" data-kqmode="${k}" class="${kqMode===k?'on':''}" aria-pressed="${kqMode===k}">${l}</button>`).join('')}</div>`;
   return `<div class="card pl"><div class="cardhead"><div><h2>Báo cáo kết quả kinh doanh · ${esc(rangeLabel())}</h2></div><div class="page-actions">${modeSeg}${exportBtn('tPL')}</div></div>
     ${oldSql}${missing}${noAds}
-    <div class="tw plscroll"><table id="tPL" class="pltab" style="min-width:${240+130+84+(cols.length-1)*124}px"><colgroup><col style="width:240px"><col style="width:130px"><col style="width:84px">${cols.slice(1).map(()=>'<col style="width:124px">').join('')}</colgroup><thead><tr><th class="l">Chỉ tiêu (đồng)</th>${cols.map((c,i)=>`<th title="${esc(c[0])}"><span class="pn">${esc(c[0])}</span></th>${i===0?'<th>Tỷ lệ</th>':''}`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>
+    <div class="tw"><table id="tPL" class="pltab sthead" style="min-width:${240+130+84+(cols.length-1)*124}px"><colgroup><col style="width:240px"><col style="width:130px"><col style="width:84px">${cols.slice(1).map(()=>'<col style="width:124px">').join('')}</colgroup><thead><tr><th class="l">Chỉ tiêu (đồng)</th>${cols.map((c,i)=>`<th title="${esc(c[0])}"><span class="pn">${esc(c[0])}</span></th>${i===0?'<th>Tỷ lệ</th>':''}`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>
   ${otherCard}
   <div class="card" id="jt"><h2>Đối soát file J&amp;T / FFM</h2><p class="hint">Chọn đơn vị FFM, rồi tải file .xlsx hoặc .csv có các cột Mã vận đơn (hoặc Waybill Number), COD, Tên sản phẩm, Order Status. File chỉ đọc trong trình duyệt, không gửi đi đâu.</p>
   <div class="tools"><label for="jtFfm" class="muted">File của đơn vị</label><select id="jtFfm">${FFMS.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}</select></div>

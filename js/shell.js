@@ -92,6 +92,8 @@
     // Bóng mờ dưới phần đầu trang khi đã cuộn xuống, cho biết nội dung đang trượt bên dưới.
     const sh = document.querySelector(".stickhead");
     if (sh) { const onS = () => sh.classList.toggle("scrolled", window.scrollY > 4); window.addEventListener("scroll", onS, { passive: true }); onS(); }
+    // Chiều cao phần đầu trang cố định: khung bảng cuộn riêng (VD báo cáo KQKD) vừa đúng phần màn hình còn lại.
+    if (sh) { const setH = () => document.documentElement.style.setProperty("--sh", (getComputedStyle(sh).position === "sticky" ? sh.offsetHeight : 0) + "px"); setH(); if (window.ResizeObserver) new ResizeObserver(setH).observe(sh); window.addEventListener("resize", setH); }
     return aside;
   }
 
@@ -124,5 +126,24 @@
     if (o.undo) t.querySelector("button").onclick = () => { clearTimeout(timer); done(); o.undo(); };
   }
 
-  window.Shell = { render, icon, badge, empty, toast };
+  // Hàng tiêu đề bảng (table.sthead) bám ngay dưới phần đầu trang cố định khi cuộn trang.
+  // Bảng nằm trong khung cuộn ngang nên không dùng được position:sticky theo trang: dịch hàng tiêu đề bằng transform.
+  function stickHeads() {
+    const root = getComputedStyle(document.documentElement);
+    let top = parseFloat(root.getPropertyValue("--sh")) || 0;
+    const mt = document.querySelector(".mtop");
+    if (mt && getComputedStyle(mt).display !== "none") top = Math.max(top, mt.getBoundingClientRect().bottom);
+    document.querySelectorAll("table.sthead").forEach((t) => {
+      const head = t.tHead; if (!head) return;
+      const r = t.getBoundingClientRect(), y = Math.max(0, Math.min(top - r.top, r.height - head.offsetHeight - 40));
+      const v = y > 0 ? `translateY(${Math.round(y)}px)` : "";
+      head.classList.toggle("stuck", y > 0);
+      head.querySelectorAll("th").forEach((th) => { if (th.style.transform !== v) th.style.transform = v; });
+    });
+  }
+  window.addEventListener("scroll", stickHeads, { passive: true });
+  window.addEventListener("resize", stickHeads);
+  new MutationObserver(() => requestAnimationFrame(stickHeads)).observe(document.documentElement, { childList: true, subtree: true });
+
+  window.Shell = { render, icon, badge, empty, toast, stickHeads };
 })();
