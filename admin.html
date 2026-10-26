@@ -972,7 +972,9 @@
   const gpM = () => ($("#gpMonth").value || thisMonth()) + "-01";
   const fmtMon = (iso) => iso ? iso.slice(5, 7) + "/" + iso.slice(0, 4) : "";
   async function loadGroups() {
-    const [p, g] = await Promise.all([sb.rpc("kpi_products", { p_days: 60 }), sb.from("product_groups").select("month,product_key,name,grp,rd_staff_id").lte("month", gpM()).order("month", { ascending: false }).limit(20000)]);
+    // Supabase trả tối đa 1.000 dòng mỗi lần: đọc từng trang.
+    const all = async (mk) => { let out = []; for (let i = 0; ; i += 1000) { const r = await mk().range(i, i + 999); if (r.error) return r; out = out.concat(r.data || []); if (!r.data || r.data.length < 1000) return { data: out }; } };
+    const [p, g] = await Promise.all([all(() => sb.rpc("kpi_products", { p_days: 60 }).order("product_key")), all(() => sb.from("product_groups").select("month,product_key,name,grp,rd_staff_id").lte("month", gpM()).order("month", { ascending: false }).order("product_key"))]);
     const err = p.error || g.error;
     if (err) { $("#gpRows").innerHTML = `<tr><td colspan="5" class="l neg">${esc(err.message)}. Kiểm tra đã chạy SQL 20261026000000_kpi.sql chưa.</td></tr>`; return; }
     const m = new Map();
