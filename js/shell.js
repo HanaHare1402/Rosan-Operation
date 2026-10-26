@@ -93,7 +93,16 @@
     const sh = document.querySelector(".stickhead");
     if (sh) { const onS = () => sh.classList.toggle("scrolled", window.scrollY > 4); window.addEventListener("scroll", onS, { passive: true }); onS(); }
     // Chiều cao phần đầu trang cố định: khung bảng cuộn riêng (VD báo cáo KQKD) vừa đúng phần màn hình còn lại.
-    if (sh) { const setH = () => document.documentElement.style.setProperty("--sh", (getComputedStyle(sh).position === "sticky" ? sh.offsetHeight : 0) + "px"); setH(); if (window.ResizeObserver) new ResizeObserver(setH).observe(sh); window.addEventListener("resize", setH); }
+    if (sh) {
+      const setH = () => {
+        const fixed = getComputedStyle(sh).position === "sticky" ? sh.offsetHeight : 0;
+        const mt = document.querySelector(".mtop"), mh = mt && getComputedStyle(mt).display !== "none" ? mt.offsetHeight : 0;
+        document.documentElement.style.setProperty("--sh", fixed + "px");
+        // --sht: chỗ để hàng tiêu đề bảng dính vào (dưới đầu trang cố định, hoặc dưới thanh trên cùng trên điện thoại).
+        document.documentElement.style.setProperty("--sht", Math.max(fixed, mh) + "px");
+      };
+      setH(); if (window.ResizeObserver) new ResizeObserver(setH).observe(sh); window.addEventListener("resize", setH);
+    }
     return aside;
   }
 
@@ -126,24 +135,30 @@
     if (o.undo) t.querySelector("button").onclick = () => { clearTimeout(timer); done(); o.undo(); };
   }
 
-  // Hàng tiêu đề bảng (table.sthead) bám ngay dưới phần đầu trang cố định khi cuộn trang.
-  // Bảng nằm trong khung cuộn ngang nên không dùng được position:sticky theo trang: dịch hàng tiêu đề bằng transform.
-  function stickHeads() {
-    const root = getComputedStyle(document.documentElement);
-    let top = parseFloat(root.getPropertyValue("--sh")) || 0;
-    const mt = document.querySelector(".mtop");
-    if (mt && getComputedStyle(mt).display !== "none") top = Math.max(top, mt.getBoundingClientRect().bottom);
-    document.querySelectorAll("table.sthead").forEach((t) => {
-      const head = t.tHead; if (!head) return;
-      const r = t.getBoundingClientRect(), y = Math.max(0, Math.min(top - r.top, r.height - head.offsetHeight - 40));
-      const v = y > 0 ? `translateY(${Math.round(y)}px)` : "";
-      head.classList.toggle("stuck", y > 0);
-      head.querySelectorAll("th").forEach((th) => { if (th.style.transform !== v) th.style.transform = v; });
+  // Hàng tiêu đề bảng (table.sthead) dính ngay dưới phần đầu trang cố định khi cuộn.
+  // Bảng nằm trong khung cuộn ngang (.tw) nên position:sticky của <thead> không bám theo trang được:
+  // đo độ rộng từng cột, cố định cột bằng <colgroup>, rồi chép hàng tiêu đề ra một khung riêng (.fh) đặt
+  // trước bảng — khung này sticky thật (trình duyệt tự giữ, không giật). Kéo ngang thân bảng thì khung tiêu đề kéo theo.
+  function fixHeads() {
+    document.querySelectorAll("table.sthead:not([data-fh])").forEach((t) => {
+      const tw = t.parentElement, head = t.tHead;
+      if (!tw || !tw.classList.contains("tw") || !head || !t.offsetWidth) return;
+      t.setAttribute("data-fh", "1");
+      const cells = [...head.rows[0].cells], ws = cells.map((c) => Math.ceil(c.getBoundingClientRect().width));
+      const sum = ws.reduce((a, b) => a + b, 0);
+      const cg = '<colgroup>' + ws.map((w) => `<col style="width:${w}px">`).join("") + "</colgroup>";
+      t.insertAdjacentHTML("afterbegin", cg);
+      t.style.tableLayout = "fixed"; t.style.minWidth = sum + "px";
+      const clone = t.cloneNode(false); if (t.id) clone.id = t.id + "h"; clone.removeAttribute("data-fh"); clone.classList.remove("sthead");
+      clone.innerHTML = cg + head.outerHTML;
+      const fh = document.createElement("div"); fh.className = "fh"; fh.setAttribute("aria-hidden", "true"); fh.appendChild(clone);
+      head.style.display = "none";
+      tw.classList.add("fhb"); tw.before(fh);
     });
   }
-  window.addEventListener("scroll", stickHeads, { passive: true });
-  window.addEventListener("resize", stickHeads);
-  new MutationObserver(() => requestAnimationFrame(stickHeads)).observe(document.documentElement, { childList: true, subtree: true });
+  new MutationObserver(() => requestAnimationFrame(fixHeads)).observe(document.documentElement, { childList: true, subtree: true });
+  // Kéo ngang thân bảng thì hàng tiêu đề tách riêng kéo theo.
+  document.addEventListener("scroll", (e) => { const t = e.target; if (t.classList && t.classList.contains("fhb")) { const h = t.previousElementSibling; if (h && h.classList.contains("fh")) h.scrollLeft = t.scrollLeft; } }, true);
 
-  window.Shell = { render, icon, badge, empty, toast, stickHeads };
+  window.Shell = { render, icon, badge, empty, toast, fixHeads };
 })();

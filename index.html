@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261027g">
+<link rel="stylesheet" href="css/app.css?v=20261027j">
 </head>
 <body>
 
@@ -31,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261027g"></script>
-<script src="js/settings-db.js?v=20261027g"></script>
-<script src="js/shell.js?v=20261027g"></script>
+<script src="js/auth.js?v=20261027j"></script>
+<script src="js/settings-db.js?v=20261027j"></script>
+<script src="js/shell.js?v=20261027j"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -293,9 +293,9 @@ function exportTable(id){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${t.name} ${rangeLabel().replace(/[\/ –]+/g,'-')}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
 function exportDom(id){
-  const tb=document.getElementById(id);if(!tb)return;
+  const tb=document.getElementById(id);if(!tb)return;const hd=document.getElementById(id+'h');
   const cell=s=>{s=String(s).trim().replace(/\s+/g,' ');return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
-  const lines=[...tb.querySelectorAll('tr')].map(tr=>[...tr.children].map(td=>cell(td.innerText)).join(','));
+  const lines=[...(hd?hd.querySelectorAll('tr'):[]),...tb.querySelectorAll('tr')].map(tr=>[...tr.children].map(td=>cell(td.innerText)).join(','));
   const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Ket qua kinh doanh ${rangeLabel().replace(/[\/ –]+/g,'-')}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
@@ -421,7 +421,7 @@ function prodTable(rows,withSearch,kpRows,o={}){
   const kpLoading=kpRows&&KP.loading&&!KP.rows.length;
   const pc=(v,neg)=>kpLoading?'<span class="skel" style="display:inline-block;width:40px;height:10px"></span>':isFinite(v)?`<span class="${neg&&v<0?'neg':''}">${P(v)}</span>`:'<span class="muted">–</span>';
   const name=a=>`<div style="white-space:normal;min-width:150px">${esc(a.name||'')}</div><div class="sub2 mono">${esc(a.code)}</div>`;
-  if(o.top)return `<div class="tw"><table><thead><tr><th class="l">Sản phẩm</th><th>Doanh số</th><th>Số đơn</th><th>% hoàn ${tip('ret')}</th><th>% chi phí ads ${tip('p_ads')}</th>${SEE_COST?`<th>% LNG ${tip('p_lng')}</th>`:''}</tr></thead><tbody>
+  if(o.top)return `<div class="tw"><table class="sthead"><thead><tr><th class="l">Sản phẩm</th><th>Doanh số</th><th>Số đơn</th><th>% hoàn ${tip('ret')}</th><th>% chi phí ads ${tip('p_ads')}</th>${SEE_COST?`<th>% LNG ${tip('p_lng')}</th>`:''}</tr></thead><tbody>
     ${g.map((a,i)=>`<tr><td class="l"><div style="display:flex;gap:8px;align-items:baseline"><span class="muted mono" style="min-width:18px">${i+1}</span><div>${name(a)}</div></div></td><td>${M(a.rev)}</td><td>${N(a.ord)}</td><td>${retPill(retRate(a))}</td><td>${pc(a.adsP)}</td>${SEE_COST?`<td>${pc(a.lngP,1)}</td>`:''}</tr>`).join('')||`<tr><td colspan="6">${Shell.empty('box','Chưa có sản phẩm bán ra','Không có đơn trong khoảng đang lọc.')}</td></tr>`}
     </tbody></table></div>${total>g.length&&ALLOWED.includes('sanpham')?`<div style="margin-top:10px"><button class="lnk" data-go="sanpham:">Xem tất cả ${N(total)} sản phẩm</button></div>`:''}`;
   // Giá vốn, LNG, % LNG, % Net: chỉ ban lãnh đạo (admin, quản lý, kế toán).
@@ -791,7 +791,8 @@ function dailyBody(rows,rate,o){
   const dtip=`<span class="tip" tabindex="0" role="note" aria-label="${esc(dtipTxt)}" data-tip="${esc(dtipTxt)}">?</span>`;
   return `<div class="card"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div></div>
     ${contest}${strip}
-    ${rows.length?`<div class="tw"><table class="daily sthead">${'<thead>'+head+'</thead>'}<tbody>${body}</tbody></table></div>`:Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
+    ${rows.length?(()=>{const mw=230+140+ds.length*112,cg=`<colgroup><col style="width:230px"><col style="width:140px">${ds.map(()=>'<col style="width:112px">').join('')}</colgroup>`;
+      return `<div class="fh"><table class="daily" style="min-width:${mw}px">${cg}<thead>${head}</thead></table></div><div class="tw fhb"><table class="daily" style="min-width:${mw}px">${cg}<tbody>${body}</tbody></table></div>`})():Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
 }
 
 // Bản cho một nhân sự (màn Nhân sự): cùng chỉ số, trần % chi phí theo team của người đó, kèm hạng LNG tháng trước.
@@ -911,7 +912,10 @@ V.kqkd=()=>{
   const modeSeg=`<div class="seg" role="group" aria-label="Cột của báo cáo">${[['team',multiProj?'Theo dự án':'Theo team'],['prod','Theo sản phẩm']].map(([k,l])=>`<button type="button" data-kqmode="${k}" class="${kqMode===k?'on':''}" aria-pressed="${kqMode===k}">${l}</button>`).join('')}</div>`;
   return `<div class="card pl"><div class="cardhead"><div><h2>Báo cáo kết quả kinh doanh · ${esc(rangeLabel())}</h2></div><div class="page-actions">${modeSeg}${exportBtn('tPL')}</div></div>
     ${oldSql}${missing}${noAds}
-    <div class="tw"><table id="tPL" class="pltab sthead" style="min-width:${240+130+84+(cols.length-1)*124}px"><colgroup><col style="width:240px"><col style="width:130px"><col style="width:84px">${cols.slice(1).map(()=>'<col style="width:124px">').join('')}</colgroup><thead><tr><th class="l">Chỉ tiêu (đồng)</th>${cols.map((c,i)=>`<th title="${esc(c[0])}"><span class="pn">${esc(c[0])}</span></th>${i===0?'<th>Tỷ lệ</th>':''}`).join('')}</tr></thead><tbody>${body}</tbody></table></div></div>
+    ${(()=>{const mw=240+130+84+(cols.length-1)*124,cg=`<colgroup><col style="width:240px"><col style="width:130px"><col style="width:84px">${cols.slice(1).map(()=>'<col style="width:124px">').join('')}</colgroup>`;
+      // Hàng tiêu đề là bảng riêng, cố định dưới bộ lọc (sticky thật, không giật); kéo ngang thân bảng thì tiêu đề kéo theo.
+      return `<div class="fh"><table id="tPLh" class="pltab" style="min-width:${mw}px">${cg}<thead><tr><th class="l">Chỉ tiêu (đồng)</th>${cols.map((c,i)=>`<th title="${esc(c[0])}"><span class="pn">${esc(c[0])}</span></th>${i===0?'<th>Tỷ lệ</th>':''}`).join('')}</tr></thead></table></div>
+      <div class="tw fhb"><table id="tPL" class="pltab" style="min-width:${mw}px">${cg}<tbody>${body}</tbody></table></div>`})()}</div>
   ${otherCard}
   <div class="card" id="jt"><h2>Đối soát file J&amp;T / FFM</h2><p class="hint">Chọn đơn vị FFM, rồi tải file .xlsx hoặc .csv có các cột Mã vận đơn (hoặc Waybill Number), COD, Tên sản phẩm, Order Status. File chỉ đọc trong trình duyệt, không gửi đi đâu.</p>
   <div class="tools"><label for="jtFfm" class="muted">File của đơn vị</label><select id="jtFfm">${FFMS.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}</select></div>
@@ -1212,6 +1216,7 @@ document.addEventListener('click',e=>{
   const df=e.target.closest('[data-del-ffm]');if(df){const id=df.dataset.delFfm;if(delArm==='f:'+id){delArm=null;const nm=(FFMS.find(f=>f.id===id)||{}).name;db.collection('ffm').doc(id).delete().then(()=>{formMsg.ffm=`<span class="muted">Đã xoá ${esc(nm)}.</span>`;if(editFfm===id)editFfm=null;render()}).catch(err=>{formMsg.ffm=`<span class="neg">Chưa xoá được: ${esc(err.message||err.code)}.</span>`;render()})}else{delArm='f:'+id;render()}return}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-go]'))e.target.click()});
+
 document.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='ffmForm')submitFfm();if(e.target.id==='kSetForm')saveKSet();if(e.target.id==='adForm')saveAds();if(e.target.id==='plForm')savePL()});
 document.addEventListener('change',e=>{
   if(e.target.id==='fProj')setF('proj',e.target.value);
