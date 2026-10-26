@@ -424,14 +424,33 @@ tbody tr[data-go]:focus-visible td{background:var(--accent-soft)}
 #tKpi thead th:first-child,#tKpiP thead th:first-child,#tKpi tfoot td:first-child,#tKpiP tfoot td:first-child{background:var(--panel-2)}
 #tKpi th,#tKpi td,#tKpiP th,#tKpiP td{padding-left:7px;padding-right:7px}
 #tKpi th,#tKpiP th{letter-spacing:.02em}
-/* bảng theo dõi theo ngày: giữ cột chỉ số và cột tổng khi cuộn ngang */
-table.daily th,table.daily td{padding-left:8px;padding-right:8px}
-table.daily th:first-child,table.daily td:first-child{position:sticky;left:0;z-index:1;min-width:200px;max-width:200px;white-space:normal;background:var(--panel);box-shadow:1px 0 0 var(--line)}
-table.daily th:nth-child(2),table.daily td:nth-child(2){position:sticky;left:200px;z-index:1;background:var(--panel-2);box-shadow:1px 0 0 var(--line)}
-table.daily thead th:first-child{background:var(--panel-2)}
-table.daily tr.h td{font-weight:650}
-table.daily td.ind{padding-left:22px;color:var(--muted);font-style:italic}
-@media (max-width:640px){table.daily th:first-child,table.daily td:first-child{min-width:140px;max-width:140px}table.daily th:nth-child(2),table.daily td:nth-child(2){position:static}}
+/* bảng theo dõi theo ngày: một đơn vị tiền, khối màu theo phần, chấm màu theo nhóm; cột chỉ số + tổng đứng yên khi cuộn ngang */
+table.daily{width:auto;min-width:100%;border-collapse:separate;border-spacing:0}
+table.daily th,table.daily td{padding:8px 10px;min-width:74px;font-variant-numeric:tabular-nums}
+table.daily thead th{background:var(--sunk);color:var(--ink-2);border-bottom:1px solid var(--line-2)}
+table.daily thead th.we{color:var(--muted)}
+table.daily td.we{background:color-mix(in srgb,var(--sunk) 45%,transparent)}
+table.daily th:first-child,table.daily td:first-child{position:sticky;left:0;z-index:2;width:230px;min-width:230px;max-width:230px;white-space:normal;background:var(--panel);box-shadow:inset -1px 0 0 var(--line)}
+table.daily thead th:first-child{background:var(--sunk)}
+table.daily .tot{position:sticky;left:230px;z-index:2;background:var(--accent-soft);color:var(--ink);font-weight:650;box-shadow:inset -1px 0 0 var(--line-2)}
+table.daily thead th.tot{color:var(--accent)}
+table.daily tr.h td{font-weight:650;color:var(--ink)}
+table.daily tr.h td:not(.tot):not(:first-child){background:color-mix(in srgb,var(--accent) 5%,var(--panel))}
+table.daily tr.h td:first-child{background:color-mix(in srgb,var(--accent) 5%,var(--panel))}
+table.daily tr.h.first td{border-top:2px solid var(--line-2)}
+table.daily tr.s-pct.h td:first-child,table.daily tr.s-cpo td:first-child{color:var(--accent)}
+table.daily td.ind{padding-left:16px;color:var(--ink-2);font-style:normal;font-weight:500}
+table.daily tbody tr:hover td{background:color-mix(in srgb,var(--accent) 9%,var(--panel))}
+table.daily tbody tr:hover td.tot{background:color-mix(in srgb,var(--accent) 22%,var(--panel))}
+.gdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.gdot.g1{background:var(--warn)}.gdot.g2{background:var(--info)}.gdot.g3{background:var(--good)}.gdot.g0{background:var(--faint)}
+table.daily .pill{font-size:11.5px}
+@media (max-width:640px){table.daily th:first-child,table.daily td:first-child{width:150px;min-width:150px;max-width:150px}table.daily .tot{position:static}}
+/* hàng chỉ số chính có 5 ô */
+.kpis.kpis5{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1280px){.kpis.kpis5{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:760px){.kpis.kpis5{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:360px){.kpis.kpis5{grid-template-columns:minmax(0,1fr)}}
 /* màn Chi phí ads: lịch tháng, dòng nhập, danh sách ai đã nhập */
 .adside>.card{margin-bottom:16px}.adside>.card:last-child{margin-bottom:0}
 .adcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}

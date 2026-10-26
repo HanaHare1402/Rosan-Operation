@@ -180,6 +180,7 @@ const dkey=d=>isoD(d);
 
 // ---------- giải thích chỉ số ----------
 const DEF={
+  adsp:'Chi phí quảng cáo (USD × tỷ giá tháng, nhập ở màn Chi phí ads) ÷ doanh số đơn tạo trong kỳ, bỏ đơn huỷ. Không lọc theo kênh.',
   rev:'Tổng tiền các đơn đặt trong khoảng ngày (sau giảm giá, quy ra VNĐ), không tính đơn huỷ / đã xoá.',
   ord:'Số đơn đặt trong khoảng ngày, không tính đơn huỷ / đã xoá.',
   ret:'Đơn hoàn ÷ (đơn đã giao + đơn hoàn). Đơn đang giao chưa tính vì chưa biết kết quả.',
@@ -232,7 +233,8 @@ function spark(vals,color){if(vals.length<2)return '';const W=120,H=30,mx=Math.m
 
 // ---------- ô chỉ số ----------
 // 4 chỉ số chính, mỗi ô: giá trị, so với kỳ trước, xu hướng theo ngày. Dưới là dải số phụ.
-function kpiCards(list,prevList){
+// ads: {cost, rev, cap, loading} từ bảng theo dõi (chi phí ads ÷ doanh số trong kỳ); null thì không hiện ô này.
+function kpiCards(list,prevList,ads){
   const a=tot(list),p=tot(prevList),ds=days();
   const four=[
     ['rev','Doanh số',M(a.rev),delta(a.rev,p.rev),series(list,ds,x=>x.rev)],
@@ -241,8 +243,11 @@ function kpiCards(list,prevList){
     SEE_COST?['gp','Lợi nhuận gộp',M(gp(a)),delta(gp(a),gp(p)),null,a.okRev?`${P(gp(a)/a.okRev)} trên tiền đã giao`:'Chưa có đơn đã giao']
            :['ok','Tiền đã giao',M(a.okRev),delta(a.okRev,p.okRev),null,`${N(a.ok)} đơn đã giao`],
   ];
+  if(ads){const v=ads.rev?ads.cost/ads.rev:NaN,over=ads.cap&&v*100>ads.cap;
+    four.splice(3,0,['adsp','% chi phí ads',ads.loading?'<span class="skel" style="display:inline-block;height:22px;width:70px"></span>':`<span class="${over?'neg':''}">${P(v)}</span>`,
+      ads.loading||!ads.cap?'':`<span class="delta ${over?'bad':'good'}">${over?'▲ vượt':'✓ trong'} trần ${PF(ads.cap)}%</span>`,null,ads.loading?'':`chi phí ${M(ads.cost)} / doanh số ${M(ads.rev)}`])}
   const aov=a.ord?a.rev/a.ord:NaN,paov=p.ord?p.rev/p.ord:NaN;
-  return `<div class="kpis kpis4">${four.map(([k,l,v,d,sp,sub],i)=>`<div class="kpi${i===0?' primary':''}"><div class="l">${l} ${tip(k)}</div><div class="v">${v}</div><div class="n">${d||''}${sub?`<div>${sub}</div>`:''}</div>${sp&&ds.length>1?spark(sp):''}</div>`).join('')}</div>
+  return `<div class="kpis ${four.length>4?'kpis5':'kpis4'}">${four.map(([k,l,v,d,sp,sub],i)=>`<div class="kpi${i===0?' primary':''}"><div class="l">${l} ${tip(k)}</div><div class="v">${v}</div><div class="n">${d||''}${sub?`<div>${sub}</div>`:''}</div>${sp&&ds.length>1?spark(sp):''}</div>`).join('')}</div>
   <div class="statstrip">
     <div><span class="l">Giá trị TB / đơn ${tip('aov')}</span><b>${isFinite(aov)?N(aov)+' ₫':'–'}</b>${delta(aov,paov,{short:1})}</div>
     <div><span class="l">Đang giao ${tip('ship')}</span><b>${N(a.ship)}</b><span class="muted">${M(a.shipRev)}</span></div>
@@ -336,7 +341,9 @@ V.tongquan=()=>{
   const tgt=k=>{const t=byId(CAT.teams,k);return F.range==='month'&&t?+t.target_vnd||0:0};
   const cols=rankCols('Team',(k)=>k?`${esc(teamName(k))}${multiProj?`<div class="sub2">${esc(projName((byId(CAT.teams,k)||{}).project_id))}</div>`:''}`:'<span class="muted">Chưa gán team</span>',{gp:1,target:tgt});
   const tb=targetBlock(ROWS,target),at=attention();
-  return `${kpiCards(ROWS,PREV)}${tb&&at?`<div class="grid2 even">${tb}${at}</div>`:tb+at}
+  ensureTD();
+  const adsT=adsInfo(TD,TD.rows,CAT.teams.filter(t=>TD.rows.some(r=>r.team===t.id)));
+  return `${kpiCards(ROWS,PREV,adsT)}${tb&&at?`<div class="grid2 even">${tb}${at}</div>`:tb+at}
   <div class="${days().length<2?'grid2 even':'grid2'}">
     ${chartCard('Xu hướng theo ngày',ROWS,PREV)}
     <div class="card"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn trên POS.</p>${legend(ROWS,r=>r.ch,chTag,chColor)}
@@ -361,7 +368,8 @@ V.team=()=>{
   const key=r=>r.staff||'~'+(r.mk||'');
   const cols=rankCols('Nhân sự',k=>k.startsWith('~')?`<span class="muted">${esc(k.slice(1)||'Không có marketer')}</span><div class="sub2">chưa khai báo</div>`:esc(staffName(k)),{gp:1,
     extra:[{k:'ch',label:'Kênh',l:1,fmt:r=>[...new Set(list.filter(x=>key(x)===r.k).map(x=>x.ch))].map(chTag).join(' '),val:r=>''}]});
-  return head+kpiCards(list,plist)+targetBlock(list,F.range==='month'?+t.target_vnd||0:0)+
+  ensureTD();
+  return head+kpiCards(list,plist,adsInfo(TD,TD.rows.filter(r=>r.team===curTeam),[t]))+targetBlock(list,F.range==='month'?+t.target_vnd||0:0)+
   `<div class="card"><div class="cardhead"><div><h2>Xếp hạng nhân sự · ${esc(t.name)}</h2><p class="hint">Bấm vào tên để xem chi tiết từng người.</p></div>${exportBtn('tStaff')}</div>
   ${dataTable('tStaff',cols,rankRows(list,plist,key),{name:'Nhân sự '+t.name,click:r=>r.k.startsWith('~')?'':'nhansu:'+r.k,foot:totFoot(list)})}</div>
   ${dailyCard(curTeam)}
@@ -379,7 +387,8 @@ V.nhansu=()=>{
   const prods=PRODS?PRODS.rows.filter(r=>r.staff===curStaff):null;
   const head=(ME.scope!=='self'&&ALLOWED.includes('tongquan')?crumbs([['Tổng quan','tongquan:'],...(s.team_id&&ALLOWED.includes('team')?[[teamName(s.team_id),'team:'+s.team_id]]:[]),[staffName(curStaff),'']]):'')+
     `<div class="tools">${ids.length>1?`<span class="flabel">Nhân sự</span><select id="staffSel">${opts}</select>`:`<b style="font-size:15px">${esc(staffName(curStaff))}</b>`}<span class="muted">${esc(teamName(s.team_id))} · ${[...new Set(list.map(r=>r.ch))].map(chTag).join(' ')}</span></div>`;
-  return head+kpiCards(list,plist)+
+  const sKey=JSON.stringify([curStaff,F.range,F.from,F.to]);if(sKey!==SD.key){SD.key=sKey;SD.loading=true;SD.rows=[];loadSD(sKey,curStaff)}
+  return head+kpiCards(list,plist,adsInfo(SD,SD.rows,[byId(CAT.teams,s.team_id)].filter(Boolean)))+
   `<div class="${days().length<2?'grid2 even':'grid2'}">${chartCard('Xu hướng theo ngày',list,plist)}
    <div class="card"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn.</p>${legend(list,r=>r.ch,chTag,chColor)}</div></div>
   ${staffDailyCard(curStaff)}
@@ -716,11 +725,17 @@ async function loadContest(key){
   CONTEST.month=isoD(pf);CONTEST.rows=r.error?[]:kSum(r.data.map(kRow),x=>x.who).filter(a=>a.k!=='~').map(a=>kCalc(a,s));
   if(view==='team'||view==='tongquan'||view==='nhansu')render();
 }
+function adsInfo(src,rows,teams){
+  if(src.loading&&!src.rows.length)return {loading:1};
+  const cost=rows.reduce((t,r)=>t+r.usd,0)*src.usd,rev=rows.reduce((t,r)=>t+r.rev,0);
+  const caps=[...new Set((teams||[]).map(t=>+t.ads_pct_max||0).filter(Boolean))];
+  return {cost,rev,cap:caps.length===1?caps[0]:0};
+}
+function ensureTD(){const key=JSON.stringify([F.proj,F.range,F.from,F.to]);if(key!==TD.key){TD.key=key;TD.loading=true;TD.rows=[];loadTD(key)}}
 const WD=['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
 const GNAME=g=>g?'Nhóm '+g+' ('+{1:'khó đẩy',2:'chưa đẩy mạnh',3:'dễ đẩy'}[g]+')':'Chưa xếp nhóm';
 function dailyCard(teamId){
-  const key=JSON.stringify([F.proj,F.range,F.from,F.to]);
-  if(key!==TD.key){TD.key=key;TD.loading=true;TD.rows=[];loadTD(key)}
+  ensureTD();
   if(ME.scope!=='self'&&CONTEST.key!==F.proj){CONTEST.key=F.proj;CONTEST.rows=null;loadContest(F.proj)}
   const title=teamId?'Theo dõi theo ngày · '+esc(teamName(teamId)):'Theo dõi theo ngày · tất cả team';
   if(TD.err)return `<div class="card"><h2>${title}</h2>${Shell.empty('alert','Chưa tải được bảng theo dõi',esc(TD.err)+'<br>Kiểm tra đã chạy file SQL 20261026010000_team_daily.sql trên Supabase chưa.')}</div>`;
@@ -745,15 +760,21 @@ function dailyBody(rows,rate,o){
   const get=(d,g)=>by.get(d+'|'+(g===undefined?'*':g))||Z();
   const tgt=o.targets===false?0:teams.reduce((a,t)=>a+(+t.target_vnd||0),0),g2=o.targets===false?0:teams.reduce((a,t)=>a+(+t.target_g2_vnd||0),0);
   const caps=[...new Set(teams.map(t=>+t.ads_pct_max||0).filter(Boolean))],cap=caps.length===1?caps[0]:0;
-  const pct=(a,strong)=>{if(!a.rev)return '<span class="muted">–</span>';const v=a.usd*rate/a.rev,over=cap&&v*100>cap;return over?`<b class="neg" title="Vượt trần ${PF(cap)}%">${P(v)} ▲</b>`:(strong?`<b>${P(v)}</b>`:P(v))};
+  const pct=(a,strong)=>{if(!a.rev)return '<span class="muted">–</span>';const v=a.usd*rate/a.rev,over=cap&&v*100>cap;
+    if(!cap)return strong?`<b>${P(v)}</b>`:P(v);
+    return `<span class="pill ${over?'p-bad':'p-good'}" title="${over?'Vượt':'Trong'} trần ${PF(cap)}%">${P(v)}${over?' ▲':''}</span>`};
+  // Tiền trong bảng cùng một đơn vị: triệu đồng (ghi ở đầu cột chỉ số).
+  const Tr=v=>{if(!v)return '<span class="muted">0</span>';const x=v/1e6,d=Math.abs(x)<10?2:1;return new Intl.NumberFormat('vi-VN',{minimumFractionDigits:d,maximumFractionDigits:d}).format(x)};
   const lines=[
-    ['Tổng chi phí ads (1)',a=>M(a.usd*rate),'h',undefined],...G.map(g=>['Chi phí ads · '+GNAME(g),a=>M(a.usd*rate),'ind',g]),
-    ['Doanh số tổng (2)',a=>M(a.rev),'h',undefined],...G.map(g=>['Doanh số · '+GNAME(g),a=>M(a.rev),'ind',g]),
-    ['Số đơn (3)',a=>N(a.n),'h',undefined],
-    ['% chi phí = (1) ÷ (2)',a=>pct(a,1),'h',undefined],...G.map(g=>['% chi phí · '+GNAME(g),a=>pct(a),'ind',g]),
-    ['Chi phí / đơn = (1) ÷ (3)',a=>a.n?N(a.usd*rate/a.n):'<span class="muted">–</span>','h',undefined]];
-  const head=`<tr><th class="l">Chỉ số</th><th>Tổng<div class="sub2">${esc(rangeLabel())}</div></th>${ds.map(d=>`<th>${WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
-  const body=lines.map(([lab,f,cls,g])=>`<tr class="${cls==='h'?'h':''}"><td class="${cls==='ind'?'ind':''}">${lab}</td><td><b>${f(get('*',g))}</b></td>${ds.map(d=>{const k=isoD(d);return `<td>${k>today?'<span class="muted">–</span>':f(get(k,g))}</td>`}).join('')}</tr>`).join('');
+    ['Tổng chi phí ads (1)',a=>Tr(a.usd*rate),'h',undefined,'cost'],...G.map(g=>[GNAME(g),a=>Tr(a.usd*rate),'ind',g,'cost']),
+    ['Doanh số tổng (2)',a=>Tr(a.rev),'h',undefined,'rev'],...G.map(g=>[GNAME(g),a=>Tr(a.rev),'ind',g,'rev']),
+    ['Số đơn (3)',a=>a.n?N(a.n):'<span class="muted">0</span>','h',undefined,'ord'],
+    ['% chi phí = (1) ÷ (2)',a=>pct(a,1),'h',undefined,'pct'],...G.map(g=>[GNAME(g),a=>pct(a),'ind',g,'pct']),
+    ['Chi phí / đơn = (1) ÷ (3) · đồng',a=>a.n?N(a.usd*rate/a.n):'<span class="muted">–</span>','h',undefined,'cpo']];
+  const we=d=>d.getDay()===0||d.getDay()===6;
+  const head=`<tr><th class="l">Chỉ số<div class="sub2">tiền: triệu đồng</div></th><th class="tot">Tổng<div class="sub2">${esc(rangeLabel())}</div></th>${ds.map(d=>`<th class="${we(d)?'we':''}">${WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
+  const gdot=g=>g===undefined?'':`<span class="gdot g${g||0}" aria-hidden="true"></span>`;
+  const body=lines.map(([lab,f,cls,g,sec],i)=>`<tr class="${cls==='h'?'h':''} s-${sec}${cls==='h'&&i?' first':''}"><td class="${cls==='ind'?'ind':''}">${gdot(g)}${lab}</td><td class="tot">${f(get('*',g))}</td>${ds.map(d=>{const k=isoD(d);return `<td class="${we(d)?'we':''}">${k>today?'<span class="muted">–</span>':f(get(k,g))}</td>`}).join('')}</tr>`).join('');
   const T=get('*'),T2=get('*',2),dim=new Date(ds[0].getFullYear(),ds[0].getMonth()+1,0).getDate();
   // Dải chỉ số trên bảng: target (nếu có) và % chi phí so với trần. Chỉ hiện ô có số.
   const pv=T.rev?T.usd*rate/T.rev:NaN,over=cap&&pv*100>cap;
