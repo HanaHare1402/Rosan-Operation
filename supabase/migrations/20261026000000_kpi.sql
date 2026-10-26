@@ -24,7 +24,7 @@ drop policy if exists kpi_settings_write on public.kpi_settings;
 create policy kpi_settings_write on public.kpi_settings for all to authenticated
   using ((select public.has_role('admin','ke_toan'))) with check ((select public.has_role('admin','ke_toan')));
 
--- ---------- nhóm sản phẩm (1 dễ đẩy … 3 khó đẩy) và người R&D, cập nhật theo tháng ----------
+-- ---------- nhóm sản phẩm (1 khó đẩy, 2 đẩy được nhưng chưa đẩy mạnh, 3 dễ đẩy) và người R&D, cập nhật theo tháng ----------
 -- Tháng chưa khai báo thì dùng giá trị của tháng gần nhất trước đó.
 create table if not exists public.product_groups (
   month date not null,
