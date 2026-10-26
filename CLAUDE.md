@@ -24,4 +24,5 @@ Nguồn: 10 nguyên tắc khả dụng của Nielsen (NN/g), Stephen Few *Inform
 - Database: thêm thay đổi bằng file mới trong `supabase/migrations/` (đặt tên theo thời gian, chạy lại nhiều lần không lỗi). Người dùng tự chạy SQL trong Supabase SQL Editor — luôn đưa link raw GitHub và hướng dẫn từng bước.
 - Supabase chặn `UPDATE`/`DELETE` không có `WHERE` (safeupdate) và giới hạn ~8 giây mỗi lệnh cho người dùng đăng nhập: việc nặng chia đợt (`recompute_batch`), policy RLS bọc hàm trong `(select …)`.
 - Edge Functions (`supabase/functions/`) tự deploy qua GitHub Actions khi gộp vào `main`.
+- Sửa `css/app.css` hoặc `js/*.js` thì đổi mã phiên bản `?v=…` ở thẻ `<link>` / `<script>` trong `index.html`, `admin.html`, `login.html` (trình duyệt và GitHub Pages lưu đệm file cũ).
 - Không đưa khoá bí mật vào repo hay chat; `config.js` chỉ chứa URL + publishable key.
