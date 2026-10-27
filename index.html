@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261027n">
+<link rel="stylesheet" href="css/app.css?v=20261027o">
 </head>
 <body>
 
@@ -30,9 +30,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261027n"></script>
-<script src="js/settings-db.js?v=20261027n"></script>
-<script src="js/shell.js?v=20261027n"></script>
+<script src="js/auth.js?v=20261027o"></script>
+<script src="js/settings-db.js?v=20261027o"></script>
+<script src="js/shell.js?v=20261027o"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -796,10 +796,10 @@ function dailyBody(rows,rate,o){
   if(o.targets===false)cells.push(['Chi phí / đơn',T.n?N(T.usd*rate/T.n):'–','']);
   const strip=tgt||g2||cap||o.targets===false?`<div class="statstrip" style="margin:4px 0 14px">${cells.slice(0,4).map(([l,v,sub])=>`<div><span class="l">${l}</span><b>${v}</b><span class="muted">${sub}</span></div>`).join('')}</div>`:'';
   const canTgt=['admin','quan_ly'].includes(ME.role);
-  const dtipTxt=`Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn.${DAILY_OLD?' Bảng này chưa lọc theo kênh / thị trường.':' Doanh số, số đơn theo thị trường và kênh đang lọc; chi phí ads chưa tách theo kênh nên luôn là toàn bộ chi phí.'}${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}`.replace(/<[^>]+>/g,'');
+  const dtipTxt=`Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn.${DAILY_OLD?' Bảng này chưa lọc theo kênh / thị trường.':' Doanh số, số đơn theo thị trường và kênh đang lọc; chi phí ads theo kênh marketer chọn khi nhập.'}${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}`.replace(/<[^>]+>/g,'');
   const dtip=`<span class="tip" tabindex="0" role="note" aria-label="${esc(dtipTxt)}" data-tip="${esc(dtipTxt)}">?</span>`;
   return `<div class="card blk blk-c"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div></div>
-    ${(F.ch!=='all'||F.mkt)?`<div class="warnrow">${DAILY_OLD?`<span class="pill p-warn">Chưa lọc theo kênh ${tipT('Bảng đang hiện số của mọi kênh. Admin chạy file SQL 20261027010000_daily_filters.sql trên Supabase để bảng lọc theo kênh / thị trường.')}</span>`:`<span class="pill p-info">Chi phí ads: mọi kênh ${tipT('Doanh số và số đơn chỉ tính kênh / thị trường đang chọn. Chi phí ads được nhập theo nhân sự và sản phẩm, chưa tách theo kênh, nên vẫn là toàn bộ chi phí; % chi phí vì vậy chỉ để tham khảo.')}</span>`}</div>`:''}
+    ${(F.ch!=='all')?`<div class="warnrow">${DAILY_OLD?`<span class="pill p-warn">Chưa lọc theo kênh ${tipT('Bảng đang hiện số của mọi kênh. Admin chạy file SQL 20261027010000_daily_filters.sql trên Supabase để bảng lọc theo kênh / thị trường.')}</span>`:`<span class="pill p-info">Chi phí ads kênh ${esc(adChName(F.ch))} ${tipT('Chỉ tính chi phí marketer chọn kênh này khi nhập. Khoản nhập trước khi có ô Kênh (chưa chọn kênh) chỉ được tính khi xem Mọi kênh. Nếu chi phí vẫn ra của mọi kênh, admin cần chạy file SQL 20261027020000_ad_channel.sql.')}</span>`}</div>`:''}
     ${contest}${strip}
     ${rows.length?(()=>{const mw=230+140+ds.length*112,cg=`<colgroup><col style="width:230px"><col style="width:140px">${ds.map(()=>'<col style="width:112px">').join('')}</colgroup>`;
       return `<div class="fh"><table class="daily" style="min-width:${mw}px">${cg}<thead>${head}</thead></table></div><div class="tw fhb"><table class="daily" style="min-width:${mw}px">${cg}<tbody>${body}</tbody></table></div>`})():Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
@@ -954,20 +954,26 @@ function adStaffList(){
 }
 const pkey=s=>String(s||'').trim().toLowerCase();
 let adDay=isoD(addD(sod(new Date()),-1)),adStaff=store.get('adstaff',''),adEdit=null,adImp=null,adImpOpen=false;
-const AD={key:'',rows:[],loading:false,err:'',usd:KDEF.usd_vnd,usdFrom:''};
+const AD={key:'',rows:[],loading:false,err:'',usd:KDEF.usd_vnd,usdFrom:'',noCh:false};
 let PRODLIST=null;
 async function loadAds(key){
   const d=new Date(adDay+'T00:00:00'),m0=isoD(monthStart(d)),m1=isoD(new Date(d.getFullYear(),d.getMonth()+1,1));
-  const [r,s]=await Promise.all([fetchAll(()=>sbc.from('ad_spend').select('day,staff_id,product_key,product_name,usd').gte('day',m0).lt('day',m1).order('day',{ascending:false}).order('staff_id').order('product_key')),getKSet(m0)]);
+  const q=cols=>fetchAll(()=>sbc.from('ad_spend').select(cols).gte('day',m0).lt('day',m1).order('day',{ascending:false}).order('staff_id').order('product_key'));
+  let [r,s]=await Promise.all([q('day,staff_id,product_key,product_name,usd,channel_id'),getKSet(m0)]);
+  // Chưa chạy SQL 20261027020000_ad_channel.sql: chưa có cột kênh, nhập như cũ.
+  AD.noCh=!!(r.error&&/channel_id/.test(r.error.message));if(AD.noCh)r=await q('day,staff_id,product_key,product_name,usd');
   if(key!==AD.key)return;
   AD.loading=false;AD.usd=s.usd_vnd;
   if(r.error){AD.err=r.error.message;AD.rows=[]}else{AD.err='';AD.rows=r.data}
   if(view==='chiphi')render();
 }
-function adRowsFor(){return AD.rows.filter(r=>r.day===adDay&&r.staff_id===adStaff).map(r=>({name:r.product_name,usd:String(+r.usd)}))}
-function readAdForm(){return [...document.querySelectorAll('#adForm .adrow[data-i]')].map(r=>({name:r.querySelector('.adName').value,usd:r.querySelector('.adUsd').value}))}
+function adRowsFor(){return AD.rows.filter(r=>r.day===adDay&&r.staff_id===adStaff).map(r=>({name:r.product_name,usd:String(+r.usd),ch:r.channel_id||''}))}
+function readAdForm(){return [...document.querySelectorAll('#adForm .adrow[data-i]')].map(r=>{const c=r.querySelector('.adCh');return {name:r.querySelector('.adName').value,usd:r.querySelector('.adUsd').value,ch:c?c.value:''}})}
+// Kênh mặc định cho dòng mới: kênh người này dùng gần nhất, không có thì kênh đầu danh mục.
+function adDefCh(){if(AD.noCh)return '';const r=AD.rows.find(x=>x.staff_id===adStaff&&x.channel_id);return r?r.channel_id:((CAT.channels[0]||{}).id||'')}
+const adChName=id=>id?((byId(CAT.channels,id)||{}).name||id):'Chưa chọn kênh';
 const usdOf=v=>{const x=parseFloat(String(v).replace(',','.'));return x>=0?x:0};
-const adNorm=list=>JSON.stringify(list.filter(r=>String(r.name).trim()||String(r.usd).trim()).map(r=>[pkey(r.name),usdOf(r.usd)]).sort());
+const adNorm=list=>JSON.stringify(list.filter(r=>String(r.name).trim()||String(r.usd).trim()).map(r=>[pkey(r.name),r.ch||'',usdOf(r.usd)]).sort());
 const adDirty=()=>adEdit!==null&&adNorm(adEdit)!==adNorm(adRowsFor());
 // Đổi ngày / người khi còn thay đổi chưa lưu thì hỏi trước.
 function adLeave(){if(adEdit!==null)adEdit=readAdForm();if(!adDirty())return true;if(!confirm('Chi phí đang nhập chưa được lưu. Bỏ các thay đổi này?'))return false;adEdit=null;return true}
@@ -990,20 +996,22 @@ V.chiphi=()=>{
     cal.push(`<button type="button" class="${cls}" data-adpick="${iso}" ${fut?'disabled':''} aria-pressed="${iso===adDay}" aria-label="${k}/${mo+1}: ${v!=null?U(v)+' USD':fut?'chưa tới':'chưa nhập'}"><span class="d">${k}</span><span class="v">${v!=null?U(v)+' $':fut?'':isPast?'Thiếu':'Hôm nay'}</span></button>`)}
   const monthUsd=mineRows.reduce((t,r)=>t+ +r.usd,0),missN=past-done;
   const curM=monthStart(new Date()),atLatest=monthStart(d).getTime()>=curM.getTime();
-  const rows=adEdit||adRowsFor();if(!rows.length||rows[rows.length-1].name||rows[rows.length-1].usd)rows.push({name:'',usd:''});
+  const rows=adEdit||adRowsFor();if(!rows.length||rows[rows.length-1].name||rows[rows.length-1].usd)rows.push({name:'',usd:'',ch:adDefCh()});
   const total=rows.reduce((t,r)=>t+usdOf(r.usd),0),saved=adRowsFor(),dirty=adDirty();
   const state=dirty?'<span class="pill p-warn" id="adState">Chưa lưu thay đổi</span>':saved.length?'<span class="pill p-good" id="adState">Đã lưu</span>':'<span class="pill p-mute" id="adState">Chưa nhập</span>';
   // Chép danh sách sản phẩm từ ngày gần nhất trước đó đã nhập (số tiền để trống).
   const prevDay=[...byDay.keys()].filter(k=>k<adDay).sort().pop();
-  const quick=[...new Map(mineRows.map(r=>[r.product_key,r.product_name])).entries()].filter(([k])=>!rows.some(r=>pkey(r.name)===k)).slice(0,8);
+  const quick=[...new Map(mineRows.map(r=>[r.product_key+'|'+(r.channel_id||''),[r.product_name,r.channel_id||'']])).entries()].filter(([k])=>!rows.some(r=>pkey(r.name)+'|'+(r.ch||'')===k)).map(([k,v])=>v).slice(0,8);
   const canNext=addD(d,1)<=new Date();
   const form=`<form class="card" id="adForm" novalidate>
-    <div class="cardhead"><div><h2>Chi phí ${WD_LONG[d.getDay()]}, ${fmtDY(d)}</h2><p class="hint">${esc(staffName(adStaff))} · nhập số USD đã chi cho từng sản phẩm. Tên sản phẩm chọn trong danh sách gợi ý để khớp đơn trên POS.</p></div>
+    <div class="cardhead"><div><h2>Chi phí ${WD_LONG[d.getDay()]}, ${fmtDY(d)}</h2><p class="hint">${esc(staffName(adStaff))} · nhập số USD đã chi cho từng sản phẩm${AD.noCh?'':' và kênh chạy quảng cáo'}. Tên sản phẩm chọn trong danh sách gợi ý để khớp đơn trên POS.</p></div>
       <div class="page-actions">${state}<button class="icon-btn" type="button" data-adshift="-1" aria-label="Ngày trước" title="Ngày trước">‹</button><button class="icon-btn" type="button" data-adshift="1" aria-label="Ngày sau" title="Ngày sau" ${canNext?'':'disabled'}>›</button></div></div>
     ${AD.err?`<div class="msg neg">Không tải được chi phí: ${esc(AD.err)}. Kiểm tra đã chạy file SQL 20261026000000_kpi.sql chưa.</div>`:''}
-    <div class="adrow adhead" aria-hidden="true"><span>Sản phẩm</span><span style="text-align:right">Chi phí (USD)</span><span class="vnd" style="text-align:right">≈ VNĐ</span><span></span></div>
-    ${rows.map((r,i)=>`<div class="adrow" data-i="${i}">
+    ${AD.noCh?`<div class="warnrow"><span class="pill p-warn">Chưa tách được theo kênh ${tipT('Admin chạy file SQL 20261027020000_ad_channel.sql trên Supabase để có ô chọn kênh (Facebook, Shopee…) khi nhập chi phí.')}</span></div>`:''}
+    <div class="adrow adhead${AD.noCh?'':' ch'}" aria-hidden="true"><span>Sản phẩm</span>${AD.noCh?'':'<span>Kênh</span>'}<span style="text-align:right">Chi phí (USD)</span><span class="vnd" style="text-align:right">≈ VNĐ</span><span></span></div>
+    ${rows.map((r,i)=>`<div class="adrow${AD.noCh?'':' ch'}" data-i="${i}">
       <input class="adName" type="text" list="prodList" value="${esc(r.name)}" placeholder="Gõ tên sản phẩm…" aria-label="Sản phẩm dòng ${i+1}">
+      ${AD.noCh?'':`<select class="adCh" aria-label="Kênh dòng ${i+1}">${r.ch?'':'<option value="" selected>Chọn kênh…</option>'}${CAT.channels.map(c=>`<option value="${esc(c.id)}" ${c.id===r.ch?'selected':''}>${esc(c.name)}</option>`).join('')}${r.ch&&!byId(CAT.channels,r.ch)?`<option value="${esc(r.ch)}" selected>${esc(r.ch)}</option>`:''}</select>`}
       <label class="adusd"><span aria-hidden="true">$</span><input class="adUsd" type="number" step="0.01" min="0" inputmode="decimal" value="${esc(r.usd)}" placeholder="0,00" aria-label="Chi phí USD dòng ${i+1}"></label>
       <span class="vnd muted">${r.usd!==''?M(usdOf(r.usd)*AD.usd):'–'}</span>
       ${r.name||r.usd?`<button class="icon-btn" type="button" data-adrm="${i}" aria-label="Xoá dòng ${i+1}" title="Xoá dòng">×</button>`:'<span></span>'}
@@ -1011,7 +1019,7 @@ V.chiphi=()=>{
     <datalist id="prodList">${(PRODLIST||[]).map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist>
     <div class="tools" style="margin:12px 0 0"><button class="btn ghost sm" type="button" id="adAdd">${Shell.icon('plus',' style="width:14px;height:14px"')} Thêm sản phẩm</button>
       ${prevDay&&!saved.length&&!(adEdit||[]).some(r=>r.name)?`<button class="btn ghost sm" type="button" data-adcopy="${prevDay}">Chép sản phẩm từ ngày ${fmtD(new Date(prevDay+'T00:00:00'))}</button>`:''}
-      ${quick.length?`<span class="flabel">Thêm nhanh</span><div class="chips">${quick.map(([k,n])=>`<button type="button" class="chip" data-adadd="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>`:''}</div>
+      ${quick.length?`<span class="flabel">Thêm nhanh</span><div class="chips">${quick.map(([n,c])=>`<button type="button" class="chip" data-adadd="${esc(n)}" data-adch="${esc(c)}">+ ${esc(n)}${AD.noCh||!c?'':` · ${esc(adChName(c))}`}</button>`).join('')}</div>`:''}</div>
     <div class="adbar"><div><span class="muted">Tổng ngày</span> <b id="adTotUsd">${U(total)} USD</b> <span class="muted">≈ <span id="adTotVnd">${M(total*AD.usd)}</span> · tỷ giá ${N(AD.usd)} đ</span></div>
       <div class="formrow" style="margin:0"><span class="fmsg" id="adMsg"></span>${dirty?'<button class="btn ghost" type="button" id="adReset">Bỏ thay đổi</button>':''}<button class="btn" type="submit" ${AD.loading?'disabled':''}>Lưu chi phí</button></div></div>
   </form>`;
@@ -1037,6 +1045,7 @@ V.chiphi=()=>{
   const cols=[{k:'day',label:'Ngày',l:1,fmt:r=>fmtDY(new Date(r.day+'T00:00:00')),val:r=>r.day},
     ...(multi&&adTblAll?[{k:'staff',label:'Nhân sự',l:1,fmt:r=>esc(staffName(r.staff_id)),val:r=>staffName(r.staff_id)}]:[]),
     {k:'prod',label:'Sản phẩm',l:1,fmt:r=>esc(r.product_name)+(PRODLIST.length&&!known.has(r.product_key)?' <span class="pill p-warn" title="Không thấy đơn nào 60 ngày qua có tên sản phẩm này, nên chi phí sẽ không khớp đơn.">Không khớp đơn</span>':''),val:r=>r.product_name},
+    ...(AD.noCh?[]:[{k:'ch',label:'Kênh',l:1,fmt:r=>r.channel_id?esc(adChName(r.channel_id)):'<span class="pill p-warn">Chưa chọn kênh</span>',val:r=>adChName(r.channel_id)}]),
     {k:'usd',label:'USD',fmt:r=>U(+r.usd),val:r=>+r.usd},
     {k:'vnd',label:'≈ VNĐ',fmt:r=>M(r.usd*AD.usd),val:r=>Math.round(r.usd*AD.usd)}];
   const sumT=tblRows.reduce((t,r)=>t+ +r.usd,0);
@@ -1050,23 +1059,25 @@ V.chiphi=()=>{
 };
 async function saveAds(){
   const msg=$('#adMsg'),bad=t=>{msg.className='fmsg neg';msg.textContent=t};
-  const rows=readAdForm().map((r,i)=>({i,name:r.name.trim(),usd:String(r.usd).trim()})).filter(r=>r.name||r.usd);
+  const rows=readAdForm().map((r,i)=>({i,name:r.name.trim(),usd:String(r.usd).trim(),ch:r.ch})).filter(r=>r.name||r.usd);
   const seen=new Map();
   for(const r of rows){
     if(!r.name)return bad(`Dòng ${r.i+1}: chưa có tên sản phẩm.`);
     const v=parseFloat(r.usd.replace(',','.'));if(!(v>=0))return bad(`Dòng ${r.i+1} (${r.name}): chi phí phải là số từ 0 trở lên.`);
-    if(seen.has(pkey(r.name)))return bad(`“${r.name}” bị nhập 2 lần; gộp lại thành một dòng.`);
-    seen.set(pkey(r.name),{day:adDay,staff_id:adStaff,product_key:pkey(r.name),product_name:r.name,usd:Math.round(v*100)/100,updated_at:new Date().toISOString()});
+    if(!AD.noCh&&!r.ch)return bad(`Dòng ${r.i+1} (${r.name}): chọn kênh chạy quảng cáo.`);
+    const k=pkey(r.name)+'|'+(AD.noCh?'':r.ch);
+    if(seen.has(k))return bad(`“${r.name}”${AD.noCh?'':' kênh '+adChName(r.ch)} bị nhập 2 lần; gộp lại thành một dòng.`);
+    seen.set(k,Object.assign({day:adDay,staff_id:adStaff,product_key:pkey(r.name),product_name:r.name,usd:Math.round(v*100)/100,updated_at:new Date().toISOString()},AD.noCh?{}:{channel_id:r.ch}));
   }
-  const before=AD.rows.filter(r=>r.day===adDay&&r.staff_id===adStaff),gone=before.filter(r=>!seen.has(r.product_key)).map(r=>r.product_key);
+  const before=AD.rows.filter(r=>r.day===adDay&&r.staff_id===adStaff),gone=before.filter(r=>!seen.has(r.product_key+'|'+(AD.noCh?'':r.channel_id||'')));
   msg.className='fmsg muted';msg.textContent='Đang lưu…';
-  const up=seen.size?await sbc.from('ad_spend').upsert([...seen.values()],{onConflict:'day,staff_id,product_key'}):{};
+  const up=seen.size?await sbc.from('ad_spend').upsert([...seen.values()],{onConflict:AD.noCh?'day,staff_id,product_key':'day,staff_id,product_key,channel_id'}):{};
   if(up.error)return bad('Chưa lưu được: '+up.error.message);
-  if(gone.length){const del=await sbc.from('ad_spend').delete().eq('day',adDay).eq('staff_id',adStaff).in('product_key',gone);if(del.error)return bad('Chưa xoá được dòng cũ: '+del.error.message)}
+  for(const g of gone){let q=sbc.from('ad_spend').delete().eq('day',adDay).eq('staff_id',adStaff).eq('product_key',g.product_key);if(!AD.noCh)q=q.eq('channel_id',g.channel_id||'');const del=await q;if(del.error)return bad('Chưa xoá được dòng cũ: '+del.error.message)}
   const day=adDay,st=adStaff;
   Shell.toast(`Đã lưu chi phí ngày ${fmtDY(new Date(day+'T00:00:00'))} cho ${staffName(st)}.`,{undo:async()=>{
     await sbc.from('ad_spend').delete().eq('day',day).eq('staff_id',st);
-    if(before.length)await sbc.from('ad_spend').insert(before.map(r=>({day:r.day,staff_id:r.staff_id,product_key:r.product_key,product_name:r.product_name,usd:r.usd})));
+    if(before.length)await sbc.from('ad_spend').insert(before.map(r=>Object.assign({day:r.day,staff_id:r.staff_id,product_key:r.product_key,product_name:r.product_name,usd:r.usd},AD.noCh?{}:{channel_id:r.channel_id||''})));
     AD.key='';K.key='';render();
   }});
   adEdit=null;AD.key='';K.key='';render();
@@ -1074,9 +1085,9 @@ async function saveAds(){
 // Tải file: mỗi dòng một khoản chi (ngày, nhân sự, sản phẩm, USD). File không có cột ngày thì ghi vào ngày đang chọn.
 function adImportCard(){
   const x=adImp;
-  return `<div class="card"><div class="cardhead"><div><h2>Tải chi phí từ file Excel</h2><p class="hint">File .xlsx hoặc .csv, mỗi dòng một khoản chi, có các cột <b>Ngày</b>, <b>Nhân sự</b> (tên hoặc mã nhận diện), <b>Sản phẩm</b> (tên tiếng Anh như trên POS), <b>USD</b>. Không có cột ngày thì ghi hết vào ngày ${fmtDY(new Date(adDay+'T00:00:00'))}. Tải lại cùng ngày, nhân sự, sản phẩm thì số mới thay số cũ.</p></div><button class="lnk" type="button" id="adImpClose">Đóng</button></div>
+  return `<div class="card"><div class="cardhead"><div><h2>Tải chi phí từ file Excel</h2><p class="hint">File .xlsx hoặc .csv, mỗi dòng một khoản chi, có các cột <b>Ngày</b>, <b>Nhân sự</b> (tên hoặc mã nhận diện), <b>Sản phẩm</b> (tên tiếng Anh như trên POS), <b>Kênh</b> (Facebook, Shopee…), <b>USD</b>. Không có cột ngày thì ghi hết vào ngày ${fmtDY(new Date(adDay+'T00:00:00'))}. Tải lại cùng ngày, nhân sự, sản phẩm thì số mới thay số cũ.</p></div><button class="lnk" type="button" id="adImpClose">Đóng</button></div>
     <div class="drop"><input type="file" id="adFile" accept=".xlsx,.xls,.csv" style="max-width:100%"></div>
-    ${x?`<div class="msg ${x.err?'neg':x.rows.length?'muted':'neg'}">${x.err?esc(x.err):`Đọc được <b>${N(x.rows.length)}</b> dòng hợp lệ · tổng <b>${U(x.rows.reduce((t,r)=>t+r.usd,0))} USD</b>${x.noDate?' · không có cột ngày, ghi vào ngày đang chọn':''}.${x.skip.length?`<br>Bỏ qua ${N(x.skip.length)} dòng: ${esc(x.skip.slice(0,6).join('; '))}${x.skip.length>6?'…':''}`:''}`}</div>
+    ${x?`<div class="msg ${x.err?'neg':x.rows.length?'muted':'neg'}">${x.err?esc(x.err):`Đọc được <b>${N(x.rows.length)}</b> dòng hợp lệ · tổng <b>${U(x.rows.reduce((t,r)=>t+r.usd,0))} USD</b>${x.noDate?' · không có cột ngày, ghi vào ngày đang chọn':''}${x.noCh?' · không có cột Kênh, các dòng sẽ ghi là “Chưa chọn kênh”':''}.${x.skip.length?`<br>Bỏ qua ${N(x.skip.length)} dòng: ${esc(x.skip.slice(0,6).join('; '))}${x.skip.length>6?'…':''}`:''}`}</div>
     ${x.rows.length?`<div class="formrow"><button class="btn" type="button" id="adImpGo">Ghi ${N(x.rows.length)} dòng</button><span class="fmsg" id="adImpMsg"></span></div>`:''}`:''}</div>`;
 }
 function readAdFile(file){
@@ -1086,7 +1097,7 @@ function readAdFile(file){
     const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:true});
     if(!data.length){adImp={err:'File không có dòng dữ liệu nào.',rows:[],skip:[]};render();return}
     const keys=Object.keys(data[0]),nk=k=>k.normalize('NFC').toLowerCase().trim(),find=(...c)=>{for(const x of c){const k=keys.find(k=>nk(k)===x||nk(k).includes(x));if(k)return k}};
-    const kD=find('ngày','date','day'),kS=find('nhân sự','nhân viên','marketer','mkt','ads','người'),kP=find('product','sản phẩm','tên sp'),kU=find('usd','chi phí','tổng','spend','tiền');
+    const kC=AD.noCh?null:find('kênh','channel','nền tảng','platform'),kD=find('ngày','date','day'),kS=find('nhân sự','nhân viên','marketer','mkt','ads','người'),kP=find('product','sản phẩm','tên sp'),kU=find('usd','chi phí','tổng','spend','tiền');
     if(!kS||!kP||!kU){adImp={err:`Không tìm thấy đủ cột Nhân sự, Sản phẩm, USD. Các cột trong file: ${keys.join(', ')}.`,rows:[],skip:[]};render();return}
     const staff=adStaffList(),match=n=>{const q=pkey(n);if(!q)return null;const ex=staff.filter(s=>pkey(s.name)===q||(s.pos_names||[]).some(p=>pkey(p)===q));if(ex.length===1)return ex[0].id;const tail=staff.filter(s=>pkey(s.name).split(/\s+/).pop()===q);return tail.length===1?tail[0].id:null};
     const day=v=>{if(typeof v==='number'&&v>20000){const d=new Date(Math.round((v-25569)*864e5));return isoD(new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()))}const m=String(v).trim().match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);if(m)return `${m[3]}-${p2(m[2])}-${p2(m[1])}`;const m2=String(v).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);return m2?m2[0].slice(0,10):null};
@@ -1098,10 +1109,11 @@ function readAdFile(file){
       if(!(u>=0)){skip.push(`dòng ${ln}: USD không hợp lệ`);return}
       if(!u)return;
       const d=kD?day(r[kD]):adDay;if(!d){skip.push(`dòng ${ln}: ngày “${r[kD]}” không đọc được`);return}
-      const k=d+'|'+sid+'|'+pkey(name),o=rows.get(k);
-      if(o)o.usd=Math.round((o.usd+u)*100)/100;else rows.set(k,{day:d,staff_id:sid,product_key:pkey(name),product_name:name,usd:Math.round(u*100)/100});
+      let ch='';if(kC&&String(r[kC]).trim()){const q=pkey(r[kC]),c=CAT.channels.find(c=>pkey(c.id)===q||pkey(c.name)===q||(c.keywords||[]).some(w=>pkey(w)===q));if(!c){skip.push(`dòng ${ln}: không nhận ra kênh “${r[kC]}”`);return}ch=c.id}
+      const k=d+'|'+sid+'|'+pkey(name)+'|'+ch,o=rows.get(k);
+      if(o)o.usd=Math.round((o.usd+u)*100)/100;else rows.set(k,Object.assign({day:d,staff_id:sid,product_key:pkey(name),product_name:name,usd:Math.round(u*100)/100},AD.noCh?{}:{channel_id:ch}));
     });
-    adImp={rows:[...rows.values()],skip,noDate:!kD};render();
+    adImp={rows:[...rows.values()],skip,noDate:!kD,noCh:!AD.noCh&&!kC};render();
   }catch(err){adImp={err:'Không đọc được file: '+err.message,rows:[],skip:[]};render()}};
   fr.readAsArrayBuffer(file);
 }
@@ -1109,7 +1121,7 @@ async function runAdImport(){
   const rows=adImp.rows,msg=$('#adImpMsg');
   for(let i=0;i<rows.length;i+=500){
     msg.className='fmsg muted';msg.textContent=`Đang ghi ${N(Math.min(rows.length,i+500))}/${N(rows.length)}…`;
-    const {error}=await sbc.from('ad_spend').upsert(rows.slice(i,i+500).map(r=>Object.assign({updated_at:new Date().toISOString()},r)),{onConflict:'day,staff_id,product_key'});
+    const {error}=await sbc.from('ad_spend').upsert(rows.slice(i,i+500).map(r=>Object.assign({updated_at:new Date().toISOString()},r)),{onConflict:AD.noCh?'day,staff_id,product_key':'day,staff_id,product_key,channel_id'});
     if(error){msg.className='fmsg neg';msg.textContent='Dừng ở dòng '+(i+1)+': '+error.message;return}
   }
   Shell.toast(`Đã ghi ${N(rows.length)} dòng chi phí.`);adImp=null;adImpOpen=false;AD.key='';K.key='';render();
@@ -1211,11 +1223,11 @@ document.addEventListener('click',e=>{
     adDay=isoD(m.getFullYear()===t.getFullYear()&&m.getMonth()===t.getMonth()?(t.getDate()>1?addD(t,-1):t):m>t?t:new Date(m.getFullYear(),m.getMonth()+1,0));adEdit=null;render();return}
   const aw=e.target.closest('[data-adwho]');if(aw){if(aw.dataset.adwho!==adStaff&&adLeave()){adStaff=aw.dataset.adwho;store.set('adstaff',adStaff);adEdit=null;render()}return}
   const at=e.target.closest('[data-adtbl]');if(at){adTblAll=at.dataset.adtbl==='1';render();return}
-  if(e.target.closest('#adAdd')){const r=readAdForm().filter(x=>x.name||x.usd);r.push({name:'',usd:''});adEdit=r;render();const ins=document.querySelectorAll('#adForm .adName');if(ins.length)ins[ins.length-1].focus();return}
+  if(e.target.closest('#adAdd')){const r=readAdForm().filter(x=>x.name||x.usd);r.push({name:'',usd:'',ch:adDefCh()});adEdit=r;render();const ins=document.querySelectorAll('#adForm .adName');if(ins.length)ins[ins.length-1].focus();return}
   if(e.target.id==='adReset'){adEdit=null;render();return}
-  const acp=e.target.closest('[data-adcopy]');if(acp){const names=[...new Map(AD.rows.filter(r=>r.staff_id===adStaff&&r.day===acp.dataset.adcopy).map(r=>[r.product_key,r.product_name])).values()];adEdit=readAdForm().filter(x=>x.name||x.usd).concat(names.map(n=>({name:n,usd:''})));render();const u=document.querySelector('#adForm .adUsd');if(u)u.focus();return}
+  const acp=e.target.closest('[data-adcopy]');if(acp){const names=[...new Map(AD.rows.filter(r=>r.staff_id===adStaff&&r.day===acp.dataset.adcopy).map(r=>[r.product_key+'|'+(r.channel_id||''),[r.product_name,r.channel_id||'']])).values()];adEdit=readAdForm().filter(x=>x.name||x.usd).concat(names.map(([n,c])=>({name:n,usd:'',ch:c})));render();const u=document.querySelector('#adForm .adUsd');if(u)u.focus();return}
   const arm=e.target.closest('[data-adrm]');if(arm){const r=readAdForm();r.splice(+arm.dataset.adrm,1);adEdit=r;render();return}
-  const aa=e.target.closest('[data-adadd]');if(aa){const r=readAdForm().filter(x=>x.name||x.usd);r.push({name:aa.dataset.adadd,usd:''});adEdit=r;render();const ins=document.querySelectorAll('#adForm .adUsd');if(ins.length>1)ins[ins.length-2].focus();return}
+  const aa=e.target.closest('[data-adadd]');if(aa){const r=readAdForm().filter(x=>x.name||x.usd);r.push({name:aa.dataset.adadd,usd:'',ch:aa.dataset.adch||adDefCh()});adEdit=r;render();const ins=document.querySelectorAll('#adForm .adUsd');if(ins.length>1)ins[ins.length-2].focus();return}
   if(e.target.id==='adImpBtn'){adImpOpen=!adImpOpen;render();return}
   if(e.target.id==='adImpClose'){adImpOpen=false;adImp=null;render();return}
   if(e.target.id==='adImpGo'){e.target.disabled=true;runAdImport();return}
@@ -1248,7 +1260,7 @@ document.addEventListener('change',e=>{
 });
 function liveSearch(id,set){document.addEventListener('input',e=>{if(e.target.id!==id)return;set(e.target.value);const pos=e.target.selectionStart;render();const el=$('#'+id);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(x){}}})}
 liveSearch('pq',v=>pQ=v);
-document.addEventListener('input',e=>{if(!(e.target.matches&&e.target.matches('#adForm .adUsd, #adForm .adName')))return;
+document.addEventListener('input',e=>{if(!(e.target.matches&&e.target.matches('#adForm .adUsd, #adForm .adName, #adForm .adCh')))return;
   // Gõ: chỉ cập nhật VNĐ, tổng và trạng thái "chưa lưu", không vẽ lại cả màn để giữ con trỏ.
   adEdit=readAdForm();
   if(e.target.classList.contains('adUsd'))e.target.closest('.adrow').querySelector('.vnd').textContent=e.target.value!==''?M(usdOf(e.target.value)*AD.usd):'–';
@@ -1258,9 +1270,10 @@ document.addEventListener('input',e=>{if(!(e.target.matches&&e.target.matches('#
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'||!e.target.closest||!e.target.closest('#adForm .adrow'))return;
   e.preventDefault();const row=e.target.closest('.adrow');
-  if(e.target.classList.contains('adName')){row.querySelector('.adUsd').focus();return}
+  if(e.target.classList.contains('adName')){(row.querySelector('.adCh')||row.querySelector('.adUsd')).focus();return}
+  if(e.target.classList.contains('adCh')){row.querySelector('.adUsd').focus();return}
   const nx=row.nextElementSibling;if(nx&&nx.classList.contains('adrow')){nx.querySelector('.adName').focus();return}
-  const r=readAdForm();if(r[r.length-1].name||r[r.length-1].usd){r.push({name:'',usd:''})}adEdit=r;render();const ins=document.querySelectorAll('#adForm .adName');if(ins.length)ins[ins.length-1].focus()});
+  const r=readAdForm();if(r[r.length-1].name||r[r.length-1].usd){r.push({name:'',usd:'',ch:adDefCh()})}adEdit=r;render();const ins=document.querySelectorAll('#adForm .adName');if(ins.length)ins[ins.length-1].focus()});
 ['dragover','dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{const d=e.target.closest&&e.target.closest('#drop');if(!d)return;e.preventDefault();d.classList.toggle('over',ev==='dragover');if(ev==='drop'&&e.dataTransfer.files[0])runJT(e.dataTransfer.files[0])}));
 
 // Trang mở đầu theo vai trò: kế toán → KQKD, vận đơn / kho → Đơn hàng, còn lại → Tổng quan.

@@ -608,3 +608,7 @@ select.fs{min-height:32px;padding:4px 28px 4px 10px;font-size:12.5px;border-radi
 .card.blk>.cardhead h2::before,.card.blk>h2:first-child::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:3px;border-radius:2px;background:var(--bc)}
 .card.blk>h2:first-child{padding-left:calc(var(--cp) + 12px)}
 .card.blk>h2:first-child::before{left:var(--cp);top:14px;bottom:14px}
+/* Nhập chi phí ads có cột Kênh */
+.adrow.ch{grid-template-columns:minmax(0,1fr) 116px 120px 84px 32px}
+.adrow .adCh{width:100%;min-height:32px}
+@media (max-width:640px){.adrow.ch{grid-template-columns:minmax(0,1fr) 108px 32px}.adrow.ch .adName{grid-column:1/-1}.adrow.adhead.ch{display:none}}
