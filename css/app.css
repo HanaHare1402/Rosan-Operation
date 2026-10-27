@@ -572,3 +572,30 @@ table.daily{table-layout:fixed}
 /* bảng có tiêu đề tách riêng: cột đầu đứng yên cả ở thân bảng lẫn tiêu đề, để kéo ngang luôn khớp */
 .tw.fhb td:first-child{position:sticky;left:0;z-index:1;background:var(--panel)}
 .fh th:first-child{position:sticky;left:0;z-index:2;background:var(--sunk)}
+/* đầu trang gọn kiểu POS: tiêu đề bên trái, bộ lọc + giờ cập nhật bên phải cùng một hàng */
+.stickhead .page-h{align-items:center;margin-bottom:12px}
+.page-h .toolbar{background:none;border:0;box-shadow:none;padding:0;margin:0;display:block}
+.page-h .toolbar .row{gap:6px}
+select.fs{min-height:32px;padding:4px 28px 4px 10px;font-size:12.5px;border-radius:8px;min-width:0;max-width:190px}
+.ibtn{width:32px;height:32px;display:inline-grid;place-items:center;border:1px solid var(--line-2);background:var(--panel);color:var(--ink-2);border-radius:8px;cursor:pointer;padding:0;flex:none}
+.ibtn svg{width:16px;height:16px}
+.ibtn:hover{background:var(--sunk);color:var(--ink)}
+.ibtn.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--accent-ink)}
+.ibtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.ibtn.sm{width:26px;height:26px;border-radius:99px;border:0;background:var(--sunk)}
+.ibtn.sm svg{width:13px;height:13px}
+.fresh{padding:3px 4px 3px 10px;gap:6px;font-size:12px}
+.drange input{min-height:32px;font-size:12.5px;padding:3px 6px}
+@media (max-width:960px){.page-h .page-actions{width:100%}.page-h .toolbar{flex:1 1 100%}select.fs{flex:1 1 calc(50% - 6px);max-width:none}}
+.page-h .toolbar[hidden]{display:none}
+/* khối báo cáo tách bạch khi cuộn: vạch màu trên đầu (xanh lá / xanh dương), số thứ tự, khoảng cách rộng hơn */
+.card.blk{border-top:3px solid var(--accent);margin-bottom:28px}
+.card.blk.blk-b{border-top-color:var(--info)}
+.bno{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;background:var(--accent-soft);color:var(--accent-ink);font-size:11.5px;font-weight:700;margin-right:8px;vertical-align:1px}
+.blk-b .bno{background:var(--info-soft);color:var(--info)}
+/* hàng cảnh báo gọn: nhãn + (?) giải thích, thay cho khối chữ dài */
+.warnrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0 0 14px}
+.warnrow .pill{gap:6px;padding:3px 6px 3px 10px}
+.warnrow .pill .tip{margin:0}
+.tip::after{max-width:320px;white-space:normal;text-align:left}
+.hintq{font-size:11.5px;color:var(--muted);margin:8px 0 0;display:flex;align-items:center;gap:4px}

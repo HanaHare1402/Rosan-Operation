@@ -33,6 +33,8 @@
     inbox: '<path d="M3 13.5 5.5 5h13L21 13.5V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 13.5h5l1.5 2.5h5l1.5-2.5h5"/>',
     lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
     check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+    compare: '<path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="m17 20 4-4-4-4"/><path d="M21 16H8"/>',
+    x: '<path d="M6 6l12 12M18 6 6 18"/>',
     target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8"/>',
     pen: '<path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-4-4L4 16z"/><path d="m14 6 4 4"/>',
     tag: '<path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9z"/><circle cx="8" cy="8" r="1.4"/>',
@@ -156,7 +158,22 @@
       tw.classList.add("fhb"); tw.before(fh);
     });
   }
-  new MutationObserver(() => requestAnimationFrame(fixHeads)).observe(document.documentElement, { childList: true, subtree: true });
+  // Dòng hướng dẫn dưới tiêu đề (p.hint ngay sau h2/h3) thu gọn thành nút (?) cạnh tiêu đề: chạm / rê chuột mới hiện.
+  // Dòng là số liệu đánh dấu .keep, dòng kết quả có id (VD tóm tắt file vừa đọc) giữ nguyên.
+  function hintsToTips() {
+    document.querySelectorAll("p.hint:not(.keep):not([id])").forEach((p) => {
+      const h = p.previousElementSibling;
+      const txt = p.textContent.replace(/\s+/g, " ").trim();
+      const t = document.createElement("span");
+      t.className = "tip"; t.tabIndex = 0; t.setAttribute("role", "note"); t.setAttribute("aria-label", txt); t.dataset.tip = txt; t.textContent = "?";
+      if (h && (/^H[1-3]$/.test(h.tagName) || h.classList.contains("edtitle"))) { if (txt) h.append(" ", t); p.remove(); return; }
+      // Dòng hướng dẫn nằm giữa form: thay bằng một dòng nhỏ "Hướng dẫn (?)".
+      if (!txt) { p.remove(); return; }
+      const d = document.createElement("div"); d.className = "hintq"; d.append("Hướng dẫn ", t); p.replaceWith(d);
+    });
+  }
+  new MutationObserver(() => { hintsToTips(); requestAnimationFrame(fixHeads); }).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener("DOMContentLoaded", hintsToTips);
   // Kéo ngang thân bảng thì hàng tiêu đề tách riêng kéo theo.
   document.addEventListener("scroll", (e) => { const t = e.target; if (t.classList && t.classList.contains("fhb")) { const h = t.previousElementSibling; if (h && h.classList.contains("fh")) h.scrollLeft = t.scrollLeft; } }, true);
 
