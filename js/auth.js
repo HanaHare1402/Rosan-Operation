@@ -3,6 +3,7 @@
   const cfg = window.APP_CONFIG || {};
   const ROLES = {
     admin: "Admin",
+    lanh_dao: "Ban lãnh đạo",
     quan_ly: "Quản lý",
     truong_team: "Trưởng team",
     marketing: "Marketing",
@@ -14,6 +15,8 @@
   // Màn nào của bảng điều hành mỗi vai trò được xem.
   const VIEWS = {
     admin: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "kpi", "chiphi", "canhbao", "caidat"],
+    // Ban lãnh đạo: xem mọi báo cáo và số chi phí, không có màn nhập liệu (chi phí ads, cài đặt). Database cũng không cho ghi.
+    lanh_dao: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "kpi", "canhbao"],
     quan_ly: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "kpi", "chiphi", "canhbao", "caidat"],
     truong_team: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kpi", "chiphi", "canhbao"],
     marketing: ["tongquan", "nhansu", "sanpham", "donhang", "kpi", "chiphi", "canhbao"],
@@ -30,7 +33,7 @@
     team: "Team được gán",
     self: "Chỉ của mình",
   };
-  const DEFAULT_SCOPE = { admin: "all", ke_toan: "all", quan_ly: "project", van_don: "project", kho: "project", truong_team: "team", marketing: "self", sale: "self" };
+  const DEFAULT_SCOPE = { admin: "all", lanh_dao: "all", ke_toan: "all", quan_ly: "project", van_don: "project", kho: "project", truong_team: "team", marketing: "self", sale: "self" };
 
   // Tab nào của trang Quản trị mỗi vai trò được vào.
   const ADMIN_TABS = {

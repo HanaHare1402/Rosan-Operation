@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261027o">
+<link rel="stylesheet" href="css/app.css?v=20261028a">
 </head>
 <body>
 <div class="app">
@@ -170,8 +170,8 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261027o"></script>
-<script src="js/shell.js?v=20261027o"></script>
+<script src="js/auth.js?v=20261028a"></script>
+<script src="js/shell.js?v=20261028a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (async function () {
@@ -484,7 +484,7 @@
 
   // ---------- tài khoản (chỉ admin) ----------
   const VIEW_NAMES = { tongquan: "Tổng quan", team: "Team", nhansu: "Nhân sự", sanpham: "Sản phẩm", donhang: "Đơn hàng", kqkd: "KQKD", kpi: "KPI", chiphi: "Chi phí ads", canhbao: "Cảnh báo", caidat: "Cài đặt" };
-  $("#roleMatrix").innerHTML = Object.entries(Auth.ROLES).map(([k, v]) => `<tr><td>${v}</td><td class="l" style="white-space:normal">${Auth.VIEWS[k].map((x) => VIEW_NAMES[x]).join(", ")}${k === "admin" ? ", Quản trị" : k === "quan_ly" ? ", Quản trị (danh mục team, nhân sự)" : ""}</td><td class="l">${Auth.SCOPES[Auth.DEFAULT_SCOPE[k]]}</td></tr>`).join("");
+  $("#roleMatrix").innerHTML = Object.entries(Auth.ROLES).map(([k, v]) => `<tr><td>${v}</td><td class="l" style="white-space:normal">${Auth.VIEWS[k].map((x) => VIEW_NAMES[x]).join(", ")}${k === "admin" ? ", Quản trị" : k === "quan_ly" ? ", Quản trị (danh mục team, nhân sự)" : k === "lanh_dao" ? " (chỉ xem, không sửa được gì)" : ""}</td><td class="l">${Auth.SCOPES[Auth.DEFAULT_SCOPE[k]]}</td></tr>`).join("");
   let users = [], uArmed = null, uEdit = null;
   const scopeText = (u) => {
     if (u.scope === "project") return "Dự án: " + ((u.project_ids || []).map(projName).filter(Boolean).join(", ") || '<span class="neg">chưa chọn</span>');
