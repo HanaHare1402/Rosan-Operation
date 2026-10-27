@@ -599,3 +599,16 @@ select.fs{min-height:32px;padding:4px 28px 4px 10px;font-size:12.5px;border-radi
 .warnrow .pill .tip{margin:0}
 .tip::after{max-width:320px;white-space:normal;text-align:left}
 .hintq{font-size:11.5px;color:var(--muted);margin:8px 0 0;display:flex;align-items:center;gap:4px}
+/* Bảng lớn tách bạch: thanh tiêu đề tô nhạt theo màu viền trên, mỗi bảng một màu */
+.card{--cp:18px}
+@media (max-width:960px){.card{--cp:16px}}
+.card.blk{--bc:var(--accent);--bs:var(--accent-soft)}
+.card.blk.blk-b{--bc:var(--info);--bs:var(--info-soft)}
+.card.blk.blk-c{--bc:var(--lz);--bs:color-mix(in srgb,var(--lz) 12%,var(--panel))}
+.card.blk{border-top-color:var(--bc)}
+.card.blk>.cardhead,.card.blk>h2:first-child{margin:calc(-1*var(--cp)) calc(-1*var(--cp)) 14px;padding:12px var(--cp);
+  background:color-mix(in srgb,var(--bs) 55%,var(--panel));border-bottom:1px solid var(--line);border-radius:calc(var(--r-lg) - 3px) calc(var(--r-lg) - 3px) 0 0;align-items:center}
+.card.blk>.cardhead h2,.card.blk>h2:first-child{position:relative;padding-left:12px}
+.card.blk>.cardhead h2::before,.card.blk>h2:first-child::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:3px;border-radius:2px;background:var(--bc)}
+.card.blk>h2:first-child{padding-left:calc(var(--cp) + 12px)}
+.card.blk>h2:first-child::before{left:var(--cp);top:14px;bottom:14px}
