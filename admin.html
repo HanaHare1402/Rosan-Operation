@@ -700,7 +700,11 @@
     const { error } = await sb.rpc("admin_set_pos_key", { p_shop: shop, p_key: key });
     if (error) { say($("#keyMsg"), "Chưa lưu được: " + esc(error.message), "neg"); return; }
     $("#kfKey").value = ""; $("#keyForm").hidden = true; say($("#keyMsg"), "", "");
-    say($("#shopsMsg"), `Đã lưu API key vào Vault. Bấm “Thử kết nối” ở dòng của shop để kiểm tra.`, "pos"); loadShops();
+    // Shop mới có key thì kéo đơn ngay, không chờ lịch tự động 2 tiếng.
+    await loadShops();
+    const s = shops.find((x) => x.id === shop);
+    if (s && s.active && s.pos_shop_id) return runSync({ action: "sync", shop }, "Đã lưu API key. Đang kéo đơn của " + esc(s.name));
+    say($("#shopsMsg"), s && !s.pos_shop_id ? `Đã lưu API key. Điền Shop ID POS (⋯ → Sửa shop) rồi bấm “Đồng bộ” để kéo đơn.` : `Đã lưu API key. Shop đang tạm dừng nên chưa kéo đơn.`, "pos");
   });
   $("#kfClear").onclick = async () => {
     const shop = $("#kfShop").value, s = shops.find((x) => x.id === shop); if (!s) return;
@@ -724,6 +728,9 @@
     say($("#shopMsg"), "", ""); shopForm(null); await loadShops();
     say($("#shopsMsg"), wasEdit ? `Đã lưu ${esc(name)}.` : `Đã thêm ${esc(name)}. Dán API key của shop vào form bên dưới.`, "pos");
     if (!wasEdit && saved && saved[0]) openKey(saved[0].id);
+    // Vừa điền đủ Shop ID / bật lại một shop đã có key mà chưa kéo đơn lần nào: kéo luôn.
+    const s = wasEdit && shops.find((x) => x.id === wasEdit);
+    if (s && s.active && s.pos_shop_id && s.api_key_hint && !s.last_synced_at) runSync({ action: "sync", shop: s.id }, "Đang kéo đơn của " + esc(s.name));
   });
   if (isAdmin) shopForm(null);
 
