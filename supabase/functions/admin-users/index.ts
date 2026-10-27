@@ -1,11 +1,11 @@
 // Quản lý tài khoản: chỉ admin gọi được. Tạo tài khoản, đổi quyền, đặt lại mật khẩu, khoá, xoá.
 import { adminClient, cors, getCaller, json } from "../_shared/common.ts";
 
-const ROLES = ["admin", "quan_ly", "truong_team", "marketing", "ke_toan", "van_don", "kho", "sale"];
+const ROLES = ["admin", "lanh_dao", "quan_ly", "truong_team", "marketing", "ke_toan", "van_don", "kho", "sale"];
 const SCOPES = ["all", "project", "team", "self"];
 // Phạm vi xem mặc định theo vai trò; admin chỉnh lại được từng người.
 const DEFAULT_SCOPE: Record<string, string> = {
-  admin: "all", ke_toan: "all", quan_ly: "project", van_don: "project", kho: "project", truong_team: "team", marketing: "self", sale: "self",
+  admin: "all", lanh_dao: "all", ke_toan: "all", quan_ly: "project", van_don: "project", kho: "project", truong_team: "team", marketing: "self", sale: "self",
 };
 
 // Các trường phạm vi gửi lên (chỉ lấy trường có mặt).

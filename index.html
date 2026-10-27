@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261027o">
+<link rel="stylesheet" href="css/app.css?v=20261028a">
 </head>
 <body>
 
@@ -30,9 +30,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261027o"></script>
-<script src="js/settings-db.js?v=20261027o"></script>
-<script src="js/shell.js?v=20261027o"></script>
+<script src="js/auth.js?v=20261028a"></script>
+<script src="js/settings-db.js?v=20261028a"></script>
+<script src="js/shell.js?v=20261028a"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -43,7 +43,7 @@ const sbc=Auth.sb;
 const $=s=>document.querySelector(s);
 Shell.render(ME,'index');
 // Giá vốn, lãi gộp chỉ hiện cho admin, quản lý, kế toán (database cũng chỉ trả số cho các vai trò này).
-const SEE_COST=['admin','quan_ly','ke_toan'].includes(ME.role);
+const SEE_COST=['admin','lanh_dao','quan_ly','ke_toan'].includes(ME.role);
 document.documentElement.classList.remove('auth-pending');
 
 // ---------- tiện ích ----------
@@ -587,7 +587,7 @@ function kCards(a,p){
 function kWarn(a){
   const out=[],[f,t]=rangeDates();
   if(a.sent>0&&!a.usd)out.push(['warn','Chưa có chi phí quảng cáo','Kỳ này chưa ai nhập chi phí ads, nên lợi nhuận gộp đang chưa trừ quảng cáo.',ALLOWED.includes('chiphi')?'<button class="btn ghost sm" data-go="chiphi:">Nhập chi phí ads</button>':'']);
-  if(a.miss&&SEE_COST)out.push(['warn','Đơn chưa có giá vốn',`${N(a.miss)} đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0.`,SEE_COST?'<a class="btn ghost sm" href="admin.html#giavon">Mở Giá vốn</a>':'']);
+  if(a.miss&&SEE_COST)out.push(['warn','Đơn chưa có giá vốn',`${N(a.miss)} đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0.`,Auth.ADMIN_TABS.giavon.includes(ME.role)?'<a class="btn ghost sm" href="admin.html#giavon">Mở Giá vốn</a>':'']);
   if(monthStart(f).getTime()!==monthStart(addD(t,-1)).getTime())out.push(['info','Kỳ dài hơn 1 tháng',`Phí và tỷ giá dùng thông số tháng ${fmtM(K.month)}. Xem từng tháng để khớp bảng lương.`,'']);
   return out.length?`<div class="warnrow">${out.map(x=>`<span class="pill ${x[0]==='info'?'p-info':'p-warn'}">${esc(x[1])} ${tipT(x[2])}</span>${x[3]||''}`).join('')}</div>`:'';
 }
@@ -913,7 +913,7 @@ V.kqkd=()=>{
   const pctDT=(v,kind)=>{if(kind==='pct'||kind==='n'||kind==='unit'||!T.sent)return '';const x=v/T.sent;if(!isFinite(x)||!v)return '<span class="muted">–</span>';return kind==='cost'&&x>=.1?`<span class="pill p-warn" title="Khoản chi lớn: từ 10% doanh số gửi đi">${P(x)}</span>`:`<span class="${x<0?'neg':'muted'}">${P(x)}</span>`};
   const body=L.map(([lab,f,cls,kind,co])=>`<tr class="${cls==='sec'?'sec':cls==='h'?'h':''}${kind==='res'?' res':''}"><td class="${cls==='ind'?'ind':''}">${lab}</td>${cols.map((c,i)=>`<td>${i&&byProd&&co?'<span class="muted">–</span>':val(f(c[1],c),kind)}</td>${i===0?`<td>${pctDT(f(T,c),kind)}</td>`:''}`).join('')}</tr>`).join('');
   const oldSql=KP.old?`<span class="pill p-bad">Chưa tách cước theo trạng thái đơn ${tipT('Dòng 1a, 1b chưa tách được cước theo đơn thành công / hoàn: cần chạy file SQL 20261027000000_pl_detail.sql trên Supabase.')}</span>`:'';
-  const missing=T.miss?`<span class="pill p-warn">${N(T.miss)} đơn chưa có giá vốn ${tipT('Đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0. Sửa ở Quản trị → Giá vốn.')}</span><a class="btn ghost sm" href="admin.html#giavon">Mở Giá vốn</a>`:'';
+  const missing=T.miss?`<span class="pill p-warn">${N(T.miss)} đơn chưa có giá vốn ${tipT('Đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0. Sửa ở Quản trị → Giá vốn.')}</span>${Auth.ADMIN_TABS.giavon.includes(ME.role)?'<a class="btn ghost sm" href="admin.html#giavon">Mở Giá vốn</a>':''}`:'';
   const noAds=T.sent&&!T.usd?`<span class="pill p-warn">Chưa có chi phí quảng cáo ${tipT('Kỳ này chưa ai nhập chi phí ads (màn Chi phí ads), nên dòng 6 đang bằng 0.')}</span>`:'';
   const o=KP.other||{};
   const otherCard=`<form class="card" id="plForm" novalidate><div class="cardhead"><div><h2>Chi phí ngoài đơn hàng · tháng ${fmtM(KP.month)}</h2><p class="hint">Số cả tháng (đồng). Báo cáo lấy theo số ngày của khoảng đang xem${ms<1?` (${P(ms,0)} tháng)`:''} và chia cho từng ${multiProj?'dự án':'team'} theo doanh thu.${CAN_KSET?'':' Chỉ admin và kế toán sửa được.'}</p></div></div>
@@ -1132,7 +1132,7 @@ let UNMAPPED=null;
 function alerts(){
   const out=[];
   if(SEE_COST){const miss=new Set();(PRODS?PRODS.rows:[]).forEach(r=>{if(r.unit==null&&r.g!=='cancel')miss.add(r.code)});
-    if(miss.size)out.push(['warn','Sản phẩm chưa có giá vốn',`${miss.size} sản phẩm đang bán chưa có dữ liệu nhập hàng: ${[...miss].slice(0,5).join(', ')}${miss.size>5?'…':''}`,'<a href="admin.html#giavon">Tải giá vốn</a>'])}
+    if(miss.size)out.push(['warn','Sản phẩm chưa có giá vốn',`${miss.size} sản phẩm đang bán chưa có dữ liệu nhập hàng: ${[...miss].slice(0,5).join(', ')}${miss.size>5?'…':''}`,Auth.ADMIN_TABS.giavon.includes(ME.role)?'<a href="admin.html#giavon">Tải giá vốn</a>':'Báo kế toán'])}
   SHOPS.filter(s=>s.active!==false&&s.last_sync_status==='error').forEach(s=>out.push(['bad','Shop đồng bộ lỗi',`${s.name}: ${s.last_sync_error||''}`,ME.role==='admin'?'<a href="admin.html#pos">Xem</a>':'Báo admin']));
   if(UNMAPPED){const mk=UNMAPPED.filter(u=>u.kind==='marketer'),src=UNMAPPED.filter(u=>u.kind==='source');
     if(mk.length)out.push(['warn','Marketer chưa khai báo',`${mk.length} tên marketer (${N(mk.reduce((s,u)=>s+ +u.orders,0))} đơn) chưa thuộc team nào: ${mk.slice(0,4).map(u=>u.value).join(', ')}${mk.length>4?'…':''}`,'<a href="admin.html#chuakhaibao">Khai báo</a>']);
