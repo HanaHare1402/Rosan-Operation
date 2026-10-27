@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261027j">
+<link rel="stylesheet" href="css/app.css?v=20261027l">
 </head>
 <body>
 
@@ -17,12 +17,11 @@
     <div class="stickhead">
     <header class="page-h">
       <div><h1 id="title">Tổng quan</h1><p class="sub" id="subtitle"></p></div>
-      <div class="page-actions"><div class="fresh" id="fresh" role="status"></div></div>
+      <div class="page-actions">
+        <div class="toolbar" id="toolbar"><div class="row" id="filters"></div><div class="row" id="filters2" hidden></div></div>
+        <div class="fresh" id="fresh" role="status"></div>
+      </div>
     </header>
-    <div class="toolbar" id="toolbar">
-      <div class="row" id="filters"></div>
-      <div class="row" id="filters2"></div>
-    </div>
     </div>
     <section id="view"></section>
   </main>
@@ -31,9 +30,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261027j"></script>
-<script src="js/settings-db.js?v=20261027j"></script>
-<script src="js/shell.js?v=20261027j"></script>
+<script src="js/auth.js?v=20261027l"></script>
+<script src="js/settings-db.js?v=20261027l"></script>
+<script src="js/shell.js?v=20261027l"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -123,19 +122,19 @@ function scopeLabel(){
 }
 const isDefault=()=>!F.proj&&!F.mkt&&F.ch==='all'&&F.range===(ME.scope==='self'?'today':'month');
 function renderFilters(){
-  // Mọi bộ lọc là ô chọn thả xuống trên một hàng, cho màn đỡ rối mắt.
-  const sel=(id,label,opts,cur)=>`<label class="fsel"><span class="flabel">${label}</span><select id="${id}">${opts.map(([v,t])=>`<option value="${esc(v)}" ${String(cur)===String(v)?'selected':''}>${esc(t)}</option>`).join('')}</select></label>`;
+  // Bộ lọc gọn kiểu POS: ô chọn không kèm nhãn chữ (nhãn ở title / aria-label), nút biểu tượng cho so sánh và xoá lọc.
+  const sel=(id,label,opts,cur)=>`<select id="${id}" class="fs" aria-label="${label}" title="${label}">${opts.map(([v,t])=>`<option value="${esc(v)}" ${String(cur)===String(v)?'selected':''}>${esc(t)}</option>`).join('')}</select>`;
   // KPI R&D gộp đơn mọi dự án của sản phẩm: bỏ chọn dự án cho khỏi hiểu nhầm. KPI không lọc kênh / thị trường như file gốc.
   const rd=view==='kpi'&&kMode==='rd';
-  const pSel=projOpts.length?(rd?'':sel('fProj','Dự án',[['',ME.scope==='all'?'Tất cả dự án':'Tất cả dự án của tôi'],...projOpts.map(p=>[p.id,p.name])],F.proj)):`<span class="pill p-info">${scopeLabel()}</span>`;
+  const pSel=projOpts.length?(rd?'':sel('fProj','Dự án',[['',ME.scope==='all'?'Tất cả dự án':'Dự án của tôi'],...projOpts.map(p=>[p.id,p.name])],F.proj)):`<span class="pill p-info">${scopeLabel()}</span>`;
   const mSel=CAT.markets.length>1&&view!=='kpi'?sel('fMkt','Thị trường',[['','Mọi thị trường'],...CAT.markets.map(m=>[m.id,m.name])],F.mkt):'';
   const cSel=CAT.channels.length&&view!=='kpi'&&view!=='canhbao'?sel('fCh','Kênh',[['all','Mọi kênh'],...CAT.channels.map(c=>[c.id,c.name])],F.ch):'';
   const rSel=sel('fRange','Thời gian',Object.entries(RANGES),F.range);
-  const custom=F.range==='custom'?`<span class="drange"><input type="date" id="fFrom" value="${esc(F.from)}" aria-label="Từ ngày"> → <input type="date" id="fTo" value="${esc(F.to)}" aria-label="Đến ngày"></span>`:'';
-  const cmp=`<label class="toggle" title="Hiện mức tăng / giảm so với ${cmpLabel()}"><input type="checkbox" id="fCmp" ${F.cmp?'checked':''}> So với ${cmpLabel()}</label>`;
-  $('#filters').innerHTML=pSel+mSel+cSel+rSel+custom+'<span class="grow"></span>'+cmp+(isDefault()?'':'<button class="lnk" type="button" id="fReset">Xoá bộ lọc</button>');
+  const custom=F.range==='custom'?`<span class="drange"><input type="date" id="fFrom" value="${esc(F.from)}" aria-label="Từ ngày" title="Từ ngày"><span aria-hidden="true">–</span><input type="date" id="fTo" value="${esc(F.to)}" aria-label="Đến ngày" title="Đến ngày"></span>`:'';
+  const cmp=`<button type="button" class="ibtn ${F.cmp?'on':''}" id="fCmpBtn" aria-pressed="${F.cmp}" aria-label="So với ${cmpLabel()}" title="${F.cmp?'Đang so với':'Bấm để so với'} ${cmpLabel()}">${Shell.icon('compare')}</button>`;
+  const reset=isDefault()?'':`<button type="button" class="ibtn" id="fReset" aria-label="Xoá bộ lọc" title="Xoá bộ lọc">${Shell.icon('x')}</button>`;
+  $('#filters').innerHTML=pSel+mSel+cSel+rSel+custom+cmp+reset;
   $('#toolbar').hidden=view==='caidat'||view==='chiphi';
-  $('#filters2').hidden=true;
 }
 
 // ---------- dữ liệu ----------
@@ -194,6 +193,8 @@ const DEF={
   neu:'Đơn mới, đã xác nhận, đang đóng gói… chưa gửi đi.',
   target:'Target doanh số tháng của các team (khai báo ở Quản trị → Danh mục → Team).',
 };
+// Nút (?) với chữ giải thích tuỳ ý.
+const tipT=t=>`<span class="tip" tabindex="0" role="note" aria-label="${esc(t)}" data-tip="${esc(t)}">?</span>`;
 const tip=k=>`<span class="tip" tabindex="0" role="note" aria-label="${esc(DEF[k]||k)}" data-tip="${esc(DEF[k]||k)}">?</span>`;
 // Mức thay đổi so với kỳ trước: mũi tên + chữ + màu theo hướng tốt / xấu của chỉ số.
 function delta(cur,prev,o={}){
@@ -264,7 +265,7 @@ function targetBlock(list,target){
   const a=tot(list),t=new Date(),dim=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();
   const elapsed=Math.min(1,(t.getDate()-1+t.getHours()/24)/dim),done=a.rev/target,proj=elapsed>0?a.rev/elapsed:0,pr=proj/target;
   const st=pr>=1?['p-good','Đúng tiến độ']:pr>=.85?['p-warn','Hơi chậm']:['p-bad','Chậm tiến độ'];
-  return `<div class="card target"><div class="cardhead"><div><h2>Tiến độ target tháng ${tip('target')}</h2><p class="hint">Đã đạt <b>${M(a.rev)}</b> / ${M(target)} · đã qua ${P(elapsed,0)} thời gian của tháng</p></div><span class="pill ${st[0]}">${st[1]}</span></div>
+  return `<div class="card target"><div class="cardhead"><div><h2>Tiến độ target tháng ${tip('target')}</h2><p class="hint keep">Đã đạt <b>${M(a.rev)}</b> / ${M(target)} · đã qua ${P(elapsed,0)} thời gian của tháng</p></div><span class="pill ${st[0]}">${st[1]}</span></div>
     <div class="tbar" role="img" aria-label="Đạt ${P(done)} target, đã qua ${P(elapsed,0)} tháng"><i style="width:${Math.min(100,done*100).toFixed(1)}%"></i><b style="left:${(elapsed*100).toFixed(1)}%" title="Hôm nay"></b></div>
     <div class="tlegend"><span><b>${P(done)}</b> target đã đạt</span><span>Dự kiến cuối tháng: <b>${M(proj)}</b> (${P(pr,0)} target)</span></div></div>`;
 }
@@ -333,8 +334,9 @@ function skeleton(){
   return `<div class="kpis kpis4">${k.repeat(4)}</div><div class="grid2"><div class="card"><div class="skel" style="height:14px;width:40%"></div><div class="skel" style="height:220px;margin-top:16px"></div></div><div class="card"><div class="skel" style="height:14px;width:50%"></div>${'<div class="skel" style="height:12px;margin-top:16px"></div>'.repeat(5)}</div></div>`;
 }
 // Xem một ngày thì không có xu hướng để vẽ: bỏ hẳn khung biểu đồ.
+const chartW=wide=>{const v=$('#view'),w=v?v.clientWidth:1100;return Math.max(560,Math.round(wide?w-40:(w-16)*1.6/2.6-40))};
 const chartCard=(title,list,prevList,wide)=>days().length<2?'':`<div class="card"><div class="cardhead"><div><h2>${title}</h2><p class="hint">Cột: kỳ này${F.cmp?' · nét đứt: '+cmpLabel():''}. Rê chuột / chạm vào cột để xem số.</p></div>
-  <div class="seg" role="group" aria-label="Chỉ số biểu đồ">${Object.entries(METRICS).map(([k,[l]])=>`<button type="button" data-metric="${k}" class="${chartMetric===k?'on':''}" aria-pressed="${chartMetric===k}">${l}</button>`).join('')}</div></div>${trendChart(list,prevList,240,wide?1080:720)}</div>`;
+  <div class="seg" role="group" aria-label="Chỉ số biểu đồ">${Object.entries(METRICS).map(([k,[l]])=>`<button type="button" data-metric="${k}" class="${chartMetric===k?'on':''}" aria-pressed="${chartMetric===k}">${l}</button>`).join('')}</div></div>${trendChart(list,prevList,240,chartW(wide))}</div>`;
 
 // ---------- màn hình ----------
 const V={};
@@ -587,7 +589,7 @@ function kWarn(a){
   if(a.sent>0&&!a.usd)out.push(['warn','Chưa có chi phí quảng cáo','Kỳ này chưa ai nhập chi phí ads, nên lợi nhuận gộp đang chưa trừ quảng cáo.',ALLOWED.includes('chiphi')?'<button class="btn ghost sm" data-go="chiphi:">Nhập chi phí ads</button>':'']);
   if(a.miss&&SEE_COST)out.push(['warn','Đơn chưa có giá vốn',`${N(a.miss)} đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0.`,SEE_COST?'<a class="btn ghost sm" href="admin.html#giavon">Mở Giá vốn</a>':'']);
   if(monthStart(f).getTime()!==monthStart(addD(t,-1)).getTime())out.push(['info','Kỳ dài hơn 1 tháng',`Phí và tỷ giá dùng thông số tháng ${fmtM(K.month)}. Xem từng tháng để khớp bảng lương.`,'']);
-  return out.length?`<div class="alerts" style="margin-bottom:16px">${out.map(x=>`<div class="alert"><span class="stripe s-${x[0]}"></span><div><div class="t">${esc(x[1])}</div><div class="m">${esc(x[2])}</div></div><span>${x[3]}</span></div>`).join('')}</div>`:'';
+  return out.length?`<div class="warnrow">${out.map(x=>`<span class="pill ${x[0]==='info'?'p-info':'p-warn'}">${esc(x[1])} ${tipT(x[2])}</span>${x[3]||''}`).join('')}</div>`:'';
 }
 function kSettingsCard(){
   const s=K.set||KDEF,from=s.from&&s.from!==K.month?` (đang dùng của tháng ${fmtM(s.from)})`:s.from?'':' (mặc định theo file KPI)';
@@ -644,7 +646,7 @@ function kPL(a,s){
   // Cột "Cách tính" (tỷ lệ phí, cước, tỷ giá) chỉ admin và kế toán thấy.
   const how=CAN_KSET&&kShowHow;
   const line=(lab,v,note,cls='')=>{if(!how)note='';return `<tr class="${cls}"><td class="${cls?'':'ind'}">${lab}${note?`<div class="sub2 kpl-n">${note}</div>`:''}</td><td class="${cls.includes('sec')&&v<0?'neg':''}">${M(v)}</td><td class="muted">${pctOf(v,a.sent)}</td>${how?`<td class="l muted kpl-c" style="white-space:normal">${note||''}</td>`:''}</tr>`};
-  return `${CAN_KSET?`<div style="margin:-4px 0 10px"><label class="toggle"><input type="checkbox" data-kshow ${how?'checked':''}> Hiện cách tính (chỉ admin, kế toán thấy nút này)</label></div>`:''}<div class="tw"><table class="kpl"><thead><tr><th class="l">Khoản</th><th>Số tiền (đồng)</th><th>% gửi đi</th>${how?'<th class="l kpl-c">Cách tính</th>':''}</tr></thead><tbody>
+  return `${CAN_KSET?`<div style="margin:-4px 0 10px"><label class="toggle"><input type="checkbox" data-kshow ${how?'checked':''}> Hiện cách tính</label></div>`:''}<div class="tw"><table class="kpl"><thead><tr><th class="l">Khoản</th><th>Số tiền (đồng)</th><th>% gửi đi</th>${how?'<th class="l kpl-c">Cách tính</th>':''}</tr></thead><tbody>
     ${line('Doanh số gửi đi',a.sent,`${N(a.n)} đơn tạo trong kỳ, bỏ đơn huỷ`,'h')}
     ${line('Hoàn',a.ret,'Đơn đang hoàn / đã hoàn')}${line('Đang xử lý',a.proc,'Chưa gửi hoặc đang giao, chưa có kết quả')}
     ${line('Doanh số thành công',a.ok,'Đơn khách đã nhận hàng','sec')}
@@ -664,7 +666,7 @@ V.kpi=()=>{
   if(key!==K.key){K.key=key;K.loading=true;loadKpi(key)}
   const modeLabel=kMode==='rd'?'R&D':'Nhân viên ADS';
   const head=`<div class="tools"><div class="seg" role="group" aria-label="Loại KPI">${[['ads','Nhân viên ADS'],['rd','R&D']].map(([k,l])=>`<button type="button" data-kmode="${k}" class="${kMode===k?'on':''}" aria-pressed="${kMode===k}">${l}</button>`).join('')}</div>
-    <span class="muted" style="font-size:12.5px">${kMode==='rd'?'Tính trên mọi đơn của sản phẩm người R&D phụ trách.':'Tính trên đơn của từng marketer.'}</span><span class="grow"></span>
+    ${tipT(kMode==='rd'?'Tính trên mọi đơn của sản phẩm người R&D phụ trách.':'Tính trên đơn của từng marketer.')}<span class="grow"></span>
     ${CAN_KSET?`<button class="btn ghost sm" type="button" id="kSetBtn" aria-expanded="${kSetOpen}">${Shell.icon('settings',' style="width:14px;height:14px"')} Thông số tính</button>`:''}</div>${kSetOpen&&K.set?kSettingsCard():''}`;
   if(K.err)return head+`<div class="card">${Shell.empty('alert','Không tải được KPI',esc(K.err)+'<br>Kiểm tra đã chạy file SQL 20261026000000_kpi.sql trên Supabase chưa.')}</div>`;
   if(K.loading&&!K.rows.length)return head+skeleton();
@@ -682,9 +684,9 @@ V.kpi=()=>{
     const first={k:'name',label:kMode==='rd'?'Người R&D':'Nhân sự',l:1,fmt:r=>kWhoName(r.k)+(r.k!=='~'&&byId(CAT.staff,r.k)?`<div class="sub2">${esc(teamName(byId(CAT.staff,r.k).team_id))}</div>`:''),val:r=>r.k==='~'?'':staffName(r.k)};
     const foot=kFoot(T);
     return head+kCards(T,PT)+kWarn(T)+
-    `<div class="card"><div class="cardhead"><div><h2>KPI ${modeLabel} · ${esc(rangeLabel())}</h2><p class="hint">Bấm vào tên để xem bảng tính chi tiết và từng sản phẩm. Bấm tiêu đề cột để sắp xếp. “Xuất Excel” có đủ các khoản như file KPI.</p></div><div class="page-actions">${kViewSeg()}${exportBtn('tKpi')}</div></div>
+    `<div class="card blk blk-b"><div class="cardhead"><div><h2>KPI ${modeLabel} · ${esc(rangeLabel())}</h2><p class="hint">Bấm vào tên để xem bảng tính chi tiết và từng sản phẩm. Bấm tiêu đề cột để sắp xếp. “Xuất Excel” có đủ các khoản như file KPI.</p></div><div class="page-actions">${kViewSeg()}${exportBtn('tKpi')}</div></div>
     ${dataTable('tKpi',kCols(first,F.cmp?prevMap:null),people,{name:'KPI '+modeLabel,sortKey:'lng',click:r=>r.k==='~'?'':'kpi:'+r.k,foot,xcols:KX})}</div>
-    <div class="card pl"><h2>Bảng tính tổng</h2><p class="hint">Cộng tất cả ${kMode==='rd'?'người R&D':'nhân sự'} trong phạm vi đang xem.</p>${kPL(T,s)}</div>`;
+    <div class="card pl blk blk-a"><h2>Bảng tính tổng</h2><p class="hint">Cộng tất cả ${kMode==='rd'?'người R&D':'nhân sự'} trong phạm vi đang xem.</p>${kPL(T,s)}</div>`;
   }
   const me1=people.find(p=>p.k===who),pv=prevMap.get(who)||null,rows=K.rows.filter(r=>r.who===who);
   const prods=kSum(rows,r=>r.pk).map(a=>kCalc(a,s));
@@ -701,8 +703,8 @@ V.kpi=()=>{
   const nm=who==='~'?(kMode==='rd'?'Chưa gán R&D':'Chưa gán nhân sự'):staffName(who);
   return (solo?'':crumbs([['KPI · '+modeLabel,'kpi:'],[nm,'']]))+head+`<div class="tools">${sel}<span class="muted">${who!=='~'&&byId(CAT.staff,who)?esc(teamName(byId(CAT.staff,who).team_id)):''}</span></div>`+
   kCards(me1,F.cmp?pv:null)+kWarn(me1)+
-  `<div class="card pl"><h2>Bảng tính lợi nhuận gộp</h2><p class="hint">${esc(nm)} · ${esc(rangeLabel())}</p>${kPL(me1,s)}</div>
-  <div class="card"><div class="cardhead"><div><h2>Từng sản phẩm · ${N(prods.filter(p=>p.n||p.usd).length)} có đơn / chi phí${kAllProds?` · ${N(prods.length)} sản phẩm`:''}</h2><p class="hint">Mỗi đơn tính cho sản phẩm chính của đơn (dòng hàng giá trị lớn nhất, không tính hàng tặng).${KCAT.loading?' Đang tải danh sách sản phẩm…':''}</p></div><div class="page-actions"><label class="toggle"><input type="checkbox" id="kAllProds" ${kAllProds?'checked':''}> Hiện tất cả sản phẩm</label>${kViewSeg()}${exportBtn('tKpiP')}</div></div>
+  `<div class="card pl blk blk-a"><h2><span class="bno">1</span>Bảng tính lợi nhuận gộp</h2><p class="hint keep">${esc(nm)} · ${esc(rangeLabel())}</p>${kPL(me1,s)}</div>
+  <div class="card blk blk-b"><div class="cardhead"><div><h2><span class="bno">2</span>Từng sản phẩm · ${N(prods.filter(p=>p.n||p.usd).length)} có đơn / chi phí${kAllProds?` · ${N(prods.length)} sản phẩm`:''}</h2><p class="hint">Mỗi đơn tính cho sản phẩm chính của đơn (dòng hàng giá trị lớn nhất, không tính hàng tặng).${KCAT.loading?' Đang tải danh sách sản phẩm…':''}</p></div><div class="page-actions"><label class="toggle"><input type="checkbox" id="kAllProds" ${kAllProds?'checked':''}> Hiện tất cả sản phẩm</label>${kViewSeg()}${exportBtn('tKpiP')}</div></div>
     ${dataTable('tKpiP',kCols(first,F.cmp?pprev:null),prods,{name:'KPI '+nm,sortKey:'sent',foot,xcols:[{label:'Nhóm',val:r=>r.grp||''}].concat(KX)})}</div>`;
 };
 
@@ -902,16 +904,16 @@ V.kqkd=()=>{
   // Cột "Tỷ lệ": so với doanh số gửi đi (như form gốc); khoản chi từ 10% trở lên có nhãn cảnh báo.
   const pctDT=(v,kind)=>{if(kind==='pct'||kind==='n'||kind==='unit'||!T.sent)return '';const x=v/T.sent;if(!isFinite(x)||!v)return '<span class="muted">–</span>';return kind==='cost'&&x>=.1?`<span class="pill p-warn" title="Khoản chi lớn: từ 10% doanh số gửi đi">${P(x)}</span>`:`<span class="${x<0?'neg':'muted'}">${P(x)}</span>`};
   const body=L.map(([lab,f,cls,kind,co])=>`<tr class="${cls==='sec'?'sec':cls==='h'?'h':''}${kind==='res'?' res':''}"><td class="${cls==='ind'?'ind':''}">${lab}</td>${cols.map((c,i)=>`<td>${i&&byProd&&co?'<span class="muted">–</span>':val(f(c[1],c),kind)}</td>${i===0?`<td>${pctDT(f(T,c),kind)}</td>`:''}`).join('')}</tr>`).join('');
-  const oldSql=KP.old?`<div class="msg neg">Dòng 1a, 1b chưa tách được cước theo đơn thành công / hoàn: cần chạy file SQL 20261027000000_pl_detail.sql trên Supabase.</div>`:'';
-  const missing=T.miss?`<div class="msg neg">${N(T.miss)} đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0. <a href="admin.html#giavon">Mở Giá vốn</a></div>`:'';
-  const noAds=T.sent&&!T.usd?`<div class="msg muted">Kỳ này chưa có chi phí quảng cáo nào được nhập (màn Chi phí ads), nên dòng 6 đang bằng 0.</div>`:'';
+  const oldSql=KP.old?`<span class="pill p-bad">Chưa tách cước theo trạng thái đơn ${tipT('Dòng 1a, 1b chưa tách được cước theo đơn thành công / hoàn: cần chạy file SQL 20261027000000_pl_detail.sql trên Supabase.')}</span>`:'';
+  const missing=T.miss?`<span class="pill p-warn">${N(T.miss)} đơn chưa có giá vốn ${tipT('Đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0. Sửa ở Quản trị → Giá vốn.')}</span><a class="btn ghost sm" href="admin.html#giavon">Mở Giá vốn</a>`:'';
+  const noAds=T.sent&&!T.usd?`<span class="pill p-warn">Chưa có chi phí quảng cáo ${tipT('Kỳ này chưa ai nhập chi phí ads (màn Chi phí ads), nên dòng 6 đang bằng 0.')}</span>`:'';
   const o=KP.other||{};
   const otherCard=`<form class="card" id="plForm" novalidate><div class="cardhead"><div><h2>Chi phí ngoài đơn hàng · tháng ${fmtM(KP.month)}</h2><p class="hint">Số cả tháng (đồng). Báo cáo lấy theo số ngày của khoảng đang xem${ms<1?` (${P(ms,0)} tháng)`:''} và chia cho từng ${multiProj?'dự án':'team'} theo doanh thu.${CAN_KSET?'':' Chỉ admin và kế toán sửa được.'}</p></div></div>
     <div class="form">${PL_ITEMS.map(([k,l])=>`<label for="pl_${k}">${l.replace(/^[a-c]\. /,'')}<input id="pl_${k}" type="number" step="1" min="0" value="${o[k]?Math.round(o[k]):''}" placeholder="0" ${CAN_KSET?'':'disabled'}></label>`).join('')}</div>
     ${CAN_KSET?`<div class="formrow"><button class="btn" type="submit">Lưu cho tháng ${fmtM(KP.month)}</button><span class="fmsg" id="plMsg"></span></div>`:''}</form>`;
   const modeSeg=`<div class="seg" role="group" aria-label="Cột của báo cáo">${[['team',multiProj?'Theo dự án':'Theo team'],['prod','Theo sản phẩm']].map(([k,l])=>`<button type="button" data-kqmode="${k}" class="${kqMode===k?'on':''}" aria-pressed="${kqMode===k}">${l}</button>`).join('')}</div>`;
   return `<div class="card pl"><div class="cardhead"><div><h2>Báo cáo kết quả kinh doanh · ${esc(rangeLabel())}</h2></div><div class="page-actions">${modeSeg}${exportBtn('tPL')}</div></div>
-    ${oldSql}${missing}${noAds}
+    ${oldSql||missing||noAds?`<div class="warnrow">${oldSql}${missing}${noAds}</div>`:''}
     ${(()=>{const mw=240+130+84+(cols.length-1)*124,cg=`<colgroup><col style="width:240px"><col style="width:130px"><col style="width:84px">${cols.slice(1).map(()=>'<col style="width:124px">').join('')}</colgroup>`;
       // Hàng tiêu đề là bảng riêng, cố định dưới bộ lọc (sticky thật, không giật); kéo ngang thân bảng thì tiêu đề kéo theo.
       return `<div class="fh"><table id="tPLh" class="pltab" style="min-width:${mw}px">${cg}<thead><tr><th class="l">Chỉ tiêu (đồng)</th>${cols.map((c,i)=>`<th title="${esc(c[0])}"><span class="pn">${esc(c[0])}</span></th>${i===0?'<th>Tỷ lệ</th>':''}`).join('')}</tr></thead></table></div>
@@ -1016,7 +1018,7 @@ V.chiphi=()=>{
     const dayBy=new Map();AD.rows.filter(r=>r.day===adDay).forEach(r=>dayBy.set(r.staff_id,(dayBy.get(r.staff_id)||0)+ +r.usd));
     const st=list.map(s=>({s,v:dayBy.get(s.id)})).sort((a,b)=>(a.v!=null)-(b.v!=null)||a.s.name.localeCompare(b.s.name,'vi'));
     const n=st.filter(x=>x.v!=null).length;
-    side=`<div class="card"><div class="cardhead"><div><h2>Ai đã nhập ngày ${fmtD(d)}</h2><p class="hint">${n}/${list.length} người đã nhập. Bấm tên để mở chi phí của người đó.</p></div></div>
+    side=`<div class="card"><div class="cardhead"><div><h2>Ai đã nhập ngày ${fmtD(d)}</h2><p class="hint keep">${n}/${list.length} người đã nhập</p></div></div>
       <div class="adwho">${st.map(x=>`<button type="button" class="${x.s.id===adStaff?'on':''}" data-adwho="${esc(x.s.id)}"><span>${esc(x.s.name)}<span class="sub2">${esc(teamName(x.s.team_id))}</span></span>${x.v!=null?`<span class="pill p-good">✓ ${U(x.v)} $</span>`:'<span class="pill p-warn">Chưa nhập</span>'}</button>`).join('')}</div></div>`;
   }else{
     const byP=new Map();mineRows.forEach(r=>{const o=byP.get(r.product_key)||{n:r.product_name,v:0};o.v+= +r.usd;byP.set(r.product_key,o)});
@@ -1034,7 +1036,7 @@ V.chiphi=()=>{
     <span class="grow"></span>${CAN_IMPORT_ADS?`<button class="btn ghost sm" type="button" id="adImpBtn" aria-expanded="${adImpOpen}">Tải file Excel</button>`:''}</div>`:''}
   ${adImpOpen?adImportCard():''}
   <div class="grid2"><div>${form}</div><div class="adside">${calCard}${side}</div></div>
-  <div class="card"><div class="cardhead"><div><h2>Đã nhập trong tháng ${fmtM(key)}</h2><p class="hint">${N(tblRows.length)} dòng · ${U(sumT)} USD ≈ ${M(sumT*AD.usd)}. Bấm một dòng để mở ngày đó ở khung nhập.</p></div>
+  <div class="card"><div class="cardhead"><div><h2>Đã nhập trong tháng ${fmtM(key)}</h2><p class="hint keep">${N(tblRows.length)} dòng · ${U(sumT)} USD ≈ ${M(sumT*AD.usd)}. </p></div>
     <div class="page-actions">${multi?`<div class="seg" role="group" aria-label="Phạm vi bảng"><button type="button" data-adtbl="0" class="${adTblAll?'':'on'}" aria-pressed="${!adTblAll}">${esc(staffName(adStaff))}</button><button type="button" data-adtbl="1" class="${adTblAll?'on':''}" aria-pressed="${adTblAll}">Cả ${list.length} người</button></div>`:''}${exportBtn('tAds')}</div></div>
   ${AD.loading&&!AD.rows.length?'<div class="skel" style="height:12px"></div>':dataTable('tAds',cols,tblRows,{name:'Chi phí ads',sortKey:'day',click:r=>'chiphi:'+r.day+'|'+r.staff_id})}</div>`;
 };
@@ -1128,7 +1130,7 @@ let db=null,dbState='loading',dbErr='',editFfm=null,delArm=null,formMsg={ffm:''}
 const canFfm=['admin','quan_ly','ke_toan'].includes(ME.role);
 V.caidat=()=>{
   const ef=editFfm?FFMS.find(f=>f.id===editFfm):null;
-  return `<div class="card"><h2>Tài khoản của cậu</h2><p class="hint">Vai trò <b>${esc(Auth.ROLES[ME.role])}</b> · phạm vi xem <b>${esc(Auth.SCOPES[ME.scope||'self'])}</b>${ME.scope==='project'?': '+esc((ME.project_ids||[]).map(projName).join(', ')):ME.scope==='team'?': '+esc(teamName(ME.team_id)):ME.scope==='self'?': '+esc(staffName(ME.staff_id)):''}.
+  return `<div class="card"><h2>Tài khoản của cậu</h2><p class="hint keep">Vai trò <b>${esc(Auth.ROLES[ME.role])}</b> · phạm vi xem <b>${esc(Auth.SCOPES[ME.scope||'self'])}</b>${ME.scope==='project'?': '+esc((ME.project_ids||[]).map(projName).join(', ')):ME.scope==='team'?': '+esc(teamName(ME.team_id)):ME.scope==='self'?': '+esc(staffName(ME.staff_id)):''}.
   ${ME.role==='admin'||ME.role==='quan_ly'?' Dự án, team, thị trường, kênh, nhân sự, shop POS quản lý ở <a href="admin.html">Quản trị</a>.':''}</p></div>
   <div class="card"><div class="cardhead"><div><h2>Đơn vị FFM</h2><p class="hint">Phí dịch vụ và cước dùng cho ô đối soát file ở màn KQKD.</p></div>${dbState==='ok'?'<span class="pill p-good">Đã lưu chung</span>':dbState==='loading'?'<span class="pill p-mute">Đang tải…</span>':'<span class="pill p-warn">Chưa lưu được</span>'}</div>
   <div class="tw"><table><thead><tr><th class="l">Đơn vị</th><th class="l">Kho trên POS</th><th>Phí dịch vụ (% COD)</th><th>Cước / đơn gửi (₱)</th><th class="l">Ghi chú</th><th></th></tr></thead><tbody>
@@ -1186,7 +1188,8 @@ document.addEventListener('click',e=>{
   const mt=e.target.closest('[data-metric]');if(mt){chartMetric=mt.dataset.metric;store.set('cmetric',chartMetric);render();return}
   const srt=e.target.closest('[data-sortt]');if(srt&&!e.target.closest('.tip')){const [id,k]=srt.dataset.sortt.split(':');const st=SORT[id]||(SORT[id]={k,dir:-1});if(st.k===k)st.dir*=-1;else{st.k=k;st.dir=k==='name'?1:-1}render();return}
   const ex=e.target.closest('[data-export]');if(ex){exportTable(ex.dataset.export);return}
-  if(e.target.id==='fReset'){Object.assign(F,{proj:'',mkt:'',ch:'all'});['proj','mkt'].forEach(k=>store.set(k,''));store.set('ch2','all');setF('range',ME.scope==='self'?'today':'month');return}
+  if(e.target.closest('#fCmpBtn')){setF('cmp',!F.cmp);return}
+  if(e.target.closest('#fReset')){Object.assign(F,{proj:'',mkt:'',ch:'all'});['proj','mkt'].forEach(k=>store.set(k,''));store.set('ch2','all');setF('range',ME.scope==='self'?'today':'month');return}
   const c=e.target.closest('[data-ch]');if(c){setF('ch',c.dataset.ch);return}
   const t=e.target.closest('[data-team]');if(t){curTeam=t.dataset.team;store.set('team',curTeam);render();return}
   const g=e.target.closest('[data-go]');if(g&&g.dataset.go){const i=g.dataset.go.indexOf(':');const v=g.dataset.go.slice(0,i),k=g.dataset.go.slice(i+1);if(v==='chiphi'&&k&&view==='chiphi'&&!adLeave())return;if(v==='team'){curTeam=k;store.set('team',k)}if(v==='nhansu'){curStaff=k;store.set('staff',k)}if(v==='kpi')kWho=k;if(v==='chiphi'&&k){const [d,st]=k.split('|');adDay=d;adStaff=st;adEdit=null}if(ALLOWED.includes(v))go(v);return}
@@ -1275,10 +1278,10 @@ function showFresh(){
   const el=$('#fresh');if(!el)return;
   el.className='fresh'+(freshErr?' err':'');
   el.title=freshErr?'Không cập nhật được: '+freshErr:'';
-  const txt=refreshing?'<span class="spin" aria-hidden="true"></span>Đang lấy số mới nhất…'
+  const txt=refreshing?'<span class="spin" aria-hidden="true"></span><span>Đang cập nhật…</span>'
     :freshErr?'<span class="dotlive"></span><span class="neg">Chưa cập nhật được từ POS</span>'
-    :freshAt?`<span class="dotlive"></span><span>Dữ liệu POS lúc <b>${hhmm(freshAt)}</b></span>`:'<span class="dotlive" style="background:var(--faint);box-shadow:none"></span><span>Chưa nối POS</span>';
-  el.innerHTML=txt+(refreshing?'':` <button class="lnk" id="refreshNow" title="Kéo đơn mới nhất từ POS">${Shell.icon('refresh',' style="width:13px;height:13px"')} Cập nhật</button>`);
+    :freshAt?`<span class="dotlive"></span><b title="Dữ liệu POS cập nhật lúc ${hhmm(freshAt)}">${hhmm(freshAt).slice(0,5)}</b>`:'<span class="dotlive" style="background:var(--faint);box-shadow:none"></span><span>Chưa nối POS</span>';
+  el.innerHTML=txt+(refreshing?'':`<button class="ibtn sm" id="refreshNow" aria-label="Cập nhật số mới nhất từ POS" title="Cập nhật số mới nhất từ POS">${Shell.icon('refresh')}</button>`);
 }
 async function refreshPOS(){
   if(refreshing)return;refreshing=true;showFresh();
