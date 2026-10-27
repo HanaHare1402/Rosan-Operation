@@ -398,7 +398,7 @@ V.nhansu=()=>{
   const prods=PRODS?PRODS.rows.filter(r=>r.staff===curStaff):null;
   const head=(ME.scope!=='self'&&ALLOWED.includes('tongquan')?crumbs([['Tổng quan','tongquan:'],...(s.team_id&&ALLOWED.includes('team')?[[teamName(s.team_id),'team:'+s.team_id]]:[]),[staffName(curStaff),'']]):'')+
     `<div class="tools">${ids.length>1?`<span class="flabel">Nhân sự</span><select id="staffSel">${opts}</select>`:`<b style="font-size:15px">${esc(staffName(curStaff))}</b>`}<span class="muted">${esc(teamName(s.team_id))} · ${[...new Set(list.map(r=>r.ch))].map(chTag).join(' ')}</span></div>`;
-  const sKey=JSON.stringify([curStaff,F.range,F.from,F.to]);if(sKey!==SD.key){SD.key=sKey;SD.loading=true;SD.rows=[];loadSD(sKey,curStaff)}
+  const sKey=JSON.stringify([curStaff,F.mkt,F.ch,F.range,F.from,F.to]);if(sKey!==SD.key){SD.key=sKey;SD.loading=true;SD.rows=[];loadSD(sKey,curStaff)}
   return head+kpiCards(list,plist,adsInfo(SD,SD.rows,[byId(CAT.teams,s.team_id)].filter(Boolean)))+
   `<div class="${days().length<2?'grid2 even':'grid2'}">${chartCard('Xu hướng theo ngày',list,plist)}
    <div class="card"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn.</p>${legend(list,r=>r.ch,chTag,chColor)}</div></div>
@@ -712,9 +712,16 @@ V.kpi=()=>{
 // Hàng: chi phí ads / doanh số / số đơn / % chi phí / chi phí mỗi đơn, tách theo nhóm sản phẩm. Cột: tổng kỳ và từng ngày.
 const TD={key:'',rows:[],usd:KDEF.usd_vnd,loading:false,err:''};
 const CONTEST={key:null,rows:null,month:''};
+// Bảng theo ngày lọc theo thị trường / kênh. Chưa chạy SQL 20261027010000_daily_filters.sql thì gọi bản cũ (không lọc) và báo.
+let DAILY_OLD=false;
+async function dailyRpc(fn,args,ord){
+  const run=a=>fetchAll(()=>ord.reduce((q,c)=>q.order(c),sbc.rpc(fn,a)));
+  if(!DAILY_OLD){const r=await run(Object.assign({p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch},args));if(!r.error||!/function|schema cache/i.test(r.error.message))return r;DAILY_OLD=true}
+  return run(args);
+}
 async function loadTD(key){
   const [from,to]=rangeDates();
-  const [r,s]=await Promise.all([fetchAll(()=>sbc.rpc('team_daily',{p_from:from.toISOString(),p_to:to.toISOString(),p_project:F.proj||null}).order('day').order('team_id').order('grp')),getKSet(isoD(monthStart(from)))]);
+  const [r,s]=await Promise.all([dailyRpc('team_daily',{p_from:from.toISOString(),p_to:to.toISOString(),p_project:F.proj||null},['day','team_id','grp']),getKSet(isoD(monthStart(from)))]);
   if(key!==TD.key)return;
   TD.loading=false;TD.usd=s.usd_vnd;
   if(r.error){TD.err=r.error.message;TD.rows=[]}else{TD.err='';TD.rows=r.data.map(x=>({day:x.day,team:x.team_id||'',grp:x.grp,n:+x.orders,rev:+x.revenue,usd:+x.ad_usd}))}
@@ -734,7 +741,7 @@ function adsInfo(src,rows,teams){
   const caps=[...new Set((teams||[]).map(t=>+t.ads_pct_max||0).filter(Boolean))];
   return {cost,rev,cap:caps.length===1?caps[0]:0};
 }
-function ensureTD(){const key=JSON.stringify([F.proj,F.range,F.from,F.to]);if(key!==TD.key){TD.key=key;TD.loading=true;TD.rows=[];loadTD(key)}}
+function ensureTD(){const key=JSON.stringify([F.proj,F.mkt,F.ch,F.range,F.from,F.to]);if(key!==TD.key){TD.key=key;TD.loading=true;TD.rows=[];loadTD(key)}}
 const WD=['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
 const GNAME=g=>g?'Nhóm '+g+' ('+{1:'khó đẩy',2:'chưa đẩy mạnh',3:'dễ đẩy'}[g]+')':'Chưa xếp nhóm';
 function dailyCard(teamId){
@@ -789,9 +796,10 @@ function dailyBody(rows,rate,o){
   if(o.targets===false)cells.push(['Chi phí / đơn',T.n?N(T.usd*rate/T.n):'–','']);
   const strip=tgt||g2||cap||o.targets===false?`<div class="statstrip" style="margin:4px 0 14px">${cells.slice(0,4).map(([l,v,sub])=>`<div><span class="l">${l}</span><b>${v}</b><span class="muted">${sub}</span></div>`).join('')}</div>`:'';
   const canTgt=['admin','quan_ly'].includes(ME.role);
-  const dtipTxt=`Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn. Bảng này không lọc theo kênh.${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}`.replace(/<[^>]+>/g,'');
+  const dtipTxt=`Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn.${DAILY_OLD?' Bảng này chưa lọc theo kênh / thị trường.':' Doanh số, số đơn theo thị trường và kênh đang lọc; chi phí ads chưa tách theo kênh nên luôn là toàn bộ chi phí.'}${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}`.replace(/<[^>]+>/g,'');
   const dtip=`<span class="tip" tabindex="0" role="note" aria-label="${esc(dtipTxt)}" data-tip="${esc(dtipTxt)}">?</span>`;
   return `<div class="card blk blk-c"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div></div>
+    ${(F.ch!=='all'||F.mkt)?`<div class="warnrow">${DAILY_OLD?`<span class="pill p-warn">Chưa lọc theo kênh ${tipT('Bảng đang hiện số của mọi kênh. Admin chạy file SQL 20261027010000_daily_filters.sql trên Supabase để bảng lọc theo kênh / thị trường.')}</span>`:`<span class="pill p-info">Chi phí ads: mọi kênh ${tipT('Doanh số và số đơn chỉ tính kênh / thị trường đang chọn. Chi phí ads được nhập theo nhân sự và sản phẩm, chưa tách theo kênh, nên vẫn là toàn bộ chi phí; % chi phí vì vậy chỉ để tham khảo.')}</span>`}</div>`:''}
     ${contest}${strip}
     ${rows.length?(()=>{const mw=230+140+ds.length*112,cg=`<colgroup><col style="width:230px"><col style="width:140px">${ds.map(()=>'<col style="width:112px">').join('')}</colgroup>`;
       return `<div class="fh"><table class="daily" style="min-width:${mw}px">${cg}<thead>${head}</thead></table></div><div class="tw fhb"><table class="daily" style="min-width:${mw}px">${cg}<tbody>${body}</tbody></table></div>`})():Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
@@ -801,14 +809,14 @@ function dailyBody(rows,rate,o){
 const SD={key:'',rows:[],usd:KDEF.usd_vnd,loading:false,err:''};
 async function loadSD(key,staff){
   const [from,to]=rangeDates();
-  const [r,s]=await Promise.all([fetchAll(()=>sbc.rpc('staff_daily',{p_from:from.toISOString(),p_to:to.toISOString(),p_staff:staff}).order('day').order('grp')),getKSet(isoD(monthStart(from)))]);
+  const [r,s]=await Promise.all([dailyRpc('staff_daily',{p_from:from.toISOString(),p_to:to.toISOString(),p_staff:staff},['day','grp']),getKSet(isoD(monthStart(from)))]);
   if(key!==SD.key)return;
   SD.loading=false;SD.usd=s.usd_vnd;
   if(r.error){SD.err=r.error.message;SD.rows=[]}else{SD.err='';SD.rows=r.data.map(x=>({day:x.day,grp:x.grp,n:+x.orders,rev:+x.revenue,usd:+x.ad_usd}))}
   if(view==='nhansu')render();
 }
 function staffDailyCard(staffId){
-  const key=JSON.stringify([staffId,F.range,F.from,F.to]);
+  const key=JSON.stringify([staffId,F.mkt,F.ch,F.range,F.from,F.to]);
   if(key!==SD.key){SD.key=key;SD.loading=true;SD.rows=[];loadSD(key,staffId)}
   if(CONTEST.key!==F.proj){CONTEST.key=F.proj;CONTEST.rows=null;loadContest(F.proj)}
   const title='Theo dõi theo ngày · '+esc(staffName(staffId));
