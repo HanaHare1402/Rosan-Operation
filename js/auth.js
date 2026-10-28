@@ -72,7 +72,7 @@
     if (err) {
       const { data } = await sb.auth.getSession().catch(() => ({ data: {} }));
       if (!data || !data.session) return toLogin();
-      document.body.innerHTML = `<div style="max-width:420px;margin:15vh auto;padding:24px;font-family:system-ui,sans-serif;text-align:center"><h1 style="font-size:20px">Chưa kết nối được máy chủ</h1><p style="color:#56635c">Cậu vẫn đang đăng nhập. Kiểm tra mạng rồi bấm Tải lại.</p><button onclick="location.reload()" style="padding:8px 16px;border-radius:8px;border:0;background:#0d7a62;color:#fff;font-weight:600;cursor:pointer">Tải lại</button></div>`;
+      document.body.innerHTML = `<div style="max-width:420px;margin:15vh auto;padding:24px;font-family:system-ui,sans-serif;text-align:center"><h1 style="font-size:20px">Chưa kết nối được máy chủ</h1><p style="color:#56635c">Phiên đăng nhập vẫn còn. Kiểm tra mạng rồi bấm Tải lại.</p><button onclick="location.reload()" style="padding:8px 16px;border-radius:8px;border:0;background:#0d7a62;color:#fff;font-weight:600;cursor:pointer">Tải lại</button></div>`;
       return new Promise(() => {});
     }
     if (!profile) return toLogin();
