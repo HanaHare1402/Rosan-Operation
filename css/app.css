@@ -743,3 +743,17 @@ table.ptab th{letter-spacing:.02em}
 .ico.i-green{--ic:var(--accent)}.ico.i-blue{--ic:var(--info)}.ico.i-amber{--ic:var(--warn)}.ico.i-red{--ic:var(--bad)}
 .ico.i-orange{--ic:var(--sp)}.ico.i-cyan{--ic:var(--cyan)}.ico.i-purple{--ic:var(--lz)}
 @media (max-width:640px){.ico{width:32px;height:32px}.ico svg{width:16px;height:16px}}
+
+/* Thanh điều hướng trái: nền đen, chữ xám sáng, mục đang chọn vẫn có vạch xanh */
+:root{--side-bg:#141615;--side-bg-2:#0c0d0d;--side-ink:#eef1ef;--side-muted:#b6bcb9;--side-faint:#9ca3a0;--side-hover:rgba(255,255,255,.07);--side-on:rgba(255,255,255,.12);--side-line:rgba(255,255,255,.1)}
+:root[data-theme="dark"]{--side-bg:#0f1110;--side-bg-2:#0a0b0b}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--side-bg:#0f1110;--side-bg-2:#0a0b0b}}
+aside{border-right:1px solid var(--side-line)}
+
+/* Ô mật khẩu có nút con mắt để hiện / ẩn */
+.pwwrap{position:relative;display:block}
+.pwwrap input{width:100%;padding-right:42px}
+.pweye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:34px;height:34px;display:grid;place-items:center;border:0;background:none;color:var(--muted);border-radius:8px;cursor:pointer}
+.pweye:hover{color:var(--ink);background:var(--sunk)}
+.pweye:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.pweye[aria-pressed="false"] .slash{display:none}
