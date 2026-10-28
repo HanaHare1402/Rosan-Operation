@@ -882,3 +882,52 @@ nav.pager{flex-direction:row;gap:10px 16px}
 .tipbox::after{content:"";position:absolute;left:var(--ax,50%);width:10px;height:10px;background:inherit;transform:translateX(-50%) rotate(45deg)}
 .tipbox[data-side="top"]::after{bottom:-4px}
 .tipbox[data-side="bottom"]::after{top:-4px}
+
+/* ---------- Kết quả kinh doanh ---------- */
+.card.c-green{--cc:var(--accent)}
+.card.c-green>.cardhead:first-child,.card.c-green>h2:first-child{background:var(--cc);color:var(--on-cc);border-bottom:0;border-radius:calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0}
+.card.c-green>.cardhead:first-child h2,.card.c-green>h2:first-child{color:var(--on-cc);padding-left:0}
+.card.c-green>h2:first-child{padding-left:var(--cp)}
+.card.c-green>.cardhead:first-child h2::before,.card.c-green>h2:first-child::before{display:none}
+.card.c-green>:first-child .tip{border-color:currentColor;color:inherit}
+.card.c-green>:first-child .seg{background:color-mix(in srgb,var(--on-cc) 18%,transparent)}
+.card.c-green>:first-child .seg button{color:var(--on-cc)}
+.card.c-green>:first-child .seg button.on{background:var(--panel);color:var(--ink)}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan,.c-green)>.cardhead:first-child>.muted{color:var(--on-cc);opacity:.9}
+.kpi.m-k_net{--mc:var(--lz)}
+/* Mục lớn I–V: vạch màu riêng, nền nhạt cùng màu */
+table.pltab tr.sec td:first-child{box-shadow:inset 4px 0 0 var(--sc,var(--line-2))}
+table.pltab tr.sec.s1{--sc:var(--accent)}table.pltab tr.sec.s2{--sc:var(--sp)}table.pltab tr.sec.s3{--sc:var(--cyan)}table.pltab tr.sec.s4{--sc:var(--lz)}table.pltab tr.sec.s5{--sc:var(--info)}
+table.pltab tr.sec td,table.pltab tbody tr.sec td:nth-child(-n+3){background:color-mix(in srgb,var(--sc,var(--line-2)) 9%,var(--panel))!important}
+table.pltab tr.res td{font-size:13px;font-weight:700}
+/* Cơ cấu chi phí: thanh ngang theo độ lớn */
+.costbars{display:grid;gap:8px}
+.cb{display:grid;grid-template-columns:150px minmax(0,1fr) 130px 64px;gap:12px;align-items:center;font-size:12.5px}
+.cb .cl{color:var(--ink-2)}
+.cb .ct{height:12px;background:var(--sunk);border-radius:6px;overflow:hidden}
+.cb .ct i{display:block;height:100%;border-radius:6px;background:color-mix(in srgb,var(--warn) 70%,var(--panel))}
+.cb.top .ct i{background:var(--warn)}
+.cb.top .cl{color:var(--ink);font-weight:650}
+.cb .cv{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+.cb .cp{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+@media (max-width:640px){.cb{grid-template-columns:96px minmax(0,1fr) 54px}.cb .cv{display:none}}
+
+/* ---------- Đơn hàng ---------- */
+.ostrip{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.otile{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-1);cursor:pointer;text-align:left;font:inherit;color:inherit;min-width:0}
+.otile:hover{border-color:var(--line-2)}
+.otile.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent),var(--shadow-1)}
+.otile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.otile .ico{width:36px;height:36px}
+.otile>span:last-child{display:flex;flex-direction:column;min-width:0}
+.otile .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:650;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.otile b{font-size:18px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.osearch{display:flex;align-items:center;gap:8px}
+.osearch input{width:300px;max-width:100%;min-height:34px;background:var(--panel);color:var(--ink)}
+table.otab td{vertical-align:top;padding-top:10px;padding-bottom:10px}
+table.otab .strong{font-weight:600;color:var(--ink)}
+table.otab .oitems{white-space:normal;min-width:180px;max-width:280px;line-height:1.45}
+table.otab .sub2{margin-top:2px}
+@media (max-width:1100px){.ostrip{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){.ostrip{grid-template-columns:repeat(2,minmax(0,1fr))}.osearch input{width:100%}.osearch{width:100%}}
+.osearch input{text-align:left}

@@ -49,13 +49,13 @@
                   ? await sb.from(m.table).update(row).eq("id", id).select("id")
                   : await sb.from(m.table).insert(Object.assign({ id }, row)).select("id");
                 if (error) throw error;
-                if (!done || !done.length) throw new Error("tài khoản của cậu không có quyền sửa mục này");
+                if (!done || !done.length) throw new Error("tài khoản này không có quyền sửa mục này");
                 await load(name);
               },
               async delete() {
                 const { data: done, error } = await sb.from(m.table).delete().eq("id", id).select("id");
                 if (error) throw error;
-                if (!done || !done.length) throw new Error("tài khoản của cậu không có quyền xoá mục này");
+                if (!done || !done.length) throw new Error("tài khoản này không có quyền xoá mục này");
                 await load(name);
               },
             };

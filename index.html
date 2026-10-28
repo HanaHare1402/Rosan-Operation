@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261028n">
+<link rel="stylesheet" href="css/app.css?v=20261028o">
 </head>
 <body>
 
@@ -31,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261028n"></script>
-<script src="js/settings-db.js?v=20261028n"></script>
-<script src="js/shell.js?v=20261028n"></script>
+<script src="js/auth.js?v=20261028o"></script>
+<script src="js/settings-db.js?v=20261028o"></script>
+<script src="js/shell.js?v=20261028o"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -348,7 +348,7 @@ const crumbs=items=>`<div class="crumbs" role="navigation" aria-label="Vị trí
 function empty(){
   if(loadErr)return `<div class="card">${Shell.empty('alert','Không tải được số liệu',esc(loadErr)+'<br>Kiểm tra đã chạy đủ các file SQL trên Supabase chưa.')}</div>`;
   if(loading&&!ROWS.length)return skeleton();
-  const why=ME.scope==='self'&&!ME.staff_id?'Tài khoản của cậu chưa được liên kết với nhân sự nào. Nhờ admin liên kết ở Quản trị → Tài khoản.'
+  const why=ME.scope==='self'&&!ME.staff_id?'Tài khoản này chưa được liên kết với nhân sự nào. Nhờ admin liên kết ở Quản trị → Tài khoản.'
     :ME.scope==='all'?'Thử chọn khoảng ngày dài hơn, hoặc kiểm tra Quản trị → Kết nối POS đã có shop, API key và đã đồng bộ chưa.'
     :'Thử chọn khoảng ngày dài hơn. Nếu vẫn trống, có thể marketer chưa được khai báo vào team (Quản trị → Chưa khai báo).';
   const acts=(F.range==='today'||F.range==='yesterday'?'<button class="btn ghost sm" data-range="month">Xem cả tháng này</button>':'')+(ME.role==='admin'?'<a class="btn ghost sm" href="admin.html#pos">Kết nối POS</a><a class="btn ghost sm" href="admin.html#chuakhaibao">Chưa khai báo</a>':'');
@@ -523,11 +523,24 @@ V.donhang=()=>{
   if(key!==O.key){O.key=key;O.loading=true;clearTimeout(O.timer);O.timer=setTimeout(()=>fetchOrders(key),oQ?300:0)}
   const items=o=>(o.items||[]).map(i=>`${esc(i.name||i.code||'?')}${i.quantity>1?' ×'+i.quantity:''}`).join('<br>')||'<span class="muted">–</span>';
   const phone=p=>!p?'<span class="muted">–</span>':maskPhone?esc(String(p).slice(0,3)+'•••'+String(p).slice(-3)):esc(p);
-  return `<div class="tools"><input type="search" id="oq" placeholder="Mã đơn, SĐT, mã vận đơn, khách, marketer" value="${esc(oQ)}"><div class="chips">${['all'].concat(Object.keys(GROUPS)).map(s=>`<button class="chip ${oSt===s?'on':''}" data-st="${s}">${s==='all'?'Tất cả':s}</button>`).join('')}</div></div>
-  <div class="card"><h2>Đơn hàng từ POS</h2><p class="hint">Theo bộ lọc dự án, thị trường, kênh, khoảng ngày ở trên.${O.loading?' Đang tải…':''}</p>
-  ${O.err?`<p class="neg">Không tải được đơn: ${esc(O.err)}</p>`:''}
-  <div class="tw"><table><thead><tr><th class="l">Mã đơn</th><th class="l">Vận đơn</th><th class="l">Kênh / shop</th><th class="l">Ngày</th><th class="l">Marketer</th><th class="l">Team</th><th class="l">Khách</th><th class="l">SĐT</th><th class="l">Sản phẩm</th><th>COD</th><th class="l">Trạng thái</th></tr></thead><tbody>
-  ${O.rows.map(o=>{const g=groupOf(o.status);return `<tr><td class="l mono">${esc(o.pos_order_id)}</td><td class="l mono">${o.tracking?esc(o.tracking):'<span class="muted">–</span>'}</td><td class="l">${chTag(o.channel_id)}<div class="muted" style="font-size:12px">${esc(o.pos_shops?o.pos_shops.name:'')}${o.source_name?' · '+esc(o.source_name):''}</div></td><td class="l">${o.inserted_at?new Date(o.inserted_at).toLocaleString('vi-VN',{dateStyle:'short',timeStyle:'short'}):'–'}</td><td class="l">${o.staff_id?esc(staffName(o.staff_id)):`<span class="muted">${esc(o.marketer_name||o.seller_name||'–')}</span>`}</td><td class="l">${o.team_id?esc(teamName(o.team_id)):'<span class="muted">–</span>'}</td><td class="l">${esc(o.bill_full_name||'')}</td><td class="l mono">${phone(o.bill_phone_number)}</td><td class="l" style="white-space:normal;min-width:160px">${items(o)}</td><td>${o.cod!=null?N(o.cod):'–'}</td><td class="l"><span class="pill ${GPILL[g]}">${esc(POS_ST[o.status]||o.status_name||g)}</span></td></tr>`}).join('')||`<tr><td colspan="11" class="l muted">${O.loading?'Đang tải…':'Không có đơn khớp bộ lọc.'}</td></tr>`}
+  // Dải trạng thái: số đơn mỗi nhóm (theo bộ lọc trên), bấm để lọc bảng.
+  const GKEY={'Chờ xử lý':'new','Đang giao':'ship','Đã giao':'ok','Hoàn':'ret','Đã huỷ':'cancel'},GICO={'all':['receipt','i-blue'],'Chờ xử lý':['inbox','i-amber'],'Đang giao':['refresh','i-cyan'],'Đã giao':['check','i-green'],'Hoàn':['alert','i-orange'],'Đã huỷ':['x','i-red']};
+  const cnt=g=>ROWS.filter(r=>g==='all'?true:r.g===GKEY[g]).reduce((t,r)=>t+r.n,0);
+  const tiles=`<div class="ostrip" role="group" aria-label="Lọc theo trạng thái">${['all'].concat(Object.keys(GROUPS)).map(g=>`<button type="button" class="otile${oSt===g?' on':''}" data-st="${g}" aria-pressed="${oSt===g}">${ico(...GICO[g])}<span><span class="l">${g==='all'?'Tất cả đơn':g}</span><b>${N(cnt(g))}</b></span></button>`).join('')}</div>`;
+  const dt=d=>{if(!d)return '–';const x=new Date(d);return `${p2(x.getDate())}/${p2(x.getMonth()+1)}/${x.getFullYear()} <span class="muted">${p2(x.getHours())}:${p2(x.getMinutes())}</span>`};
+  return `${tiles}
+  <div class="card c-blue"><div class="cardhead"><div><h2>Đơn hàng từ POS ${tipT('Theo bộ lọc dự án, thị trường, kênh, khoảng ngày ở trên. Bấm ô trạng thái phía trên để lọc, gõ ô tìm để tìm theo mã đơn, SĐT, mã vận đơn, khách, marketer.')}</h2></div>
+    <div class="osearch"><input type="search" id="oq" placeholder="Tìm mã đơn, SĐT, vận đơn, khách, marketer" value="${esc(oQ)}" aria-label="Tìm đơn hàng">${O.loading?'<span class="spin" aria-label="Đang tải"></span>':''}</div></div>
+  ${O.err?`<div class="msg neg">Không tải được đơn: ${esc(O.err)}</div>`:''}
+  <div class="tw"><table class="otab"><thead><tr><th class="l">Mã đơn</th><th class="l">Khách hàng</th><th class="l">Sản phẩm</th><th class="l">Marketer · team</th><th class="l">Kênh · shop</th><th>COD</th><th class="l">Trạng thái</th></tr></thead><tbody>
+  ${O.rows.map(o=>{const g=groupOf(o.status);return `<tr>
+    <td class="l"><div class="mono strong">${esc(o.pos_order_id)}</div><div class="sub2">${dt(o.inserted_at)}</div>${o.tracking?`<div class="sub2 mono" title="Mã vận đơn">VĐ ${esc(o.tracking)}</div>`:''}</td>
+    <td class="l"><div class="strong">${esc(o.bill_full_name||'–')}</div><div class="sub2 mono">${phone(o.bill_phone_number)}</div></td>
+    <td class="l oitems">${items(o)}</td>
+    <td class="l"><div>${o.staff_id?esc(staffName(o.staff_id)):`<span class="muted">${esc(o.marketer_name||o.seller_name||'–')}</span>`}</div><div class="sub2">${o.team_id?esc(teamName(o.team_id)):'Chưa gán team'}</div></td>
+    <td class="l">${chTag(o.channel_id)}<div class="sub2">${esc(o.pos_shops?o.pos_shops.name:'')}</div></td>
+    <td><b>${o.cod!=null?N(o.cod):'–'}</b></td>
+    <td class="l"><span class="pill ${GPILL[g]}">${esc(POS_ST[o.status]||o.status_name||g)}</span></td></tr>`}).join('')||`<tr><td colspan="7">${O.loading?'<div class="skel" style="height:12px"></div>':Shell.empty('inbox','Không có đơn khớp bộ lọc','Thử bỏ ô tìm, chọn trạng thái khác hoặc khoảng ngày dài hơn.')}</td></tr>`}
   </tbody></table></div>
   ${pager('orders',O.count)}</div>`;
 };
@@ -967,7 +980,8 @@ V.kqkd=()=>{
   const val=(v,kind)=>kind==='pct'?(isFinite(v)?`<span class="${v<0?'neg':''}">${P(v)}</span>`:'<span class="muted">–</span>'):kind==='n'||kind==='unit'?(v?N(v):'<span class="muted">0</span>'):(v?`<span class="${kind==='res'&&v<0?'neg':''}">${M(v)}</span>`:'<span class="muted">0</span>');
   // Cột "Tỷ lệ": so với doanh số gửi đi (như form gốc); khoản chi từ 10% trở lên có nhãn cảnh báo.
   const pctDT=(v,kind)=>{if(kind==='pct'||kind==='n'||kind==='unit'||!T.sent)return '';const x=v/T.sent;if(!isFinite(x)||!v)return '<span class="muted">–</span>';return kind==='cost'&&x>=.1?`<span class="pill p-warn" title="Khoản chi lớn: từ 10% doanh số gửi đi">${P(x)}</span>`:`<span class="${x<0?'neg':'muted'}">${P(x)}</span>`};
-  const body=L.map(([lab,f,cls,kind,co])=>`<tr class="${cls==='sec'?'sec':cls==='h'?'h':''}${kind==='res'?' res':''}"><td class="${cls==='ind'?'ind':''}">${lab}</td>${cols.map((c,i)=>`<td>${i&&byProd&&co?'<span class="muted">–</span>':val(f(c[1],c),kind)}</td>${i===0?`<td>${pctDT(f(T,c),kind)}</td>`:''}`).join('')}</tr>`).join('');
+  const secOf=lab=>{const m=lab.match(/^(I|II|III|IV|V)\./);return m?{I:'s1',II:'s2',III:'s3',IV:'s4',V:'s5'}[m[1]]:''};
+  const body=L.map(([lab,f,cls,kind,co])=>`<tr class="${cls==='sec'?'sec '+secOf(lab):cls==='h'?'h':''}${kind==='res'?' res':''}"><td class="${cls==='ind'?'ind':''}">${lab}</td>${cols.map((c,i)=>`<td>${i&&byProd&&co?'<span class="muted">–</span>':val(f(c[1],c),kind)}</td>${i===0?`<td>${pctDT(f(T,c),kind)}</td>`:''}`).join('')}</tr>`).join('');
   const oldSql=KP.old?`<span class="pill p-bad">Chưa tách cước theo trạng thái đơn ${tipT('Dòng 1a, 1b chưa tách được cước theo đơn thành công / hoàn: cần chạy file SQL 20261027000000_pl_detail.sql trên Supabase.')}</span>`:'';
   const missing=T.miss?`<span class="pill p-warn">${N(T.miss)} đơn chưa có giá vốn ${tipT('Đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0. Sửa ở Quản trị → Giá vốn.')}</span>${Auth.ADMIN_TABS.giavon.includes(ME.role)?'<a class="btn ghost sm" href="admin.html#giavon">Mở Giá vốn</a>':''}`:'';
   const noAds=T.sent&&!T.usd?`<span class="pill p-warn">Chưa có chi phí quảng cáo ${tipT('Kỳ này chưa ai nhập chi phí ads (màn Chi phí ads), nên dòng 6 đang bằng 0.')}</span>`:'';
@@ -975,15 +989,23 @@ V.kqkd=()=>{
   const otherCard=`<form class="card" id="plForm" novalidate><div class="cardhead"><div><h2>Chi phí ngoài đơn hàng · tháng ${fmtM(KP.month)}</h2><p class="hint">Số cả tháng (đồng). Báo cáo lấy theo số ngày của khoảng đang xem${ms<1?` (${P(ms,0)} tháng)`:''} và chia cho từng ${multiProj?'dự án':'team'} theo doanh thu.${CAN_KSET?'':' Chỉ admin và kế toán sửa được.'}</p></div></div>
     <div class="form">${PL_ITEMS.map(([k,l])=>`<label for="pl_${k}">${l.replace(/^[a-c]\. /,'')}<input id="pl_${k}" type="number" step="1" min="0" value="${o[k]?Math.round(o[k]):''}" placeholder="0" ${CAN_KSET?'':'disabled'}></label>`).join('')}</div>
     ${CAN_KSET?`<div class="formrow"><button class="btn" type="submit">Lưu cho tháng ${fmtM(KP.month)}</button><span class="fmsg" id="plMsg"></span></div>`:''}</form>`;
+  // Ô số tóm tắt (đọc lướt) và cơ cấu chi phí: khoản nào chiếm nhiều nhất trên doanh số gửi đi.
+  const mg=(v,b)=>b?`biên ${P(v/b)} trên doanh thu`:'chưa có doanh thu';
+  const tile=(m,l,v,sub,neg)=>`<div class="kpi m-${m}"><div class="l">${l}</div><div class="v${neg?' neg':''}">${M(v)}</div><div class="n">${sub}</div></div>`;
+  const tiles=`<div class="kpis kpis4">${tile('k_sent','Doanh số gửi đi',T.sent,`${N(T.n)} đơn`)}${tile('k_ok','Doanh thu (đã giao)',T.ok,T.sent?`${P(T.ok/T.sent)} doanh số gửi đi`:'')}${tile('gp','Lợi nhuận gộp (III)',T.gp3,mg(T.gp3,T.ok),T.gp3<0)}${tile('k_net','Lợi nhuận (V)',T.profit,mg(T.profit,T.ok),T.profit<0)}</div>`;
+  const CI=[['Giá vốn',T.cogs],['Quảng cáo',T.ads],['Vận chuyển',T.ship],['Phí DV vận chuyển',T.dvvc],['Phí GIP',T.gip],['Fulfill',T.ffm],['Test',T.test],['Bao bì',T.pack],['Chi phí Việt Nam',T.vn],['Kho Philippines',T.kho],['Chi phí khác',T.cpk]].filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+  const cmax=Math.max(1,...CI.map(x=>x[1])),csum=CI.reduce((t,x)=>t+x[1],0);
+  const costCard=CI.length?`<div class="card c-amber"><div class="cardhead"><div><h2>Cơ cấu chi phí ${tipT('Từng khoản chi trong khoảng đang xem, xếp từ lớn đến nhỏ. % là so với doanh số gửi đi; thanh dài nhất là khoản chi lớn nhất.')}</h2></div><div class="muted">Tổng chi ${M(csum)}${T.sent?` · ${P(csum/T.sent)} doanh số gửi đi`:''}</div></div>
+    <div class="costbars">${CI.map(([l,v],i)=>`<div class="cb${i===0?' top':''}"><span class="cl">${l}</span><span class="ct"><i style="width:${(v/cmax*100).toFixed(1)}%"></i></span><span class="cv">${M(v)}</span><span class="cp">${T.sent?P(v/T.sent):'–'}</span></div>`).join('')}</div></div>`:'';
   const modeSeg=`<div class="seg" role="group" aria-label="Cột của báo cáo">${[['team',multiProj?'Theo dự án':'Theo team'],['prod','Theo sản phẩm']].map(([k,l])=>`<button type="button" data-kqmode="${k}" class="${kqMode===k?'on':''}" aria-pressed="${kqMode===k}">${l}</button>`).join('')}</div>`;
-  return `<div class="card pl"><div class="cardhead"><div><h2>Báo cáo kết quả kinh doanh · ${esc(rangeLabel())}</h2></div><div class="page-actions">${modeSeg}${exportBtn('tPL')}</div></div>
+  return `${tiles}${costCard}<div class="card pl c-green"><div class="cardhead"><div><h2>Báo cáo kết quả kinh doanh · ${esc(rangeLabel())}</h2></div><div class="page-actions">${modeSeg}${exportBtn('tPL')}</div></div>
     ${oldSql||missing||noAds?`<div class="warnrow">${oldSql}${missing}${noAds}</div>`:''}
     ${(()=>{const mw=240+130+84+(cols.length-1)*124,cg=`<colgroup><col style="width:240px"><col style="width:130px"><col style="width:84px">${cols.slice(1).map(()=>'<col style="width:124px">').join('')}</colgroup>`;
       // Hàng tiêu đề là bảng riêng, cố định dưới bộ lọc (sticky thật, không giật); kéo ngang thân bảng thì tiêu đề kéo theo.
       return `<div class="fh"><table id="tPLh" class="pltab" style="min-width:${mw}px">${cg}<thead><tr><th class="l">Chỉ tiêu (đồng)</th>${cols.map((c,i)=>`<th title="${esc(c[0])}"><span class="pn">${esc(c[0])}</span></th>${i===0?'<th>Tỷ lệ</th>':''}`).join('')}</tr></thead></table></div>
       <div class="tw fhb"><table id="tPL" class="pltab" style="min-width:${mw}px">${cg}<tbody>${body}</tbody></table></div>`})()}</div>
   ${otherCard}
-  <div class="card" id="jt"><h2>Đối soát file J&amp;T / FFM</h2><p class="hint">Chọn đơn vị FFM, rồi tải file .xlsx hoặc .csv có các cột Mã vận đơn (hoặc Waybill Number), COD, Tên sản phẩm, Order Status. File chỉ đọc trong trình duyệt, không gửi đi đâu.</p>
+  <div class="card c-blue" id="jt"><h2>Đối soát file J&amp;T / FFM</h2><p class="hint">Chọn đơn vị FFM, rồi tải file .xlsx hoặc .csv có các cột Mã vận đơn (hoặc Waybill Number), COD, Tên sản phẩm, Order Status. File chỉ đọc trong trình duyệt, không gửi đi đâu.</p>
   <div class="tools"><label for="jtFfm" class="muted">File của đơn vị</label><select id="jtFfm">${FFMS.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}</select></div>
   <div class="drop" id="drop"><input type="file" id="jtFile" accept=".xlsx,.xls,.csv" style="max-width:100%"><div style="margin-top:6px;font-size:12px">hoặc kéo thả file vào đây</div></div>
   <div id="jtOut" style="margin-top:14px"></div></div>`;
@@ -1037,7 +1059,7 @@ const WD_LONG=['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6',
 let adTblAll=false;
 V.chiphi=()=>{
   const list=adStaffList();
-  if(!list.length)return `<div class="card">${Shell.empty('user','Chưa có nhân sự để nhập',ME.scope==='self'?'Tài khoản của cậu chưa được liên kết với nhân sự nào. Nhờ admin liên kết ở Quản trị → Tài khoản.':'Chưa có nhân sự trong phạm vi của cậu.')}</div>`;
+  if(!list.length)return `<div class="card">${Shell.empty('user','Chưa có nhân sự để nhập',ME.scope==='self'?'Tài khoản này chưa được liên kết với nhân sự nào. Nhờ admin liên kết ở Quản trị → Tài khoản.':'Chưa có nhân sự trong phạm vi được xem.')}</div>`;
   if(!list.some(s=>s.id===adStaff))adStaff=ME.staff_id&&list.some(s=>s.id===ME.staff_id)?ME.staff_id:list[0].id;
   const d=new Date(adDay+'T00:00:00'),key=isoD(monthStart(d)),todayIso=isoD(new Date()),multi=list.length>1;
   if(key!==AD.key){AD.key=key;AD.loading=true;adEdit=null;loadAds(key)}
@@ -1206,7 +1228,7 @@ let db=null,dbState='loading',dbErr='',editFfm=null,delArm=null,formMsg={ffm:''}
 const canFfm=['admin','quan_ly','ke_toan'].includes(ME.role);
 V.caidat=()=>{
   const ef=editFfm?FFMS.find(f=>f.id===editFfm):null;
-  return `<div class="card"><h2>Tài khoản của cậu</h2><p class="hint keep">Vai trò <b>${esc(Auth.ROLES[ME.role])}</b> · phạm vi xem <b>${esc(Auth.SCOPES[ME.scope||'self'])}</b>${ME.scope==='project'?': '+esc((ME.project_ids||[]).map(projName).join(', ')):ME.scope==='team'?': '+esc(teamName(ME.team_id)):ME.scope==='self'?': '+esc(staffName(ME.staff_id)):''}.
+  return `<div class="card"><h2>Tài khoản</h2><p class="hint keep">Vai trò <b>${esc(Auth.ROLES[ME.role])}</b> · phạm vi xem <b>${esc(Auth.SCOPES[ME.scope||'self'])}</b>${ME.scope==='project'?': '+esc((ME.project_ids||[]).map(projName).join(', ')):ME.scope==='team'?': '+esc(teamName(ME.team_id)):ME.scope==='self'?': '+esc(staffName(ME.staff_id)):''}.
   ${ME.role==='admin'||ME.role==='quan_ly'?' Dự án, team, thị trường, kênh, nhân sự, shop POS quản lý ở <a href="admin.html">Quản trị</a>.':''}</p></div>
   <div class="card"><div class="cardhead"><div><h2>Đơn vị FFM</h2><p class="hint">Phí dịch vụ và cước dùng cho ô đối soát file ở màn KQKD.</p></div>${dbState==='ok'?'<span class="pill p-good">Đã lưu chung</span>':dbState==='loading'?'<span class="pill p-mute">Đang tải…</span>':'<span class="pill p-warn">Chưa lưu được</span>'}</div>
   <div class="tw"><table><thead><tr><th class="l">Đơn vị</th><th class="l">Kho trên POS</th><th>Phí dịch vụ (% COD)</th><th>Cước / đơn gửi (₱)</th><th class="l">Ghi chú</th><th></th></tr></thead><tbody>
@@ -1319,6 +1341,7 @@ document.addEventListener('change',e=>{
 });
 function liveSearch(id,set){document.addEventListener('input',e=>{if(e.target.id!==id)return;set(e.target.value);const pos=e.target.selectionStart;render();const el=$('#'+id);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(x){}}})}
 liveSearch('pq',v=>{pQ=v;pgState('prod').page=0});
+liveSearch('oq',v=>{oQ=v;pgState('orders').page=0});
 document.addEventListener('input',e=>{if(!(e.target.matches&&e.target.matches('#adForm .adUsd, #adForm .adName, #adForm .adCh')))return;
   // Gõ: chỉ cập nhật VNĐ, tổng và trạng thái "chưa lưu", không vẽ lại cả màn để giữ con trỏ.
   adEdit=readAdForm();
