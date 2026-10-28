@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261028b">
+<link rel="stylesheet" href="css/app.css?v=20261028e">
 </head>
 <body>
 
@@ -30,9 +30,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261028b"></script>
-<script src="js/settings-db.js?v=20261028b"></script>
-<script src="js/shell.js?v=20261028b"></script>
+<script src="js/auth.js?v=20261028e"></script>
+<script src="js/settings-db.js?v=20261028e"></script>
+<script src="js/shell.js?v=20261028e"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -251,14 +251,16 @@ function kpiCards(list,prevList,ads){
     four.splice(3,0,['adsp','% chi phí ads',ads.loading?'<span class="skel" style="display:inline-block;height:22px;width:70px"></span>':`<span class="${over?'neg':''}">${P(v)}</span>`,
       ads.loading||!ads.cap?'':`<span class="delta ${over?'bad':'good'}">${over?'▲ vượt':'✓ trong'} trần ${PF(ads.cap)}%</span>`,null,ads.loading?'':`chi phí ${M(ads.cost)} / doanh số ${M(ads.rev)}`])}
   const aov=a.ord?a.rev/a.ord:NaN,paov=p.ord?p.rev/p.ord:NaN;
-  return `<div class="kpis ${four.length>4?'kpis5':'kpis4'}">${four.map(([k,l,v,d,sp,sub],i)=>`<div class="kpi${i===0?' primary':''}"><div class="l">${l} ${tip(k)}</div><div class="v">${v}</div><div class="n">${d||''}${sub?`<div>${sub}</div>`:''}</div>${sp&&ds.length>1?spark(sp):''}</div>`).join('')}</div>
-  <div class="statstrip">
-    <div><span class="l">Giá trị TB / đơn ${tip('aov')}</span><b>${isFinite(aov)?N(aov)+' ₫':'–'}</b>${delta(aov,paov,{short:1})}</div>
-    <div><span class="l">Đang giao ${tip('ship')}</span><b>${N(a.ship)}</b><span class="muted">${M(a.shipRev)}</span></div>
-    <div><span class="l">Chờ xử lý ${tip('neu')}</span><b>${N(a.neu)}</b></div>
-    <div><span class="l">Huỷ / đã xoá</span><b>${N(a.cancel)}</b><span class="muted">${P(a.cancel/((a.ord+a.cancel)||NaN))} tổng đơn</span></div>
+  return `<div class="kpis ${four.length>4?'kpis5':'kpis4'}">${four.map(([k,l,v,d,sp,sub],i)=>`<div class="kpi m-${k}${i===0?' primary':''}"><div class="l">${l} ${tip(k)}</div><div class="v">${v}</div><div class="n">${d||''}${sub?`<div>${sub}</div>`:''}</div>${sp&&ds.length>1?spark(sp):''}</div>`).join('')}</div>
+  <div class="statstrip ist">
+    <div>${ico('coins','i-green')}<div><span class="l">Giá trị TB / đơn ${tip('aov')}</span><b>${isFinite(aov)?N(aov)+' ₫':'–'}</b>${delta(aov,paov,{short:1})}</div></div>
+    <div>${ico('receipt','i-blue')}<div><span class="l">Đang giao ${tip('ship')}</span><b>${N(a.ship)}</b><span class="muted">${M(a.shipRev)}</span></div></div>
+    <div>${ico('inbox','i-amber')}<div><span class="l">Chờ xử lý ${tip('neu')}</span><b>${N(a.neu)}</b></div></div>
+    <div>${ico('x','i-red')}<div><span class="l">Huỷ / đã xoá</span><b>${N(a.cancel)}</b><span class="muted">${P(a.cancel/((a.ord+a.cancel)||NaN))} tổng đơn</span></div></div>
   </div>`;
 }
+// Ô tròn có biểu tượng cho dải số phụ (kiểu MISA): màu theo ý nghĩa, chỉ để trang trí nên ẩn với trình đọc màn hình.
+const ico=(name,cls)=>`<span class="ico ${cls}" aria-hidden="true">${Shell.icon(name)}</span>`;
 // Tiến độ target tháng: đã đạt, đã qua bao nhiêu thời gian, dự kiến cuối tháng.
 function targetBlock(list,target){
   if(!target||F.range!=='month')return '';
@@ -335,7 +337,7 @@ function skeleton(){
 }
 // Xem một ngày thì không có xu hướng để vẽ: bỏ hẳn khung biểu đồ.
 const chartW=wide=>{const v=$('#view'),w=v?v.clientWidth:1100;return Math.max(560,Math.round(wide?w-40:(w-16)*1.6/2.6-40))};
-const chartCard=(title,list,prevList,wide)=>days().length<2?'':`<div class="card"><div class="cardhead"><div><h2>${title}</h2><p class="hint">Cột: kỳ này${F.cmp?' · nét đứt: '+cmpLabel():''}. Rê chuột / chạm vào cột để xem số.</p></div>
+const chartCard=(title,list,prevList,wide)=>days().length<2?'':`<div class="card c-blue"><div class="cardhead"><div><h2>${title}</h2><p class="hint">Cột: kỳ này${F.cmp?' · nét đứt: '+cmpLabel():''}. Rê chuột / chạm vào cột để xem số.</p></div>
   <div class="seg" role="group" aria-label="Chỉ số biểu đồ">${Object.entries(METRICS).map(([k,[l]])=>`<button type="button" data-metric="${k}" class="${chartMetric===k?'on':''}" aria-pressed="${chartMetric===k}">${l}</button>`).join('')}</div></div>${trendChart(list,prevList,240,chartW(wide))}</div>`;
 
 // ---------- màn hình ----------
@@ -354,12 +356,12 @@ V.tongquan=()=>{
   return `${kpiCards(ROWS,PREV,adsT)}${tb}
   <div class="${days().length<2?'grid2 even':'grid2'}">
     ${chartCard('Xu hướng theo ngày',ROWS,PREV)}
-    <div class="card"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn trên POS.</p>${legend(ROWS,r=>r.ch,chTag,chColor)}
+    <div class="card c-amber"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn trên POS.</p>${legend(ROWS,r=>r.ch,chTag,chColor)}
       ${multiProj?`<h2 style="margin-top:22px">Theo dự án</h2><div style="margin-top:8px">${legend(ROWS,r=>r.proj,k=>esc(projName(k)))}</div>`:''}
       ${CAT.markets.length>1?`<h2 style="margin-top:22px">Theo thị trường</h2><div style="margin-top:8px">${legend(ROWS,r=>r.mkt,k=>esc((byId(CAT.markets,k)||{name:'–'}).name))}</div>`:''}
     </div>
   </div>
-  <div class="card blk blk-a"><div class="cardhead"><div><h2>Các team</h2></div>${exportBtn('tTeams')}</div>
+  <div class="card blk c-purple"><div class="cardhead"><div><h2>Các team</h2></div>${exportBtn('tTeams')}</div>
   ${dataTable('tTeams',cols,rankRows(ROWS,PREV,r=>r.team||''),{name:'Team',click:r=>r.k?'team:'+r.k:'',foot:totFoot(ROWS)})}</div>
   ${topCard(PRODS?PRODS.rows:null,KP.rows,'Sản phẩm bán chạy')}
   ${dailyCard(null)}`;
@@ -379,7 +381,7 @@ V.team=()=>{
     extra:[{k:'ch',label:'Kênh',l:1,fmt:r=>[...new Set(list.filter(x=>key(x)===r.k).map(x=>x.ch))].map(chTag).join(' '),val:r=>''}]});
   ensureTD();
   return head+kpiCards(list,plist,adsInfo(TD,TD.rows.filter(r=>r.team===curTeam),[t]))+targetBlock(list,F.range==='month'?+t.target_vnd||0:0)+
-  `<div class="card blk blk-a"><div class="cardhead"><div><h2>Xếp hạng nhân sự · ${esc(t.name)}</h2></div>${exportBtn('tStaff')}</div>
+  `<div class="card blk c-purple"><div class="cardhead"><div><h2>Xếp hạng nhân sự · ${esc(t.name)}</h2></div>${exportBtn('tStaff')}</div>
   ${dataTable('tStaff',cols,rankRows(list,plist,key),{name:'Nhân sự '+t.name,click:r=>r.k.startsWith('~')?'':'nhansu:'+r.k,foot:totFoot(list)})}</div>
   ${topCard(PRODS?PRODS.rows.filter(r=>r.team===curTeam):null,KP.rows.filter(r=>(byId(CAT.staff,r.who)||{}).team_id===curTeam),'Sản phẩm bán chạy · '+esc(t.name))}
   ${dailyCard(curTeam)}
@@ -401,9 +403,9 @@ V.nhansu=()=>{
   const sKey=JSON.stringify([curStaff,F.mkt,F.ch,F.range,F.from,F.to]);if(sKey!==SD.key){SD.key=sKey;SD.loading=true;SD.rows=[];loadSD(sKey,curStaff)}
   return head+kpiCards(list,plist,adsInfo(SD,SD.rows,[byId(CAT.teams,s.team_id)].filter(Boolean)))+
   `<div class="${days().length<2?'grid2 even':'grid2'}">${chartCard('Xu hướng theo ngày',list,plist)}
-   <div class="card"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn.</p>${legend(list,r=>r.ch,chTag,chColor)}</div></div>
+   <div class="card c-amber"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn.</p>${legend(list,r=>r.ch,chTag,chColor)}</div></div>
   ${staffDailyCard(curStaff)}
-  <div class="card blk blk-b"><div class="cardhead"><div><h2>Sản phẩm đã bán</h2></div></div>${prods==null?'<div class="skel" style="height:12px"></div>':prodTable(prods,false,KP.rows.filter(r=>r.who===curStaff))}</div>`;
+  <div class="card blk c-orange"><div class="cardhead"><div><h2>Sản phẩm đã bán</h2></div></div>${prods==null?'<div class="skel" style="height:12px"></div>':prodTable(prods,false,KP.rows.filter(r=>r.who===curStaff))}</div>`;
 };
 // Bảng sản phẩm. kpRows: số theo sản phẩm (KP) cùng phạm vi để tính % chi phí ads, % LNG, % Net.
 // o.top: chỉ hiện N sản phẩm doanh số cao nhất, ít cột (Tổng quan, Team).
@@ -450,14 +452,14 @@ function prodStrip(rows,kpRows){
   const kpLoading=KP.loading&&!KP.rows.length;
   const top=g.reduce((x,a)=>a.rev>x.rev?a:x,g[0]),sumRev=g.reduce((t,a)=>t+a.rev,0);
   const rr=g.filter(a=>a.ok+a.ret>=10).sort((x,y)=>retRate(y)-retRate(x))[0];
-  const cells=[['Sản phẩm có đơn',N(g.length),`${N(g.reduce((t,a)=>t+a.ord,0))} đơn`],
-    ['Bán chạy nhất',esc(top.name||top.code),`${M(top.rev)} · ${P(top.rev/(sumRev||1))} doanh số`]];
+  const cells=[['Sản phẩm có đơn',N(g.length),`${N(g.reduce((t,a)=>t+a.ord,0))} đơn`,'box','i-orange'],
+    ['Bán chạy nhất',esc(top.name||top.code),`${M(top.rev)} · ${P(top.rev/(sumRev||1))} doanh số`,'chart','i-green']];
   if(SEE_COST){const k=g.filter(a=>isFinite(a.gp3)),lo=k.filter(a=>a.gp3<0).length;
-    cells.push(['Lãi / lỗ (LNG)',kpLoading?'…':`${N(k.length-lo)} lãi · <span class="${lo?'neg':''}">${N(lo)} lỗ</span>`,lo?'Mã lỗ có vạch đỏ ở đầu dòng':'Không có mã nào lỗ'])}
+    cells.push(['Lãi / lỗ (LNG)',kpLoading?'…':`${N(k.length-lo)} lãi · <span class="${lo?'neg':''}">${N(lo)} lỗ</span>`,lo?'Mã lỗ có vạch đỏ ở đầu dòng':'Không có mã nào lỗ','coins','i-cyan'])}
   else{const cap=adsCap(),hi=g.filter(a=>isFinite(a.adsP)).sort((x,y)=>y.adsP-x.adsP)[0];
-    cells.push(['% chi phí ads cao nhất',hi?esc(hi.name||hi.code):'–',hi?`${P(hi.adsP)}${cap?` · trần ${PF(cap)}%`:''}`:''])}
-  cells.push(['Hoàn cao nhất',rr?esc(rr.name||rr.code):'–',rr?`${P(retRate(rr))} đơn hoàn`:'Chưa đủ đơn giao / hoàn']);
-  return `<div class="statstrip pstrip">${cells.map(([l,v,sub])=>`<div><span class="l">${l}</span><b>${v}</b><span class="muted">${sub}</span></div>`).join('')}</div>`;
+    cells.push(['% chi phí ads cao nhất',hi?esc(hi.name||hi.code):'–',hi?`${P(hi.adsP)}${cap?` · trần ${PF(cap)}%`:''}`:'','coins','i-purple'])}
+  cells.push(['Hoàn cao nhất',rr?esc(rr.name||rr.code):'–',rr?`${P(retRate(rr))} đơn hoàn`:'Chưa đủ đơn giao / hoàn','alert','i-red']);
+  return `<div class="statstrip pstrip ist">${cells.map(([l,v,sub,ic,c])=>`<div>${ico(ic,c)}<div><span class="l">${l}</span><b>${v}</b><span class="muted">${sub}</span></div></div>`).join('')}</div>`;
 }
 let pSort=store.get('psort2','rev'),pQ='';
 V.sanpham=()=>{
@@ -465,7 +467,7 @@ V.sanpham=()=>{
   if(PRODS.err)return `<div class="card"><p class="neg">${esc(PRODS.err)}</p></div>`;
   ensureKP();
   return `${prodStrip(PRODS.rows,KP.rows)}<div class="tools"><input type="search" id="pq" placeholder="Tìm mã hoặc tên sản phẩm" value="${esc(pQ)}"></div>
-  <div class="card blk"><h2>Hiệu quả sản phẩm</h2><p class="hint">Bấm tiêu đề cột để sắp xếp.${SEE_COST?' % LNG và % Net cho biết sản phẩm nào lời thật sau mọi chi phí, để cân nhắc nhập lại.':''}</p>${prodTable(PRODS.rows,true,KP.rows)}</div>`;
+  <div class="card blk c-orange"><h2>Hiệu quả sản phẩm</h2><p class="hint">Bấm tiêu đề cột để sắp xếp.${SEE_COST?' % LNG và % Net cho biết sản phẩm nào lời thật sau mọi chi phí, để cân nhắc nhập lại.':''}</p>${prodTable(PRODS.rows,true,KP.rows)}</div>`;
 };
 
 // ---------- đơn hàng ----------
@@ -610,7 +612,7 @@ function kCards(a,p){
     ['k_sent','Doanh số gửi đi',M(a.sent),p?delta(a.sent,p.sent):'',`${N(a.n)} đơn · đang xử lý ${M(a.proc)}`],
     ['k_rr','Tỷ lệ hoàn',P(a.rr),p?delta(a.rr,p.rr,{pp:1,lowerBetter:1}):'',`hoàn ${M(a.ret)}`],
   ];
-  return `<div class="kpis kpis4">${four.map(([k,l,v,d,sub],i)=>`<div class="kpi${i===0?' primary':''}"><div class="l">${l} ${tip(k)}</div><div class="v ${i===0&&a.lng<0?'neg':''}">${v}</div><div class="n">${d||''}<div>${sub}</div></div></div>`).join('')}</div>`;
+  return `<div class="kpis kpis4">${four.map(([k,l,v,d,sub],i)=>`<div class="kpi m-${k}${i===0?' primary':''}"><div class="l">${l} ${tip(k)}</div><div class="v ${i===0&&a.lng<0?'neg':''}">${v}</div><div class="n">${d||''}<div>${sub}</div></div></div>`).join('')}</div>`;
 }
 function kWarn(a){
   const out=[],[f,t]=rangeDates();
@@ -712,7 +714,7 @@ V.kpi=()=>{
     const first={k:'name',label:kMode==='rd'?'Người R&D':'Nhân sự',l:1,fmt:r=>kWhoName(r.k)+(r.k!=='~'&&byId(CAT.staff,r.k)?`<div class="sub2">${esc(teamName(byId(CAT.staff,r.k).team_id))}</div>`:''),val:r=>r.k==='~'?'':staffName(r.k)};
     const foot=kFoot(T);
     return head+kCards(T,PT)+kWarn(T)+
-    `<div class="card blk blk-b"><div class="cardhead"><div><h2>KPI ${modeLabel} · ${esc(rangeLabel())}</h2><p class="hint">Bấm vào tên để xem bảng tính chi tiết và từng sản phẩm. Bấm tiêu đề cột để sắp xếp. “Xuất Excel” có đủ các khoản như file KPI.</p></div><div class="page-actions">${kViewSeg()}${exportBtn('tKpi')}</div></div>
+    `<div class="card blk c-purple"><div class="cardhead"><div><h2>KPI ${modeLabel} · ${esc(rangeLabel())}</h2><p class="hint">Bấm vào tên để xem bảng tính chi tiết và từng sản phẩm. Bấm tiêu đề cột để sắp xếp. “Xuất Excel” có đủ các khoản như file KPI.</p></div><div class="page-actions">${kViewSeg()}${exportBtn('tKpi')}</div></div>
     ${dataTable('tKpi',kCols(first,F.cmp?prevMap:null),people,{name:'KPI '+modeLabel,sortKey:'lng',click:r=>r.k==='~'?'':'kpi:'+r.k,foot,xcols:KX})}</div>
     <div class="card pl blk blk-a"><h2>Bảng tính tổng</h2><p class="hint">Cộng tất cả ${kMode==='rd'?'người R&D':'nhân sự'} trong phạm vi đang xem.</p>${kPL(T,s)}</div>`;
   }
@@ -732,7 +734,7 @@ V.kpi=()=>{
   return (solo?'':crumbs([['KPI · '+modeLabel,'kpi:'],[nm,'']]))+head+`<div class="tools">${sel}<span class="muted">${who!=='~'&&byId(CAT.staff,who)?esc(teamName(byId(CAT.staff,who).team_id)):''}</span></div>`+
   kCards(me1,F.cmp?pv:null)+kWarn(me1)+
   `<div class="card pl blk blk-a"><h2><span class="bno">1</span>Bảng tính lợi nhuận gộp</h2><p class="hint keep">${esc(nm)} · ${esc(rangeLabel())}</p>${kPL(me1,s)}</div>
-  <div class="card blk blk-b"><div class="cardhead"><div><h2><span class="bno">2</span>Từng sản phẩm · ${N(prods.filter(p=>p.n||p.usd).length)} có đơn / chi phí${kAllProds?` · ${N(prods.length)} sản phẩm`:''}</h2><p class="hint">Mỗi đơn tính cho sản phẩm chính của đơn (dòng hàng giá trị lớn nhất, không tính hàng tặng).${KCAT.loading?' Đang tải danh sách sản phẩm…':''}</p></div><div class="page-actions"><label class="toggle"><input type="checkbox" id="kAllProds" ${kAllProds?'checked':''}> Hiện tất cả sản phẩm</label>${kViewSeg()}${exportBtn('tKpiP')}</div></div>
+  <div class="card blk c-orange"><div class="cardhead"><div><h2><span class="bno">2</span>Từng sản phẩm · ${N(prods.filter(p=>p.n||p.usd).length)} có đơn / chi phí${kAllProds?` · ${N(prods.length)} sản phẩm`:''}</h2><p class="hint">Mỗi đơn tính cho sản phẩm chính của đơn (dòng hàng giá trị lớn nhất, không tính hàng tặng).${KCAT.loading?' Đang tải danh sách sản phẩm…':''}</p></div><div class="page-actions"><label class="toggle"><input type="checkbox" id="kAllProds" ${kAllProds?'checked':''}> Hiện tất cả sản phẩm</label>${kViewSeg()}${exportBtn('tKpiP')}</div></div>
     ${dataTable('tKpiP',kCols(first,F.cmp?pprev:null),prods,{name:'KPI '+nm,sortKey:'sent',foot,xcols:[{label:'Nhóm',val:r=>r.grp||''}].concat(KX)})}</div>`;
 };
 
@@ -776,8 +778,8 @@ function dailyCard(teamId){
   ensureTD();
   if(ME.scope!=='self'&&CONTEST.key!==F.proj){CONTEST.key=F.proj;CONTEST.rows=null;loadContest(F.proj)}
   const title=teamId?'Theo dõi theo ngày · '+esc(teamName(teamId)):'Theo dõi theo ngày · tất cả team';
-  if(TD.err)return `<div class="card blk blk-c"><h2>${title}</h2>${Shell.empty('alert','Chưa tải được bảng theo dõi',esc(TD.err)+'<br>Kiểm tra đã chạy file SQL 20261026010000_team_daily.sql trên Supabase chưa.')}</div>`;
-  if(TD.loading&&!TD.rows.length)return `<div class="card blk blk-c"><h2>${title}</h2><div class="skel" style="height:14px;margin-top:14px"></div><div class="skel" style="height:180px;margin-top:12px"></div></div>`;
+  if(TD.err)return `<div class="card blk c-cyan"><h2>${title}</h2>${Shell.empty('alert','Chưa tải được bảng theo dõi',esc(TD.err)+'<br>Kiểm tra đã chạy file SQL 20261026010000_team_daily.sql trên Supabase chưa.')}</div>`;
+  if(TD.loading&&!TD.rows.length)return `<div class="card blk c-cyan"><h2>${title}</h2><div class="skel" style="height:14px;margin-top:14px"></div><div class="skel" style="height:180px;margin-top:12px"></div></div>`;
   const rows=teamId?TD.rows.filter(r=>r.team===teamId):TD.rows;
   // Target: của team, hoặc cộng các team trong phạm vi.
   const teams=teamId?[byId(CAT.teams,teamId)].filter(Boolean):CAT.teams.filter(t=>t.active!==false&&TD.rows.some(r=>r.team===t.id));
@@ -828,7 +830,7 @@ function dailyBody(rows,rate,o){
   const canTgt=['admin','quan_ly'].includes(ME.role);
   const dtipTxt=`Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn.${DAILY_OLD?' Bảng này chưa lọc theo kênh / thị trường.':' Doanh số, số đơn theo thị trường và kênh đang lọc; chi phí ads theo kênh marketer chọn khi nhập.'}${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}`.replace(/<[^>]+>/g,'');
   const dtip=`<span class="tip" tabindex="0" role="note" aria-label="${esc(dtipTxt)}" data-tip="${esc(dtipTxt)}">?</span>`;
-  return `<div class="card blk blk-c"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div></div>
+  return `<div class="card blk c-cyan"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div></div>
     ${(F.ch!=='all')?`<div class="warnrow">${DAILY_OLD?`<span class="pill p-warn">Chưa lọc theo kênh ${tipT('Bảng đang hiện số của mọi kênh. Admin chạy file SQL 20261027010000_daily_filters.sql trên Supabase để bảng lọc theo kênh / thị trường.')}</span>`:`<span class="pill p-info">Chi phí ads kênh ${esc(adChName(F.ch))} ${tipT('Chỉ tính chi phí marketer chọn kênh này khi nhập. Khoản nhập trước khi có ô Kênh (chưa chọn kênh) chỉ được tính khi xem Mọi kênh. Nếu chi phí vẫn ra của mọi kênh, admin cần chạy file SQL 20261027020000_ad_channel.sql.')}</span>`}</div>`:''}
     ${contest}${strip}
     ${rows.length?(()=>{const mw=230+140+ds.length*112,cg=`<colgroup><col style="width:230px"><col style="width:140px">${ds.map(()=>'<col style="width:112px">').join('')}</colgroup>`;
@@ -850,8 +852,8 @@ function staffDailyCard(staffId){
   if(key!==SD.key){SD.key=key;SD.loading=true;SD.rows=[];loadSD(key,staffId)}
   if(CONTEST.key!==F.proj){CONTEST.key=F.proj;CONTEST.rows=null;loadContest(F.proj)}
   const title='Theo dõi theo ngày · '+esc(staffName(staffId));
-  if(SD.err)return `<div class="card blk blk-c"><h2>${title}</h2>${Shell.empty('alert','Chưa tải được bảng theo dõi',esc(SD.err)+'<br>Kiểm tra đã chạy file SQL 20261026020000_staff_daily.sql trên Supabase chưa.')}</div>`;
-  if(SD.loading&&!SD.rows.length)return `<div class="card blk blk-c"><h2>${title}</h2><div class="skel" style="height:14px;margin-top:14px"></div><div class="skel" style="height:180px;margin-top:12px"></div></div>`;
+  if(SD.err)return `<div class="card blk c-cyan"><h2>${title}</h2>${Shell.empty('alert','Chưa tải được bảng theo dõi',esc(SD.err)+'<br>Kiểm tra đã chạy file SQL 20261026020000_staff_daily.sql trên Supabase chưa.')}</div>`;
+  if(SD.loading&&!SD.rows.length)return `<div class="card blk c-cyan"><h2>${title}</h2><div class="skel" style="height:14px;margin-top:14px"></div><div class="skel" style="height:180px;margin-top:12px"></div></div>`;
   const st=byId(CAT.staff,staffId)||{},team=byId(CAT.teams,st.team_id);
   let contest='';
   if(CONTEST.rows&&CONTEST.rows.length){
@@ -902,7 +904,7 @@ const pctCell=(v,base,bad)=>{if(!base||!isFinite(v/base))return '<span class="mu
 
 function topCard(rows,kp,title){
   ensureKP();
-  return `<div class="card blk blk-b"><div class="cardhead"><div><h2>${title}</h2><p class="hint">10 sản phẩm doanh số cao nhất trong khoảng đang lọc.</p></div></div>${rows==null?'<div class="skel" style="height:12px"></div>'.repeat(3):prodTable(rows,false,kp,{top:10})}</div>`;
+  return `<div class="card blk c-orange"><div class="cardhead"><div><h2>${title}</h2><p class="hint">10 sản phẩm doanh số cao nhất trong khoảng đang lọc.</p></div></div>${rows==null?'<div class="skel" style="height:12px"></div>'.repeat(3):prodTable(rows,false,kp,{top:10})}</div>`;
 }
 // ---------- kết quả kinh doanh (theo form báo cáo KQKD) ----------
 V.kqkd=()=>{
