@@ -70,7 +70,8 @@ Deno.serve(async (req) => {
         const password = String(body.password || "");
         if (!email || password.length < 8) return json({ error: "Cần email và mật khẩu từ 8 ký tự" }, 400);
         const { data, error } = await sb.auth.admin.createUser({
-          email, password, email_confirm: true, user_metadata: { full_name: body.full_name || "" },
+          // must_change_pw: lần đăng nhập đầu phải đổi sang mật khẩu riêng (trang tự mở hộp đổi mật khẩu).
+          email, password, email_confirm: true, user_metadata: { full_name: body.full_name || "", must_change_pw: body.must_change !== false },
         });
         if (error) throw error;
         // Trigger đã tạo profile; ghi thêm tên, quyền, team.
@@ -95,7 +96,7 @@ Deno.serve(async (req) => {
       case "set_password": {
         const password = String(body.password || "");
         if (password.length < 8) return json({ error: "Mật khẩu từ 8 ký tự" }, 400);
-        const { error } = await sb.auth.admin.updateUserById(String(body.id), { password });
+        const { error } = await sb.auth.admin.updateUserById(String(body.id), { password, user_metadata: { must_change_pw: body.must_change !== false } });
         if (error) throw error;
         return json({ ok: true });
       }
