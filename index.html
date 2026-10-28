@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261028m">
+<link rel="stylesheet" href="css/app.css?v=20261028n">
 </head>
 <body>
 
@@ -31,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261028m"></script>
-<script src="js/settings-db.js?v=20261028m"></script>
-<script src="js/shell.js?v=20261028m"></script>
+<script src="js/auth.js?v=20261028n"></script>
+<script src="js/settings-db.js?v=20261028n"></script>
+<script src="js/shell.js?v=20261028n"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -278,7 +278,7 @@ function targetBlock(list,target){
 const SORT={},TBL={};
 // ---------- phân trang dùng chung ----------
 // PG[key] = {page, per}. Số dòng mỗi trang nhớ trên máy theo từng bảng.
-const PG={},PER_OPTS=[10,25,50,100,200];
+const PG={},PER_OPTS=[10,25,50,100,200,500,1000];
 function pgState(key,defPer){if(!PG[key]){const v=+store.get('per_'+key,'');PG[key]={page:0,per:PER_OPTS.includes(v)?v:(defPer||25)}}return PG[key]}
 // Dải số trang gọn: 1 … 4 5 [6] 7 8 … 120
 function pgNums(p,n){const out=[],add=x=>{if(!out.includes(x))out.push(x)};add(0);for(let i=p-2;i<=p+2;i++)if(i>0&&i<n-1)add(i);if(n>1)add(n-1);
