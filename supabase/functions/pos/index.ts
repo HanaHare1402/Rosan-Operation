@@ -8,7 +8,7 @@ import { adminClient, cors, getCaller, json } from "../_shared/common.ts";
 const POS = "https://pos.pages.fm/api/v1";
 const PAGE_SIZE = 100;
 const PARALLEL = 8; // số trang gọi POS cùng lúc (POS cho 1000 lượt/phút; 8 trang × ~1–2 giây ≈ 250–500 lượt/phút)
-const WRITE_CHUNK = 250; // số đơn mỗi lần ghi vào Supabase
+const WRITE_CHUNK = 100; // số đơn mỗi lần ghi vào Supabase (nhỏ để mỗi lệnh xong nhanh)
 const TIME_BUDGET_MS = 110_000; // dừng sớm, lần chạy sau làm tiếp từ trang đang dở
 const OVERLAP_MS = 10 * 60_000; // lùi 10 phút mỗi lần để không sót đơn cập nhật sát mốc
 const REFRESH_BUDGET_MS = 25_000; // người dùng đang chờ trên trang
@@ -79,6 +79,25 @@ function mapOrder(shopId: string, o: any) {
   };
 }
 
+// Ghi một nhóm đơn; nếu quá giờ (statement timeout) thì chia đôi ghi lại, tới từng đơn một.
+// Một đơn lẻ vẫn quá giờ thì thử lại 1 lần rồi mới báo lỗi, để không kẹt mãi ở một trang.
+const isTimeout = (e: any) => /statement timeout|57014/i.test(String(e?.message || e?.code || e));
+async function upsertSplit(sb: ReturnType<typeof adminClient>, rows: any[]): Promise<void> {
+  if (!rows.length) return;
+  const { error } = await sb.from("orders").upsert(rows, { onConflict: "shop_id,pos_order_id" });
+  if (!error) return;
+  if (!isTimeout(error)) throw error;
+  if (rows.length === 1) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const again = await sb.from("orders").upsert(rows, { onConflict: "shop_id,pos_order_id" });
+    if (again.error) throw new Error(`Đơn ${rows[0].pos_order_id}: ${again.error.message}`);
+    return;
+  }
+  const mid = Math.ceil(rows.length / 2);
+  await upsertSplit(sb, rows.slice(0, mid));
+  await upsertSplit(sb, rows.slice(mid));
+}
+
 async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger: string, deadline: number) {
   // Lượt khác đang kéo shop này thì bỏ qua, tránh hai lượt ghi chồng nhau.
   const { data: locked, error: le } = await sb.rpc("internal_lock_shop", { p_shop: shop.id });
@@ -124,10 +143,7 @@ async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger:
     let writing: Promise<void> = Promise.resolve();
     const writeBatch = (rows: ReturnType<typeof mapOrder>[], nextPage: number) => {
       writing = (async () => {
-        for (let i = 0; i < rows.length; i += WRITE_CHUNK) {
-          const { error } = await sb.from("orders").upsert(rows.slice(i, i + WRITE_CHUNK), { onConflict: "shop_id,pos_order_id" });
-          if (error) throw error;
-        }
+        for (let i = 0; i < rows.length; i += WRITE_CHUNK) await upsertSplit(sb, rows.slice(i, i + WRITE_CHUNK));
         count += rows.length;
         safePage = nextPage;
         // Ghi tiến độ để trang Quản trị hiện thanh tiến độ.
@@ -178,7 +194,7 @@ async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger:
 async function drainRecompute(sb: ReturnType<typeof adminClient>, until: number) {
   let total = 0;
   while (Date.now() < until - 5000) {
-    const { data, error } = await sb.rpc("recompute_batch", { p_limit: 5000 });
+    const { data, error } = await sb.rpc("recompute_batch", { p_limit: 1000 });
     if (error || !data?.[0]) break; // chưa chạy SQL 20261025040000_recompute_batches.sql
     total += Number(data[0].done) || 0;
     if (!Number(data[0].remaining)) break;
