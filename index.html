@@ -80,6 +80,9 @@ const isoD=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+Str
 function sod(d){const x=new Date(d);x.setHours(0,0,0,0);return x}
 const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
 const RANGES={today:'Hôm nay',yesterday:'Hôm qua','7d':'7 ngày',month:'Tháng này',lastmonth:'Tháng trước','30d':'30 ngày',custom:'Tuỳ chọn'};
+// Gửi ngày cho database: nửa đêm giờ Việt Nam của ngày đã chọn. Database đổi ra ngày (yyyy-mm-dd)
+// rồi lọc đơn theo ngày tạo tính bằng giờ của từng thị trường, nên người xem ở múi giờ nào cũng ra cùng số.
+const dayISO=d=>new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-7*36e5).toISOString();
 function rangeDates(k){
   k=k||F.range;const t=sod(new Date());
   if(k==='today')return [t,addD(t,1)];
@@ -146,8 +149,8 @@ async function loadData(){
   const seq=++loadSeq;loading=true;loadErr='';render();
   const base={p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch};
   const [from,to]=rangeDates(),[pf,pt]=prevDates();
-  const [cur,prev]=await Promise.all([sbc.rpc('dash_orders',{...base,p_from:from.toISOString(),p_to:to.toISOString()}),
-    F.cmp?sbc.rpc('dash_orders',{...base,p_from:pf.toISOString(),p_to:pt.toISOString()}):Promise.resolve({data:[]})]);
+  const [cur,prev]=await Promise.all([sbc.rpc('dash_orders',{...base,p_from:dayISO(from),p_to:dayISO(to)}),
+    F.cmp?sbc.rpc('dash_orders',{...base,p_from:dayISO(pf),p_to:dayISO(pt)}):Promise.resolve({data:[]})]);
   if(seq!==loadSeq)return;
   loading=false;
   if(cur.error){loadErr=cur.error.message;ROWS=[]}else ROWS=cur.data.map(mapRow);
@@ -158,15 +161,16 @@ async function loadData(){
 }
 async function loadProducts(){
   const [from,to]=rangeDates();
-  const {data,error}=await sbc.rpc('dash_products',{p_from:from.toISOString(),p_to:to.toISOString(),p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch});
+  const {data,error}=await sbc.rpc('dash_products',{p_from:dayISO(from),p_to:dayISO(to),p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch});
   PRODS=error?{err:error.message,rows:[]}:{rows:data.map(r=>({code:r.code,name:r.name,team:r.team_id,staff:r.staff_id,g:r.st_group,n:+r.orders,qty:+r.qty,rev:+r.revenue_vnd,cogs:+r.cogs_vnd||0,unit:r.unit_cost_vnd==null?null:+r.unit_cost_vnd}))};
   if(['sanpham','nhansu','canhbao','tongquan','team','kqkd'].includes(view))render();
 }
-// Gộp: ord/rev = đơn đặt (trừ huỷ); ok = đã giao; ret = hoàn; ship = đang giao; neu = chờ xử lý.
+// Gộp: ord = số đơn (gồm đơn huỷ, như POS; đơn đã xoá không có ở đây); rev = doanh số (không tính đơn huỷ);
+// ok = đã giao; ret = hoàn; ship = đang giao; neu = chờ xử lý; cancel = đã huỷ.
 function agg(list,key){
   const m=new Map();
   list.forEach(r=>{const k=key(r);let a=m.get(k);if(!a){a={k,ord:0,rev:0,ok:0,okRev:0,okCogs:0,okMiss:0,ret:0,retRev:0,ship:0,shipRev:0,neu:0,cancel:0};m.set(k,a)}
-    if(r.g==='cancel'){a.cancel+=r.n;return}
+    if(r.g==='cancel'){a.cancel+=r.n;a.ord+=r.n;return}
     a.ord+=r.n;a.rev+=r.rev;
     if(r.g==='ok'){a.ok+=r.n;a.okRev+=r.rev;a.okCogs+=r.cogs||0;a.okMiss+=r.miss||0}else if(r.g==='ret'){a.ret+=r.n;a.retRev+=r.rev}else if(r.g==='ship'){a.ship+=r.n;a.shipRev+=r.rev}else a.neu+=r.n});
   return [...m.values()];
@@ -251,13 +255,14 @@ function kpiCards(list,prevList,ads){
   if(ads){const v=ads.rev?ads.cost/ads.rev:NaN,over=ads.cap&&v*100>ads.cap;
     four.splice(3,0,['adsp','% chi phí ads',ads.loading?'<span class="skel" style="display:inline-block;height:22px;width:70px"></span>':`<span class="${over?'neg':''}">${P(v)}</span>`,
       ads.loading||!ads.cap?'':`<span class="delta ${over?'bad':'good'}">${over?'▲ vượt':'✓ trong'} trần ${PF(ads.cap)}%</span>`,null,ads.loading?'':`chi phí ${M(ads.cost)} / doanh số ${M(ads.rev)}`])}
-  const aov=a.ord?a.rev/a.ord:NaN,paov=p.ord?p.rev/p.ord:NaN;
+  // Giá trị TB / đơn: chỉ chia cho đơn không huỷ (đơn huỷ không có doanh số).
+  const live=x=>x.ord-x.cancel,aov=live(a)?a.rev/live(a):NaN,paov=live(p)?p.rev/live(p):NaN;
   return `<div class="kpis ${four.length>4?'kpis5':'kpis4'}">${four.map(([k,l,v,d,sp,sub],i)=>`<div class="kpi m-${k}${i===0?' primary':''}"><div class="l">${l} ${tip(k)}</div><div class="v">${v}</div><div class="n">${d||''}${sub?`<div>${sub}</div>`:''}</div>${sp&&ds.length>1?spark(sp):''}</div>`).join('')}</div>
   <div class="statstrip ist">
     <div>${ico('coins','i-green')}<div><span class="l">Giá trị TB / đơn ${tip('aov')}</span><b>${isFinite(aov)?N(aov)+' ₫':'–'}</b>${delta(aov,paov,{short:1})}</div></div>
     <div>${ico('receipt','i-blue')}<div><span class="l">Đang giao ${tip('ship')}</span><b>${N(a.ship)}</b><span class="muted">${M(a.shipRev)}</span></div></div>
     <div>${ico('inbox','i-amber')}<div><span class="l">Chờ xử lý ${tip('neu')}</span><b>${N(a.neu)}</b></div></div>
-    <div>${ico('x','i-red')}<div><span class="l">Huỷ / đã xoá</span><b>${N(a.cancel)}</b><span class="muted">${P(a.cancel/((a.ord+a.cancel)||NaN))} tổng đơn</span></div></div>
+    <div>${ico('x','i-red')}<div><span class="l">Đã huỷ</span><b>${N(a.cancel)}</b><span class="muted">${P(a.cancel/(a.ord||NaN))} số đơn</span></div></div>
   </div>`;
 }
 // Ô tròn có biểu tượng cho dải số phụ (kiểu MISA): màu theo ý nghĩa, chỉ để trang trí nên ẩn với trình đọc màn hình.
@@ -497,22 +502,28 @@ V.sanpham=()=>{
 
 // ---------- đơn hàng ----------
 const POS_ST={0:'Mới',1:'Đã xác nhận',2:'Đã gửi hàng',3:'Đã nhận',4:'Đang hoàn',5:'Đã hoàn',6:'Đã huỷ',7:'Đã xoá',8:'Đang đóng hàng',9:'Chờ chuyển hàng',11:'Chờ hàng',12:'Chờ in',13:'Đã in',15:'Hoàn 1 phần',16:'Đã thu tiền',20:'Đã đặt hàng'};
-const GROUPS={'Chờ xử lý':[0,1,8,9,11,12,13,20],'Đang giao':[2],'Đã giao':[3,16],'Hoàn':[4,5,15],'Đã huỷ':[6,7]};
+const GROUPS={'Chờ xử lý':[0,1,8,9,11,12,13,20],'Đang giao':[2],'Đã giao':[3,16],'Hoàn':[4,5,15],'Đã huỷ':[6]};
 const GPILL={'Chờ xử lý':'p-mute','Đang giao':'p-warn','Đã giao':'p-good','Hoàn':'p-bad','Đã huỷ':'p-mute'};
 const groupOf=st=>Object.keys(GROUPS).find(g=>GROUPS[g].includes(st))||'Chờ xử lý';
 const maskPhone=ME.scope==='self'&&ME.role==='marketing';
 let O={rows:[],count:0,key:'',loading:false,err:'',timer:null},oQ='',oSt='all';
+let HAS_DAY=true; // database đã có cột local_day (chạy SQL 20261028030000_market_day.sql) chưa
 async function fetchOrders(key){
   const {page,per}=pgState('orders'),[from,to]=rangeDates(F.range);
-  let q=sbc.from('orders').select('pos_order_id,status,status_name,inserted_at,cod,total_price,bill_full_name,bill_phone_number,tracking,marketer_name,seller_name,staff_id,team_id,channel_id,source_name,items,pos_shops(name)',{count:'exact'})
-    .gte('inserted_at',from.toISOString()).lt('inserted_at',to.toISOString());
+  const q0=useDay=>{let q=sbc.from('orders').select('pos_order_id,status,status_name,inserted_at,cod,total_price,bill_full_name,bill_phone_number,tracking,marketer_name,seller_name,staff_id,team_id,channel_id,source_name,items,pos_shops(name)',{count:'exact'})
+    .or('status.is.null,status.neq.7');
+  // Lọc theo ngày tạo tính bằng giờ của thị trường (cột local_day); chưa có cột thì lọc theo giờ như cũ.
+  q=useDay?q.gte('local_day',isoD(from)).lt('local_day',isoD(to)):q.gte('inserted_at',dayISO(from)).lt('inserted_at',dayISO(to));
   if(F.proj)q=q.eq('project_id',F.proj);
   if(F.mkt)q=q.eq('market_id',F.mkt);
   if(F.ch!=='all')q=q.eq('channel_id',F.ch);
   if(oSt!=='all')q=q.in('status',GROUPS[oSt]);
   const term=oQ.trim().replace(/[%,()*]/g,' ').trim();
   if(term)q=q.or(['pos_order_id','bill_phone_number','tracking','bill_full_name','marketer_name'].map(c=>`${c}.ilike.*${term}*`).join(','));
-  const {data,error,count}=await q.order('inserted_at',{ascending:false}).range(page*per,page*per+per-1);
+  return q.order('inserted_at',{ascending:false}).range(page*per,page*per+per-1)};
+  let res=await q0(HAS_DAY);
+  if(res.error&&/local_day/.test(res.error.message)){HAS_DAY=false;res=await q0(false)}
+  const {data,error,count}=res;
   if(key!==O.key)return;
   O.loading=false;
   if(error){O.err=error.message;O.rows=[];O.count=0}else{O.err='';O.rows=data;O.count=count||0}
@@ -600,7 +611,7 @@ async function getKSet(m){
 }
 async function loadKpi(key){
   const [from,to]=rangeDates(),[pf,pt]=prevDates(),m=isoD(monthStart(from));
-  const args=(f,t)=>({p_from:f.toISOString(),p_to:t.toISOString(),p_mode:kMode,p_project:F.proj||null});
+  const args=(f,t)=>({p_from:dayISO(f),p_to:dayISO(t),p_mode:kMode,p_project:F.proj||null});
   const rep=(f,t)=>fetchAll(()=>sbc.rpc('kpi_report',args(f,t)).order('who').order('product_key'));
   const [cur,prev,set]=await Promise.all([rep(from,to),F.cmp?rep(pf,pt):Promise.resolve({data:[]}),getKSet(m)]);
   if(key!==K.key)return;
@@ -801,7 +812,7 @@ async function dailyRpc(fn,args,ord){
 }
 async function loadTD(key){
   const [from,to]=rangeDates();
-  const [r,s]=await Promise.all([dailyRpc('team_daily',{p_from:from.toISOString(),p_to:to.toISOString(),p_project:F.proj||null},['day','team_id','grp']),getKSet(isoD(monthStart(from)))]);
+  const [r,s]=await Promise.all([dailyRpc('team_daily',{p_from:dayISO(from),p_to:dayISO(to),p_project:F.proj||null},['day','team_id','grp']),getKSet(isoD(monthStart(from)))]);
   if(key!==TD.key)return;
   TD.loading=false;TD.usd=s.usd_vnd;
   if(r.error){TD.err=r.error.message;TD.rows=[]}else{TD.err='';TD.rows=r.data.map(x=>({day:x.day,team:x.team_id||'',grp:x.grp,n:+x.orders,rev:+x.revenue,usd:+x.ad_usd}))}
@@ -810,7 +821,7 @@ async function loadTD(key){
 // Thi đua: 2 người LNG cao nhất tháng trước (theo bảng KPI nhân viên ADS).
 async function loadContest(key){
   const t=sod(new Date()),pf=new Date(t.getFullYear(),t.getMonth()-1,1),pt=new Date(t.getFullYear(),t.getMonth(),1);
-  const [r,s]=await Promise.all([fetchAll(()=>sbc.rpc('kpi_report',{p_from:pf.toISOString(),p_to:pt.toISOString(),p_mode:'ads',p_project:F.proj||null}).order('who').order('product_key')),getKSet(isoD(pf))]);
+  const [r,s]=await Promise.all([fetchAll(()=>sbc.rpc('kpi_report',{p_from:dayISO(pf),p_to:dayISO(pt),p_mode:'ads',p_project:F.proj||null}).order('who').order('product_key')),getKSet(isoD(pf))]);
   if(key!==CONTEST.key)return;
   CONTEST.month=isoD(pf);CONTEST.rows=r.error?[]:kSum(r.data.map(kRow),x=>x.who).filter(a=>a.k!=='~').map(a=>kCalc(a,s));
   if(view==='team'||view==='tongquan'||view==='nhansu')render();
@@ -891,7 +902,7 @@ function dailyBody(rows,rate,o){
 const SD={key:'',rows:[],usd:KDEF.usd_vnd,loading:false,err:''};
 async function loadSD(key,staff){
   const [from,to]=rangeDates();
-  const [r,s]=await Promise.all([dailyRpc('staff_daily',{p_from:from.toISOString(),p_to:to.toISOString(),p_staff:staff},['day','grp']),getKSet(isoD(monthStart(from)))]);
+  const [r,s]=await Promise.all([dailyRpc('staff_daily',{p_from:dayISO(from),p_to:dayISO(to),p_staff:staff},['day','grp']),getKSet(isoD(monthStart(from)))]);
   if(key!==SD.key)return;
   SD.loading=false;SD.usd=s.usd_vnd;
   if(r.error){SD.err=r.error.message;SD.rows=[]}else{SD.err='';SD.rows=r.data.map(x=>({day:x.day,grp:x.grp,n:+x.orders,rev:+x.revenue,usd:+x.ad_usd}))}
@@ -921,7 +932,7 @@ function ensureKP(){
   const key=JSON.stringify([F.proj,F.range,F.from,F.to]);if(key===KP.key)return;
   KP.key=key;KP.loading=true;KP.rows=[];
   const [from,to]=rangeDates(),m=isoD(monthStart(from));
-  Promise.all([fetchAll(()=>sbc.rpc('kpi_report',{p_from:from.toISOString(),p_to:to.toISOString(),p_mode:'ads',p_project:F.proj||null}).order('who').order('product_key')),getKSet(m),
+  Promise.all([fetchAll(()=>sbc.rpc('kpi_report',{p_from:dayISO(from),p_to:dayISO(to),p_mode:'ads',p_project:F.proj||null}).order('who').order('product_key')),getKSet(m),
     SEE_COST?sbc.from('pl_other').select('item,amount_vnd').eq('month',m):Promise.resolve({data:[]})]).then(([r,st,o])=>{
     if(key!==KP.key)return;
     KP.loading=false;KP.set=st;KP.month=m;KP.other={};(o.data||[]).forEach(x=>KP.other[x.item]=+x.amount_vnd||0);
