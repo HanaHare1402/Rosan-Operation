@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261028q">
+<link rel="stylesheet" href="css/app.css?v=20261028r">
 </head>
 <body>
 
@@ -31,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261028q"></script>
-<script src="js/settings-db.js?v=20261028q"></script>
-<script src="js/shell.js?v=20261028q"></script>
+<script src="js/auth.js?v=20261028r"></script>
+<script src="js/settings-db.js?v=20261028r"></script>
+<script src="js/shell.js?v=20261028r"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -859,6 +859,17 @@ function adsInfo(src,rows,teams){
 }
 function ensureTD(){const key=JSON.stringify([F.proj,F.mkt,F.ch,F.range,F.from,F.to]);if(key!==TD.key){TD.key=key;TD.loading=true;TD.rows=[];loadTD(key)}}
 const WD=['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+// Bảng theo dõi: mặc định gọn (chỉ dòng tổng); "Theo nhóm SP" mở thêm dòng từng nhóm sản phẩm.
+let dlyGrp=store.get('dlyGrp','0')==='1';
+// Biểu đồ cột nhỏ trong ô "Xu hướng": vals = [[ngày, giá trị]], cap = trần (%) nếu là dòng % chi phí.
+function dSpark(vals,fmt,cap){
+  const v=vals.filter(x=>isFinite(x[1])),mx=Math.max(...v.map(x=>x[1]),cap||0);if(!v.length||!mx)return '<span class="z">–</span>';
+  const n=vals.length,W=112,H=26,bw=W/n,lo=v.reduce((a,b)=>b[1]<a[1]?b:a),hi=v.reduce((a,b)=>b[1]>a[1]?b:a);
+  const bars=vals.map(([d,x],i)=>{if(!isFinite(x)||x<=0)return '';const h=Math.max(1.5,x/mx*H);return `<rect x="${(i*bw+bw*.15).toFixed(1)}" y="${(H-h).toFixed(1)}" width="${Math.max(1,bw*.7).toFixed(1)}" height="${h.toFixed(1)}" rx="1"${cap&&x>cap?' class="o"':''}><title>${fmtD(d)}: ${fmt(x)}</title></rect>`}).join('');
+  const cl=cap?`<line x1="0" x2="${W}" y1="${(H-cap/mx*H).toFixed(1)}" y2="${(H-cap/mx*H).toFixed(1)}"/>`:'';
+  const lab=`Xu hướng: thấp nhất ${fmt(lo[1])} (${fmtD(lo[0])}), cao nhất ${fmt(hi[1])} (${fmtD(hi[0])})`;
+  return `<svg class="dspark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(lab)}"><title>${esc(lab)}</title>${bars}${cl}</svg>`;
+}
 const GNAME=g=>g?'Nhóm '+g+' ('+{1:'khó đẩy',2:'chưa đẩy mạnh',3:'dễ đẩy'}[g]+')':'Chưa xếp nhóm';
 function dailyCard(teamId){
   ensureTD();
@@ -889,7 +900,8 @@ function dailyBody(rows,rate,o){
   // Chỉ tô màu chỗ vượt trần; dòng tổng giữ nhãn màu để thấy ngay ngày nào vượt.
   const pct=(a,strong)=>{if(!a.rev)return '<span class="z">–</span>';const v=a.usd*rate/a.rev,over=cap&&v*100>cap;
     if(!cap)return strong?`<b>${P(v)}</b>`:P(v);
-    if(strong)return `<span class="pill ${over?'p-bad':'p-good'}" title="${over?'Vượt':'Trong'} trần ${PF(cap)}%">${P(v)}${over?' ▲':''}</span>`;
+    if(strong==='tot')return `<span class="pill ${over?'p-bad':'p-good'}" title="${over?'Vượt':'Trong'} trần ${PF(cap)}%">${P(v)}${over?' ▲':''}</span>`;
+    if(strong)return over?`<span class="ovc" title="Vượt trần ${PF(cap)}%">${P(v)} ▲</span>`:P(v);
     return over?`<span class="ov" title="Vượt trần ${PF(cap)}%">${P(v)} ▲</span>`:P(v)};
   // Tiền trong bảng cùng một đơn vị: đồng (ghi ở đầu cột chỉ số).
   const Tr=v=>v?N(v):'<span class="z">–</span>';
@@ -897,12 +909,19 @@ function dailyBody(rows,rate,o){
     ['Tổng chi phí ads (1)',a=>Tr(a.usd*rate),'h',undefined,'cost'],...G.map(g=>[GNAME(g),a=>Tr(a.usd*rate),'ind',g,'cost']),
     ['Doanh số tổng (2)',a=>Tr(a.rev),'h',undefined,'rev'],...G.map(g=>[GNAME(g),a=>Tr(a.rev),'ind',g,'rev']),
     ['Số đơn (3)',a=>a.n?N(a.n):'<span class="z">–</span>','h',undefined,'ord'],
-    ['% chi phí = (1) ÷ (2)',a=>pct(a,1),'h',undefined,'pct'],...G.map(g=>[GNAME(g),a=>pct(a),'ind',g,'pct']),
-    ['Chi phí / đơn = (1) ÷ (3)',a=>a.n?N(a.usd*rate/a.n):'<span class="z">–</span>','h',undefined,'cpo']];
+    ['% chi phí = (1) ÷ (2)',(a,t)=>pct(a,t?'tot':1),'h',undefined,'pct'],...G.map(g=>[GNAME(g),a=>pct(a),'ind',g,'pct']),
+    ['Chi phí / đơn = (1) ÷ (3)',a=>a.n?N(a.usd*rate/a.n):'<span class="z">–</span>','h',undefined,'cpo']].filter(l=>dlyGrp||l[2]==='h');
+  // Giá trị từng ngày cho cột "Xu hướng" (chỉ dòng tổng, chỉ tới hôm nay).
+  const SV={cost:a=>a.usd*rate,rev:a=>a.rev,ord:a=>a.n,pct:a=>a.rev?a.usd*rate/a.rev*100:NaN,cpo:a=>a.n?a.usd*rate/a.n:NaN};
+  const SF={cost:N,rev:N,ord:N,pct:x=>PF(x)+'%',cpo:N};
+  const past=ds.filter(d=>isoD(d)<=today);
+  const showTr=ds.length>2;
+  const spark=sec=>dSpark(past.map(d=>[d,SV[sec](get(isoD(d)))]),SF[sec],sec==='pct'?cap:0);
   const we=d=>d.getDay()===0||d.getDay()===6;
-  const head=`<tr><th class="l">Chỉ số<div class="sub2">tiền: đồng</div></th><th class="tot">Tổng<div class="sub2">${esc(rangeLabel())}</div></th>${ds.map(d=>`<th class="${we(d)?'we':''}${isoD(d)===today?' today':''}">${isoD(d)===today?'Hôm nay':WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
+  const wk=d=>d.getDay()===1&&+d!==+ds[0]?' wk':'';
+  const head=`<tr><th class="l">Chỉ số<div class="sub2">tiền: đồng</div></th><th class="tot">Tổng<div class="sub2">${esc(rangeLabel())}</div></th>${showTr?'<th class="trend">Xu hướng<div class="sub2">theo ngày</div></th>':''}${ds.map(d=>`<th class="${we(d)?'we':''}${wk(d)}${isoD(d)===today?' today':''}">${isoD(d)===today?'Hôm nay':WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
   const gdot=g=>g===undefined?'':`<span class="gdot g${g||0}" aria-hidden="true"></span>`;
-  const body=lines.map(([lab,f,cls,g,sec],i)=>`<tr class="${cls==='h'?'h':''} s-${sec}${cls==='h'&&i?' first':''}"><td class="${cls==='ind'?'ind':''}">${gdot(g)}${lab}</td><td class="tot">${f(get('*',g))}</td>${ds.map(d=>{const k=isoD(d);return `<td class="${we(d)?'we':''}${k===today?' today':''}${k>today?' fut':''}">${k>today?'<span class="z">–</span>':f(get(k,g))}</td>`}).join('')}</tr>`).join('');
+  const body=lines.map(([lab,f,cls,g,sec],i)=>`<tr class="${cls==='h'?'h':''} s-${sec}${cls==='h'&&i?' first':''}"><td class="${cls==='ind'?'ind':''}">${gdot(g)}${lab}</td><td class="tot">${f(get('*',g),1)}</td>${showTr?`<td class="trend">${cls==='h'?spark(sec):''}</td>`:''}${ds.map(d=>{const k=isoD(d);return `<td class="${we(d)?'we':''}${wk(d)}${k===today?' today':''}${k>today?' fut':''}">${k>today?'<span class="z">–</span>':f(get(k,g))}</td>`}).join('')}</tr>`).join('');
   const T=get('*'),T2=get('*',2),dim=new Date(ds[0].getFullYear(),ds[0].getMonth()+1,0).getDate();
   // Dải chỉ số trên bảng: target (nếu có) và % chi phí so với trần. Chỉ hiện ô có số.
   const pv=T.rev?T.usd*rate/T.rev:NaN,over=cap&&pv*100>cap;
@@ -916,11 +935,12 @@ function dailyBody(rows,rate,o){
   const canTgt=['admin','quan_ly'].includes(ME.role);
   const dtipTxt=`Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn.${DAILY_OLD?' Bảng này chưa lọc theo kênh / thị trường.':' Doanh số, số đơn theo thị trường và kênh đang lọc; chi phí ads theo kênh marketer chọn khi nhập.'}${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}`.replace(/<[^>]+>/g,'');
   const dtip=`<span class="tip" tabindex="0" role="note" aria-label="${esc(dtipTxt)}" data-tip="${esc(dtipTxt)}">?</span>`;
-  return `<div class="card blk c-cyan"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div></div>
+  const segG=`<div class="seg" role="group" aria-label="Cách xem bảng">${[[0,'Gọn'],[1,'Theo nhóm sản phẩm']].map(([k,l])=>`<button type="button" data-dlygrp="${k}" class="${+dlyGrp===k?'on':''}" aria-pressed="${+dlyGrp===k}">${l}</button>`).join('')}</div>`;
+  return `<div class="card blk c-cyan dly"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div>${segG}</div>
     ${(F.ch!=='all')?`<div class="warnrow">${DAILY_OLD?`<span class="pill p-warn">Chưa lọc theo kênh ${tipT('Bảng đang hiện số của mọi kênh. Admin chạy file SQL 20261027010000_daily_filters.sql trên Supabase để bảng lọc theo kênh / thị trường.')}</span>`:`<span class="pill p-info">Chi phí ads: ${esc(fList('ch').map(x=>x==='__none'?'chưa chọn kênh':adChName(x)).join(', '))} ${tipT('Chỉ tính chi phí marketer chọn kênh này khi nhập. Khoản nhập trước khi có ô Kênh (chưa chọn kênh) chỉ được tính khi xem Mọi kênh. Nếu chi phí vẫn ra của mọi kênh, admin cần chạy file SQL 20261027020000_ad_channel.sql.')}</span>`}</div>`:''}
     ${contest}${strip}
-    ${rows.length?(()=>{const mw=230+140+ds.length*112,cg=`<colgroup><col style="width:230px"><col style="width:140px">${ds.map(()=>'<col style="width:112px">').join('')}</colgroup>`;
-      return `<div class="fh"><table class="daily" style="min-width:${mw}px">${cg}<thead>${head}</thead></table></div><div class="tw fhb"><table class="daily" style="min-width:${mw}px">${cg}<tbody>${body}</tbody></table></div>`})():Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
+    ${rows.length?(()=>{const showTr=ds.length>2,mw=230+140+(showTr?132:0)+ds.length*112,cg=`<colgroup><col style="width:230px"><col style="width:140px">${showTr?'<col style="width:132px">':''}${ds.map(()=>'<col style="width:112px">').join('')}</colgroup>`;
+      return `<div class="fh"><table class="daily" style="width:100%;min-width:${mw}px">${cg}<thead>${head}</thead></table></div><div class="tw fhb"><table class="daily" style="width:100%;min-width:${mw}px">${cg}<tbody>${body}</tbody></table></div>`})():Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
 }
 
 // Bản cho một nhân sự (màn Nhân sự): cùng chỉ số, trần % chi phí theo team của người đó, kèm hạng LNG tháng trước.
@@ -1348,6 +1368,7 @@ document.addEventListener('click',e=>{
   if(MP&&!e.target.closest('.msel'))applyM();
   const n=e.target.closest('#nav a[data-v]');if(n){e.preventDefault();go(n.dataset.v);return}
   const rg=e.target.closest('[data-range]');if(rg){const k=rg.dataset.range;if(k==='custom'&&!(F.from&&F.to)){const [f,t]=rangeDates();F.from=isoD(f);F.to=isoD(addD(t,-1));store.set('from',F.from);store.set('to',F.to)}setF('range',k);return}
+  const dg=e.target.closest('[data-dlygrp]');if(dg){dlyGrp=dg.dataset.dlygrp==='1';store.set('dlyGrp',dlyGrp?'1':'0');render();return}
   const mt=e.target.closest('[data-metric]');if(mt){chartMetric=mt.dataset.metric;store.set('cmetric',chartMetric);render();return}
   const srt=e.target.closest('[data-sortt]');if(srt&&!e.target.closest('.tip')){const [id,k]=srt.dataset.sortt.split(':');const st=SORT[id]||(SORT[id]={k,dir:-1});if(st.k===k)st.dir*=-1;else{st.k=k;st.dir=k==='name'?1:-1}render();return}
   const ex=e.target.closest('[data-export]');if(ex){exportTable(ex.dataset.export);return}

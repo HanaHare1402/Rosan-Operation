@@ -1004,3 +1004,16 @@ a.btn{text-decoration:none}
 .mfoot{display:flex;justify-content:flex-end;gap:6px;border-top:1px solid var(--line);margin-top:4px;padding:8px 4px 2px;position:sticky;bottom:-6px;background:var(--panel)}
 @media (max-width:960px){.msel{flex:1 1 calc(50% - 6px)}.mbtn{max-width:none;width:100%}}
 @media (max-width:600px){.mpop{position:fixed;left:16px;right:16px;top:auto;bottom:16px;max-width:none}}
+/* bảng theo dõi theo ngày v3: cột xu hướng, ô vượt trần nền đỏ nhạt, vạch đầu tuần */
+table.daily th.trend,table.daily td.trend{text-align:center;padding:4px 10px;box-shadow:inset -1px 0 0 var(--line)}
+table.daily thead th.trend{color:var(--ink-2)}
+.dspark{display:block;margin:0 auto;overflow:visible}
+.dspark rect{fill:var(--sc,var(--accent));opacity:.85}
+.dspark rect:hover{opacity:1}
+.dspark rect.o{fill:var(--bad);opacity:1}
+.dspark line{stroke:var(--bad);stroke-width:1;stroke-dasharray:3 2;opacity:.8}
+table.daily .ovc{display:inline-block;padding:1px 6px;border-radius:6px;background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--bad);font-weight:650}
+table.daily th.wk,table.daily td.wk{box-shadow:inset 2px 0 0 var(--line-2)}
+table.daily tr.h td{padding-top:11px;padding-bottom:11px}
+.card.dly .cardhead{align-items:center}
+@media (max-width:640px){.card.dly .cardhead .seg{width:100%}.card.dly .cardhead .seg button{flex:1}}
