@@ -776,3 +776,25 @@ aside{border-right:1px solid var(--side-line)}
 .auth2 .authcard .btn{margin-top:4px}
 .authfoot{margin:18px 4px 0;font-size:12px;color:var(--muted);text-align:center}
 @media (max-width:640px){.authwrap.auth2{background:linear-gradient(var(--side-bg) 0 220px,var(--bg) 220px)}.auth2 .auth-main{padding-top:40px}.auth2 .authcard{padding:22px 18px}}
+
+/* Màn đăng nhập: dải trên có hoạ tiết chấm mờ + viền xanh, ô nhập có biểu tượng, hàng cam kết dưới thẻ */
+.authwrap.auth2{position:relative;background:var(--bg)}
+.authwrap.auth2::before{content:"";position:absolute;left:0;right:0;top:0;height:300px;
+  background:radial-gradient(rgba(255,255,255,.075) 1px,transparent 1.3px) 0 0/20px 20px,linear-gradient(160deg,var(--side-bg) 0%,var(--side-bg-2) 100%);
+  border-bottom:3px solid var(--accent)}
+.auth2 .auth-main{position:relative;z-index:1}
+.auth2 .authcard{border-top:3px solid var(--accent)}
+.authbrand .brand{font-size:17px;letter-spacing:-.01em}
+.inwrap{position:relative;display:block}
+.inwrap .inico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none}
+.inwrap input{padding-left:38px}
+.inwrap:focus-within .inico{color:var(--accent)}
+.authtrust{list-style:none;margin:20px 0 0;padding:0;display:flex;justify-content:center;flex-wrap:wrap;gap:8px 18px;font-size:12px;color:var(--ink-2)}
+.authtrust li{display:flex;align-items:center;gap:6px}
+.authtrust svg{color:var(--accent)}
+.authfoot{margin-top:10px}
+@media (max-width:640px){.authwrap.auth2::before{height:220px}}
+.authwrap.auth2{--apt:max(72px,calc(50vh - 260px))}
+.authwrap.auth2::before{height:calc(var(--apt) + 228px)}
+.auth2 .auth-main{padding-top:var(--apt)}
+@media (max-width:640px){.authwrap.auth2{--apt:40px}.authwrap.auth2::before{height:220px}}
