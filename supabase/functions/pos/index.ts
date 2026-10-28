@@ -7,7 +7,8 @@ import { adminClient, cors, getCaller, json } from "../_shared/common.ts";
 
 const POS = "https://pos.pages.fm/api/v1";
 const PAGE_SIZE = 100;
-const PARALLEL = 4; // số trang gọi POS cùng lúc (POS cho 1000 lượt/phút)
+const PARALLEL = 8; // số trang gọi POS cùng lúc (POS cho 1000 lượt/phút; 8 trang × ~1–2 giây ≈ 250–500 lượt/phút)
+const WRITE_CHUNK = 250; // số đơn mỗi lần ghi vào Supabase
 const TIME_BUDGET_MS = 110_000; // dừng sớm, lần chạy sau làm tiếp từ trang đang dở
 const OVERLAP_MS = 10 * 60_000; // lùi 10 phút mỗi lần để không sót đơn cập nhật sát mốc
 const REFRESH_BUDGET_MS = 25_000; // người dùng đang chờ trên trang
@@ -116,42 +117,57 @@ async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger:
       : { updateStatus: "updated_at", startDateTime: Math.floor(+start / 1000), endDateTime: Math.floor(+end / 1000), option_sort: "last_updated_order_asc", include_removed: 1 };
     let total: number | null = shop.sync_window_start ? (shop.sync_total ?? null) : null, totalPages = 0;
 
+    // Chạy song song: trong lúc ghi nhóm trang trước vào Supabase thì đã tải nhóm trang sau từ POS.
+    // Chỉ một lượt ghi chạy cùng lúc; tiến độ (sync_page) chỉ ghi sau khi đơn của các trang đó đã lưu xong,
+    // nên dừng giữa chừng thì lần sau làm tiếp đúng chỗ, không sót trang.
+    let safePage = page;
+    let writing: Promise<void> = Promise.resolve();
+    const writeBatch = (rows: ReturnType<typeof mapOrder>[], nextPage: number) => {
+      writing = (async () => {
+        for (let i = 0; i < rows.length; i += WRITE_CHUNK) {
+          const { error } = await sb.from("orders").upsert(rows.slice(i, i + WRITE_CHUNK), { onConflict: "shop_id,pos_order_id" });
+          if (error) throw error;
+        }
+        count += rows.length;
+        safePage = nextPage;
+        // Ghi tiến độ để trang Quản trị hiện thanh tiến độ.
+        await sb.from("pos_shops").update({
+          sync_total: total, sync_done: Math.min(total ?? Infinity, (nextPage - 1) * PAGE_SIZE),
+          sync_window_start: start.toISOString(), sync_window_end: end.toISOString(), sync_page: nextPage,
+        }).eq("id", shop.id);
+      })();
+      writing.catch(() => {}); // lỗi được báo khi chờ lượt ghi (await writing) bên dưới
+    };
+
     while (true) {
       if (Date.now() > deadline) {
-        return await finish({ sync_window_start: start.toISOString(), sync_window_end: end.toISOString(), sync_page: page }, "partial", null);
+        await writing;
+        return await finish({ sync_window_start: start.toISOString(), sync_window_end: end.toISOString(), sync_page: safePage }, "partial", null);
       }
       // Gọi vài trang song song; trang vượt quá cuối danh sách trả về rỗng, không sao.
       const n = totalPages ? Math.max(1, Math.min(PARALLEL, totalPages - page + 1)) : (page === 1 ? 1 : PARALLEL);
       const batch = await Promise.all(Array.from({ length: n }, (_, i) =>
         posGet(`/shops/${encodeURIComponent(shop.pos_shop_id)}/orders`, key, { page_number: page + i, page_size: PAGE_SIZE, ...params })));
       let stop = false, last = page;
+      const rows: ReturnType<typeof mapOrder>[] = [];
       for (let i = 0; i < batch.length; i++) {
         const body = batch[i];
         const list: any[] = Array.isArray(body.data) ? body.data : Array.isArray(body.orders) ? body.orders : [];
         pages++; last = page + i;
         totalPages = Number(body.total_pages) || totalPages;
         total = Number(body.total_entries) || total;
-        if (list.length) {
-          // Lọc theo ngày tạo: đơn cũ vừa đổi trạng thái vẫn nằm trong danh sách "vừa cập nhật".
-          const rows = list.filter((o) => o && (o.id ?? o.system_id) != null && !(ts(o.inserted_at) && new Date(ts(o.inserted_at)!) < cutoff))
-            .map((o) => mapOrder(shop.id, o));
-          if (rows.length) {
-            const { error } = await sb.from("orders").upsert(rows, { onConflict: "shop_id,pos_order_id" });
-            if (error) throw error;
-          }
-          count += rows.length;
+        // Lọc theo ngày tạo: đơn cũ vừa đổi trạng thái vẫn nằm trong danh sách "vừa cập nhật".
+        for (const o of list) {
+          if (o && (o.id ?? o.system_id) != null && !(ts(o.inserted_at) && new Date(ts(o.inserted_at)!) < cutoff)) rows.push(mapOrder(shop.id, o));
         }
         if (!list.length || (totalPages ? last >= totalPages : list.length < PAGE_SIZE)) { stop = true; break; }
       }
-      // Ghi tiến độ để trang Quản trị hiện thanh tiến độ.
-      const done = Math.min(total ?? Infinity, last * PAGE_SIZE);
-      await sb.from("pos_shops").update({
-        sync_total: total, sync_done: done,
-        sync_window_start: start.toISOString(), sync_window_end: end.toISOString(), sync_page: last + 1,
-      }).eq("id", shop.id);
+      await writing;            // lượt ghi trước phải xong (và không lỗi) rồi mới ghi tiếp
+      writeBatch(rows, last + 1);
       if (stop) break;
       page = last + 1;
     }
+    await writing;
     return await finish({ last_synced_at: end.toISOString(), sync_window_start: null, sync_window_end: null, sync_page: null, sync_done: total ?? count, sync_total: total }, "ok", null);
   } catch (e) {
     return await finish({}, "error", (e as Error).message || String(e));
