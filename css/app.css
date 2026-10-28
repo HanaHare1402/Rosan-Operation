@@ -612,3 +612,80 @@ select.fs{min-height:32px;padding:4px 28px 4px 10px;font-size:12.5px;border-radi
 .adrow.ch{grid-template-columns:minmax(0,1fr) 116px 120px 84px 32px}
 .adrow .adCh{width:100%;min-height:32px}
 @media (max-width:640px){.adrow.ch{grid-template-columns:minmax(0,1fr) 108px 32px}.adrow.ch .adName{grid-column:1/-1}.adrow.adhead.ch{display:none}}
+
+/* ===================== Giao diện v2 =====================
+   Lướt qua là thấy bố cục: nền xám đậm hơn để các thẻ trắng nổi lên, mỗi thẻ có thanh tiêu đề riêng,
+   bảng chỉ tô màu chỗ cần chú ý (vượt trần, lỗ, hoàn cao), số phụ nhạt đi. */
+:root{--bg:#e6eae8;--line:#d9dfdb;--shadow-1:0 1px 2px rgba(16,32,24,.07),0 2px 8px rgba(16,32,24,.05);--head:color-mix(in srgb,var(--accent-soft) 45%,var(--panel))}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#090c0b;--panel:#161d1a;--line:#2a332e;--shadow-1:0 1px 2px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.02);--head:color-mix(in srgb,var(--accent-soft) 55%,var(--panel))}}
+:root[data-theme="dark"]{--bg:#090c0b;--panel:#161d1a;--line:#2a332e;--shadow-1:0 1px 2px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.02);--head:color-mix(in srgb,var(--accent-soft) 55%,var(--panel))}
+.card,.kpi,.statstrip{border-color:var(--line);box-shadow:var(--shadow-1)}
+.card{margin-bottom:20px}
+
+/* Thanh tiêu đề cho mọi thẻ: nền tô nhạt + vạch màu cạnh tên thẻ */
+.card>.cardhead:first-child,.card>h2:first-child{margin:calc(-1*var(--cp)) calc(-1*var(--cp)) 14px;padding:11px var(--cp);background:var(--head);
+  border-bottom:1px solid var(--line);border-radius:calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0;align-items:center}
+.card>.cardhead:first-child h2,.card>h2:first-child{position:relative;padding-left:12px}
+.card>.cardhead:first-child h2::before,.card>h2:first-child::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:3px;border-radius:2px;background:var(--accent)}
+.card>h2:first-child{padding-left:calc(var(--cp) + 12px)}
+.card>h2:first-child::before{left:var(--cp);top:13px;bottom:13px}
+.card.blk>.cardhead:first-child,.card.blk>h2:first-child{border-radius:calc(var(--r-lg) - 3px) calc(var(--r-lg) - 3px) 0 0}
+
+/* Ô số tổng quan: vạch màu trên cùng, nhãn chữ hoa nhỏ để mắt bắt vào con số */
+.kpi{border-top:3px solid var(--line-2)}
+.kpi.primary{border-top-color:var(--accent)}
+.kpi .l{text-transform:uppercase;font-size:10.5px;letter-spacing:.05em;font-weight:650}
+
+/* ---------- Bảng sản phẩm ---------- */
+.pcell{display:flex;gap:10px;align-items:center;min-width:180px;white-space:normal}
+.pav{flex:none;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--ink);
+  background:color-mix(in srgb,var(--gc,var(--faint)) 18%,var(--panel));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gc,var(--faint)) 45%,transparent)}
+.pav.g1{--gc:var(--warn)}.pav.g2{--gc:var(--info)}.pav.g3{--gc:var(--good)}
+.pcell .pn{font-weight:600;color:var(--ink);line-height:1.3}
+.pcell .sub2{margin-top:1px}
+.rank{display:inline-grid;place-items:center;min-width:22px;height:22px;border-radius:6px;background:var(--sunk);color:var(--muted);font-size:11px;font-weight:700}
+.rank.r1,.rank.r2,.rank.r3{background:var(--accent-soft);color:var(--accent-ink)}
+.vbar{display:inline-flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:96px}
+.vbar b{font-weight:650}
+.vbar i{display:block;height:4px;border-radius:2px;background:var(--accent);opacity:.55;align-self:stretch;max-width:100%}
+.vbar i span{display:none}
+table.ptab td.sec,table.ptab th.sec{color:var(--muted)}
+table.ptab td{padding-top:10px;padding-bottom:10px}
+table.ptab tbody tr.loss td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+table.ptab td.lng b{font-weight:650}
+.pill.p-good,.pill.p-warn,.pill.p-bad{font-variant-numeric:tabular-nums}
+
+/* ---------- Bảng theo dõi theo ngày ---------- */
+table.daily td{color:var(--ink-2)}
+table.daily .z{color:var(--faint)}
+table.daily tr.h td{font-size:12.5px;color:var(--ink);background:var(--panel)!important}
+table.daily tr.h td:first-child{font-weight:700;padding-left:14px;box-shadow:inset 4px 0 0 var(--sc,var(--accent)),inset -1px 0 0 var(--line)}
+table.daily tr.s-cost{--sc:var(--sp)}table.daily tr.s-rev{--sc:var(--accent)}table.daily tr.s-ord{--sc:var(--info)}table.daily tr.s-pct{--sc:var(--warn)}table.daily tr.s-cpo{--sc:var(--lz)}
+table.daily tr.h.first td{border-top:2px solid var(--line-2)}
+table.daily tr:not(.h) td{font-size:11.5px;padding-top:6px;padding-bottom:6px}
+table.daily tr:not(.h) td:first-child{color:var(--muted)}
+table.daily .tot{background:color-mix(in srgb,var(--accent-soft) 60%,var(--panel))!important;color:var(--ink);font-weight:650}
+table.daily tr.h .tot{font-weight:750}
+table.daily thead th.tot{background:color-mix(in srgb,var(--accent-soft) 85%,var(--panel))!important;color:var(--accent-ink)}
+table.daily thead th.today{color:var(--accent-ink);box-shadow:inset 0 -3px 0 var(--accent)}
+table.daily td.today{background:color-mix(in srgb,var(--accent) 6%,var(--panel))}
+table.daily td.fut{color:var(--faint)}
+table.daily .ov{color:var(--bad);font-weight:650}
+table.daily tr.s-pct.h td:first-child,table.daily tr.s-cpo td:first-child{color:var(--ink)}
+.secico{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;margin-right:8px;vertical-align:-4px;background:color-mix(in srgb,var(--sc) 16%,var(--panel));color:var(--sc)}
+.secico svg{width:12px;height:12px}
+
+/* Dải chỉ số trên bảng theo ngày: thanh tiến độ cho target */
+.statstrip .prog{display:block;height:6px;border-radius:3px;background:var(--sunk);margin:6px 0 2px;overflow:hidden}
+.statstrip .prog i{display:block;height:100%;border-radius:3px;background:var(--accent)}
+.statstrip .prog.bad i{background:var(--bad)}
+.statstrip b{font-size:16px}
+.statstrip .l{text-transform:uppercase;font-size:10.5px;letter-spacing:.05em;font-weight:650}
+table.ptab th,table.ptab td{padding-left:8px;padding-right:8px}
+table.ptab td:first-child,table.ptab th:first-child{padding-left:12px}
+.pcell{min-width:200px}
+.pcell .sub2{white-space:nowrap}
+.vbar{min-width:88px}
+.pcell{min-width:170px}
+table.ptab .pill{padding-left:6px;padding-right:6px}
+table.ptab th{letter-spacing:.02em}

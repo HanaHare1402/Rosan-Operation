@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Bảng điều hành Team Vương</title>
+<title>Vận hành - Rosan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261028a">
+<link rel="stylesheet" href="css/app.css?v=20261028b">
 </head>
 <body>
 
@@ -30,9 +30,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261028a"></script>
-<script src="js/settings-db.js?v=20261028a"></script>
-<script src="js/shell.js?v=20261028a"></script>
+<script src="js/auth.js?v=20261028b"></script>
+<script src="js/settings-db.js?v=20261028b"></script>
+<script src="js/shell.js?v=20261028b"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -407,37 +407,65 @@ V.nhansu=()=>{
 };
 // Bảng sản phẩm. kpRows: số theo sản phẩm (KP) cùng phạm vi để tính % chi phí ads, % LNG, % Net.
 // o.top: chỉ hiện N sản phẩm doanh số cao nhất, ít cột (Tổng quan, Team).
-function prodTable(rows,withSearch,kpRows,o={}){
+// Gộp số theo sản phẩm (mã POS) + số từ KPI (chi phí ads, LNG, Net) + nhóm sản phẩm.
+function prodAgg(rows,kpRows){
   const m=new Map();
   rows.forEach(r=>{let a=m.get(r.code);if(!a){a={code:r.code,name:r.name,ord:0,qty:0,rev:0,ok:0,okRev:0,okCogs:0,ret:0,ship:0,unit:null};m.set(r.code,a)}
     if(r.g==='cancel')return;a.ord+=r.n;a.qty+=r.qty;a.rev+=r.rev;if(r.unit!=null)a.unit=Math.max(a.unit||0,r.unit);if(r.g==='ok'){a.ok+=r.n;a.okRev+=r.rev;a.okCogs+=r.cogs}else if(r.g==='ret')a.ret+=r.n;else if(r.g==='ship')a.ship+=r.n;if(r.name)a.name=r.name});
-  let g=[...m.values()];
-  const pm=kpRows?kpProducts(kpRows):new Map();
-  g.forEach(a=>{const k=pm.get(pkey(a.name));a.adsP=k&&k.sent?k.ads/k.sent:NaN;a.gp3=k?k.gp3:NaN;a.lngP=k&&k.ok?k.gp3/k.ok:NaN;a.netP=k&&k.ok?k.net/k.ok:NaN});
+  const g=[...m.values()].filter(a=>a.ord);
+  const pm=kpRows?kpProducts(kpRows):new Map(),grp=new Map();
+  (kpRows||[]).forEach(r=>{if(r.grp!=null&&!grp.has(r.pk))grp.set(r.pk,r.grp)});
+  g.forEach(a=>{const k=pm.get(pkey(a.name));a.adsP=k&&k.sent?k.ads/k.sent:NaN;a.gp3=k?k.gp3:NaN;a.lngP=k&&k.ok?k.gp3/k.ok:NaN;a.netP=k&&k.ok?k.net/k.ok:NaN;a.grp=grp.get(pkey(a.name))});
+  return g;
+}
+const adsCap=()=>{const c=[...new Set(CAT.teams.map(t=>+t.ads_pct_max||0).filter(Boolean))];return c.length===1?c[0]:0};
+function prodTable(rows,withSearch,kpRows,o={}){
+  let g=prodAgg(rows,kpRows);
   if(withSearch&&pQ){const q=pQ.toLowerCase();g=g.filter(a=>(a.code+' '+(a.name||'')).toLowerCase().includes(q))}
   const nz=v=>isFinite(v)?v:-Infinity;
   const sf={rev:a=>-a.rev,ord:a=>-a.ord,qty:a=>-a.qty,rr:a=>-(retRate(a)||0),ads:a=>-nz(a.adsP),lng:a=>-nz(a.lngP),net:a=>-nz(a.netP),gp:a=>-nz(a.gp3)};
   const sk=o.top?'rev':pSort;g.sort((x,y)=>(sf[sk]||sf.rev)(x)-(sf[sk]||sf.rev)(y));
-  const total=g.length;if(o.top)g=g.slice(0,o.top);
-  const th=(k,l,tk)=>withSearch?`<th class="sort" data-sort="${k}">${l}${tk?' '+tip(tk):''}${pSort===k?' ↓':''}</th>`:`<th>${l}${tk?' '+tip(tk):''}</th>`;
-  const kpLoading=kpRows&&KP.loading&&!KP.rows.length;
-  const pc=(v,neg)=>kpLoading?'<span class="skel" style="display:inline-block;width:40px;height:10px"></span>':isFinite(v)?`<span class="${neg&&v<0?'neg':''}">${P(v)}</span>`:'<span class="muted">–</span>';
-  const name=a=>`<div style="white-space:normal;min-width:150px">${esc(a.name||'')}</div><div class="sub2 mono">${esc(a.code)}</div>`;
-  if(o.top)return `<div class="tw"><table class="sthead"><thead><tr><th class="l">Sản phẩm</th><th>Doanh số</th><th>Số đơn</th><th>% hoàn ${tip('ret')}</th><th>% chi phí ads ${tip('p_ads')}</th>${SEE_COST?`<th>% LNG ${tip('p_lng')}</th>`:''}</tr></thead><tbody>
-    ${g.map((a,i)=>`<tr><td class="l"><div style="display:flex;gap:8px;align-items:baseline"><span class="muted mono" style="min-width:18px">${i+1}</span><div>${name(a)}</div></div></td><td>${M(a.rev)}</td><td>${N(a.ord)}</td><td>${retPill(retRate(a))}</td><td>${pc(a.adsP)}</td>${SEE_COST?`<td>${pc(a.lngP,1)}</td>`:''}</tr>`).join('')||`<tr><td colspan="6">${Shell.empty('box','Chưa có sản phẩm bán ra','Không có đơn trong khoảng đang lọc.')}</td></tr>`}
+  const total=g.length,maxRev=Math.max(1,...g.map(a=>a.rev));if(o.top)g=g.slice(0,o.top);
+  const th=(k,l,tk,cls)=>withSearch?`<th class="sort${cls?' '+cls:''}" data-sort="${k}">${l}${tk?' '+tip(tk):''}${pSort===k?' ↓':''}</th>`:`<th${cls?` class="${cls}"`:''}>${l}${tk?' '+tip(tk):''}</th>`;
+  const kpLoading=kpRows&&KP.loading&&!KP.rows.length,skel='<span class="skel" style="display:inline-block;width:40px;height:10px"></span>',dash='<span class="muted">–</span>';
+  const cap=adsCap();
+  // Chỉ tô màu chỗ cần chú ý: vượt trần chi phí ads, lãi mỏng, lỗ.
+  const adsC=v=>kpLoading?skel:!isFinite(v)?dash:cap&&v*100>cap?`<span class="pill p-bad" title="Vượt trần ${PF(cap)}%">${P(v)} ▲</span>`:P(v);
+  const grade=v=>kpLoading?skel:!isFinite(v)?dash:v<0?`<span class="pill p-bad" title="Lỗ">▼ ${P(v)}</span>`:v<.1?`<span class="pill p-warn" title="Lãi mỏng, dưới 10%">${P(v)}</span>`:`<span class="pill p-good" title="Lãi tốt, từ 10%">${P(v)}</span>`;
+  const ini=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
+  const name=a=>`<div class="pcell"><span class="pav${a.grp?' g'+a.grp:''}" aria-hidden="true">${esc(ini(a.name))}</span><div><div class="pn">${esc(a.name||'')}</div><div class="sub2"><span class="mono">${esc(a.code)}</span>${a.grp?` · <span title="${esc(GNAME(a.grp))}">Nhóm ${a.grp}</span>`:''}</div></div></div>`;
+  const rev=a=>`<span class="vbar"><b>${M(a.rev)}</b><i style="width:${(a.rev/maxRev*100).toFixed(1)}%"></i></span>`;
+  const lng=a=>kpLoading?skel:isFinite(a.gp3)?`<b class="${a.gp3<0?'neg':''}">${M(a.gp3)}</b>`:dash;
+  if(o.top)return `<div class="tw"><table class="sthead ptab"><thead><tr><th class="l">Sản phẩm</th><th>Doanh số</th><th>Số đơn</th><th>% hoàn ${tip('ret')}</th><th>% chi phí ads ${tip('p_ads')}</th>${SEE_COST?`<th>% LNG ${tip('p_lng')}</th>`:''}</tr></thead><tbody>
+    ${g.map((a,i)=>`<tr class="${SEE_COST&&a.gp3<0?'loss':''}"><td class="l"><div style="display:flex;gap:10px;align-items:center"><span class="rank r${i+1}">${i+1}</span>${name(a)}</div></td><td>${rev(a)}</td><td>${N(a.ord)}</td><td>${retPill(retRate(a))}</td><td>${adsC(a.adsP)}</td>${SEE_COST?`<td>${grade(a.lngP)}</td>`:''}</tr>`).join('')||`<tr><td colspan="6">${Shell.empty('box','Chưa có sản phẩm bán ra','Không có đơn trong khoảng đang lọc.')}</td></tr>`}
     </tbody></table></div>${total>g.length&&ALLOWED.includes('sanpham')?`<div style="margin-top:10px"><button class="lnk" data-go="sanpham:">Xem tất cả ${N(total)} sản phẩm</button></div>`:''}`;
-  // Giá vốn, LNG, % LNG, % Net: chỉ ban lãnh đạo (admin, quản lý, kế toán).
-  return `<div class="tw"><table class="sthead"><thead><tr><th class="l">Sản phẩm</th>${th('rev','Doanh số')}${th('ord','Số đơn')}${th('qty','Số lượng')}<th>Đã giao</th>${th('rr','% hoàn')}${th('ads','% CP ads','p_ads')}${SEE_COST?`<th>Giá vốn/SP</th>${th('gp','LNG')}${th('lng','% LNG','p_lng')}${th('net','% Net','p_net')}`:''}</tr></thead><tbody>
-  ${g.map(a=>`<tr><td class="l">${name(a)}</td><td>${M(a.rev)}</td><td>${N(a.ord)}</td><td>${N(a.qty)}</td><td>${N(a.ok)}</td><td>${retPill(retRate(a))}</td><td>${pc(a.adsP)}</td>${SEE_COST?`<td>${a.unit!=null?N(a.unit):'<span class="pill p-bad">Chưa có</span>'}</td><td>${isFinite(a.gp3)?`<span class="${a.gp3<0?'neg':''}">${M(a.gp3)}</span>`:'<span class="muted">–</span>'}</td><td>${pc(a.lngP,1)}</td><td>${pc(a.netP,1)}</td>`:''}</tr>`).join('')||`<tr><td colspan="${SEE_COST?11:7}" class="l muted">Không có sản phẩm.</td></tr>`}
+  // Giá vốn, LNG, % LNG, % Net: chỉ người xem được chi phí (SEE_COST).
+  return `<div class="tw"><table class="sthead ptab"><thead><tr><th class="l">Sản phẩm</th>${th('rev','Doanh số')}${th('ord','Số đơn')}${th('qty','Số lượng','','sec')}<th class="sec">Đã giao</th>${th('rr','% hoàn')}${th('ads','% CP ads','p_ads')}${SEE_COST?`<th class="sec">Giá vốn/SP</th>${th('gp','LNG')}${th('lng','% LNG','p_lng')}${th('net','% Net','p_net')}`:''}</tr></thead><tbody>
+  ${g.map(a=>`<tr class="${SEE_COST&&a.gp3<0?'loss':''}"><td class="l">${name(a)}</td><td>${rev(a)}</td><td>${N(a.ord)}</td><td class="sec">${N(a.qty)}</td><td class="sec">${N(a.ok)}</td><td>${retPill(retRate(a))}</td><td>${adsC(a.adsP)}</td>${SEE_COST?`<td class="sec">${a.unit!=null?N(a.unit):'<span class="pill p-bad">Chưa có</span>'}</td><td class="lng">${lng(a)}</td><td>${grade(a.lngP)}</td><td>${grade(a.netP)}</td>`:''}</tr>`).join('')||`<tr><td colspan="11">${Shell.empty('box','Không có sản phẩm khớp','Thử từ khoá khác hoặc khoảng ngày dài hơn.')}</td></tr>`}
   </tbody></table></div>`;
+}
+// Dải tóm tắt trên bảng sản phẩm: đọc lướt là biết bao nhiêu mã, mã nào chạy nhất, bao nhiêu mã lỗ, mã nào hoàn nhiều.
+function prodStrip(rows,kpRows){
+  const g=prodAgg(rows,kpRows);if(!g.length)return '';
+  const kpLoading=KP.loading&&!KP.rows.length;
+  const top=g.reduce((x,a)=>a.rev>x.rev?a:x,g[0]),sumRev=g.reduce((t,a)=>t+a.rev,0);
+  const rr=g.filter(a=>a.ok+a.ret>=10).sort((x,y)=>retRate(y)-retRate(x))[0];
+  const cells=[['Sản phẩm có đơn',N(g.length),`${N(g.reduce((t,a)=>t+a.ord,0))} đơn`],
+    ['Bán chạy nhất',esc(top.name||top.code),`${M(top.rev)} · ${P(top.rev/(sumRev||1))} doanh số`]];
+  if(SEE_COST){const k=g.filter(a=>isFinite(a.gp3)),lo=k.filter(a=>a.gp3<0).length;
+    cells.push(['Lãi / lỗ (LNG)',kpLoading?'…':`${N(k.length-lo)} lãi · <span class="${lo?'neg':''}">${N(lo)} lỗ</span>`,lo?'Mã lỗ có vạch đỏ ở đầu dòng':'Không có mã nào lỗ'])}
+  else{const cap=adsCap(),hi=g.filter(a=>isFinite(a.adsP)).sort((x,y)=>y.adsP-x.adsP)[0];
+    cells.push(['% chi phí ads cao nhất',hi?esc(hi.name||hi.code):'–',hi?`${P(hi.adsP)}${cap?` · trần ${PF(cap)}%`:''}`:''])}
+  cells.push(['Hoàn cao nhất',rr?esc(rr.name||rr.code):'–',rr?`${P(retRate(rr))} đơn hoàn`:'Chưa đủ đơn giao / hoàn']);
+  return `<div class="statstrip pstrip">${cells.map(([l,v,sub])=>`<div><span class="l">${l}</span><b>${v}</b><span class="muted">${sub}</span></div>`).join('')}</div>`;
 }
 let pSort=store.get('psort2','rev'),pQ='';
 V.sanpham=()=>{
   if(!PRODS)return `<div class="card"><div class="skel" style="height:14px;width:30%"></div>${'<div class="skel" style="height:12px;margin-top:16px"></div>'.repeat(6)}</div>`;
   if(PRODS.err)return `<div class="card"><p class="neg">${esc(PRODS.err)}</p></div>`;
   ensureKP();
-  return `<div class="tools"><input type="search" id="pq" placeholder="Tìm mã hoặc tên sản phẩm" value="${esc(pQ)}"></div>
-  <div class="card"><h2>Hiệu quả sản phẩm</h2><p class="hint">Bấm tiêu đề cột để sắp xếp.${SEE_COST?' % LNG và % Net cho biết sản phẩm nào lời thật sau mọi chi phí, để cân nhắc nhập lại.':''}</p>${prodTable(PRODS.rows,true,KP.rows)}</div>`;
+  return `${prodStrip(PRODS.rows,KP.rows)}<div class="tools"><input type="search" id="pq" placeholder="Tìm mã hoặc tên sản phẩm" value="${esc(pQ)}"></div>
+  <div class="card blk"><h2>Hiệu quả sản phẩm</h2><p class="hint">Bấm tiêu đề cột để sắp xếp.${SEE_COST?' % LNG và % Net cho biết sản phẩm nào lời thật sau mọi chi phí, để cân nhắc nhập lại.':''}</p>${prodTable(PRODS.rows,true,KP.rows)}</div>`;
 };
 
 // ---------- đơn hàng ----------
@@ -770,31 +798,33 @@ function dailyBody(rows,rate,o){
   const get=(d,g)=>by.get(d+'|'+(g===undefined?'*':g))||Z();
   const tgt=o.targets===false?0:teams.reduce((a,t)=>a+(+t.target_vnd||0),0),g2=o.targets===false?0:teams.reduce((a,t)=>a+(+t.target_g2_vnd||0),0);
   const caps=[...new Set(teams.map(t=>+t.ads_pct_max||0).filter(Boolean))],cap=caps.length===1?caps[0]:0;
-  const pct=(a,strong)=>{if(!a.rev)return '<span class="muted">–</span>';const v=a.usd*rate/a.rev,over=cap&&v*100>cap;
+  // Chỉ tô màu chỗ vượt trần; dòng tổng giữ nhãn màu để thấy ngay ngày nào vượt.
+  const pct=(a,strong)=>{if(!a.rev)return '<span class="z">–</span>';const v=a.usd*rate/a.rev,over=cap&&v*100>cap;
     if(!cap)return strong?`<b>${P(v)}</b>`:P(v);
-    return `<span class="pill ${over?'p-bad':'p-good'}" title="${over?'Vượt':'Trong'} trần ${PF(cap)}%">${P(v)}${over?' ▲':''}</span>`};
+    if(strong)return `<span class="pill ${over?'p-bad':'p-good'}" title="${over?'Vượt':'Trong'} trần ${PF(cap)}%">${P(v)}${over?' ▲':''}</span>`;
+    return over?`<span class="ov" title="Vượt trần ${PF(cap)}%">${P(v)} ▲</span>`:P(v)};
   // Tiền trong bảng cùng một đơn vị: đồng (ghi ở đầu cột chỉ số).
-  const Tr=v=>v?N(v):'<span class="muted">0</span>';
+  const Tr=v=>v?N(v):'<span class="z">–</span>';
   const lines=[
     ['Tổng chi phí ads (1)',a=>Tr(a.usd*rate),'h',undefined,'cost'],...G.map(g=>[GNAME(g),a=>Tr(a.usd*rate),'ind',g,'cost']),
     ['Doanh số tổng (2)',a=>Tr(a.rev),'h',undefined,'rev'],...G.map(g=>[GNAME(g),a=>Tr(a.rev),'ind',g,'rev']),
-    ['Số đơn (3)',a=>a.n?N(a.n):'<span class="muted">0</span>','h',undefined,'ord'],
+    ['Số đơn (3)',a=>a.n?N(a.n):'<span class="z">–</span>','h',undefined,'ord'],
     ['% chi phí = (1) ÷ (2)',a=>pct(a,1),'h',undefined,'pct'],...G.map(g=>[GNAME(g),a=>pct(a),'ind',g,'pct']),
-    ['Chi phí / đơn = (1) ÷ (3)',a=>a.n?N(a.usd*rate/a.n):'<span class="muted">–</span>','h',undefined,'cpo']];
+    ['Chi phí / đơn = (1) ÷ (3)',a=>a.n?N(a.usd*rate/a.n):'<span class="z">–</span>','h',undefined,'cpo']];
   const we=d=>d.getDay()===0||d.getDay()===6;
-  const head=`<tr><th class="l">Chỉ số<div class="sub2">tiền: đồng</div></th><th class="tot">Tổng<div class="sub2">${esc(rangeLabel())}</div></th>${ds.map(d=>`<th class="${we(d)?'we':''}">${WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
+  const head=`<tr><th class="l">Chỉ số<div class="sub2">tiền: đồng</div></th><th class="tot">Tổng<div class="sub2">${esc(rangeLabel())}</div></th>${ds.map(d=>`<th class="${we(d)?'we':''}${isoD(d)===today?' today':''}">${isoD(d)===today?'Hôm nay':WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
   const gdot=g=>g===undefined?'':`<span class="gdot g${g||0}" aria-hidden="true"></span>`;
-  const body=lines.map(([lab,f,cls,g,sec],i)=>`<tr class="${cls==='h'?'h':''} s-${sec}${cls==='h'&&i?' first':''}"><td class="${cls==='ind'?'ind':''}">${gdot(g)}${lab}</td><td class="tot">${f(get('*',g))}</td>${ds.map(d=>{const k=isoD(d);return `<td class="${we(d)?'we':''}">${k>today?'<span class="muted">–</span>':f(get(k,g))}</td>`}).join('')}</tr>`).join('');
+  const body=lines.map(([lab,f,cls,g,sec],i)=>`<tr class="${cls==='h'?'h':''} s-${sec}${cls==='h'&&i?' first':''}"><td class="${cls==='ind'?'ind':''}">${gdot(g)}${lab}</td><td class="tot">${f(get('*',g))}</td>${ds.map(d=>{const k=isoD(d);return `<td class="${we(d)?'we':''}${k===today?' today':''}${k>today?' fut':''}">${k>today?'<span class="z">–</span>':f(get(k,g))}</td>`}).join('')}</tr>`).join('');
   const T=get('*'),T2=get('*',2),dim=new Date(ds[0].getFullYear(),ds[0].getMonth()+1,0).getDate();
   // Dải chỉ số trên bảng: target (nếu có) và % chi phí so với trần. Chỉ hiện ô có số.
   const pv=T.rev?T.usd*rate/T.rev:NaN,over=cap&&pv*100>cap;
   const cells=[];
-  if(tgt)cells.push(['Target tháng',M(tgt),`đã đạt ${M(T.rev)} · ${P(T.rev/tgt)}`],['Target tuần · ngày',M(tgt/dim*7),'ngày '+M(tgt/dim)]);
-  if(g2)cells.push(['Target doanh số nhóm 2',M(g2),`đã đạt ${M(T2.rev)} · ${P(T2.rev/g2)} · ngày ${M(g2/dim)}`]);
+  if(tgt)cells.push(['Target tháng',M(tgt),`đã đạt ${M(T.rev)} · ${P(T.rev/tgt)}`,T.rev/tgt],['Target tuần · ngày',M(tgt/dim*7),'ngày '+M(tgt/dim)]);
+  if(g2)cells.push(['Target doanh số nhóm 2',M(g2),`đã đạt ${M(T2.rev)} · ${P(T2.rev/g2)} · ngày ${M(g2/dim)}`,T2.rev/g2]);
   if(o.targets===false)cells.push(['Chi phí ads',M(T.usd*rate),`${U(T.usd)} USD`],['Doanh số',M(T.rev),`${N(T.n)} đơn`]);
-  cells.push([`% chi phí ads${cap?` (trần ${PF(cap)}%)`:''}`,`<span class="${over?'neg':''}">${isFinite(pv)?P(pv):'–'}</span>`,cap?(over?'▲ đang vượt trần':'trong mức cho phép'):'Chưa đặt trần']);
+  cells.push([`% chi phí ads${cap?` (trần ${PF(cap)}%)`:''}`,`<span class="${over?'neg':''}">${isFinite(pv)?P(pv):'–'}</span>`,cap?(over?'▲ đang vượt trần':'trong mức cho phép'):'Chưa đặt trần',cap&&isFinite(pv)?pv*100/cap:undefined,over]);
   if(o.targets===false)cells.push(['Chi phí / đơn',T.n?N(T.usd*rate/T.n):'–','']);
-  const strip=tgt||g2||cap||o.targets===false?`<div class="statstrip" style="margin:4px 0 14px">${cells.slice(0,4).map(([l,v,sub])=>`<div><span class="l">${l}</span><b>${v}</b><span class="muted">${sub}</span></div>`).join('')}</div>`:'';
+  const strip=tgt||g2||cap||o.targets===false?`<div class="statstrip" style="margin:4px 0 14px">${cells.slice(0,4).map(([l,v,sub,pr,bad])=>`<div><span class="l">${l}</span><b>${v}</b>${pr!==undefined?`<span class="prog${bad?' bad':''}" role="img" aria-label="${P(Math.min(pr,1))}"><i style="width:${Math.max(0,Math.min(100,pr*100)).toFixed(1)}%"></i></span>`:''}<span class="muted">${sub}</span></div>`).join('')}</div>`:'';
   const canTgt=['admin','quan_ly'].includes(ME.role);
   const dtipTxt=`Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn.${DAILY_OLD?' Bảng này chưa lọc theo kênh / thị trường.':' Doanh số, số đơn theo thị trường và kênh đang lọc; chi phí ads theo kênh marketer chọn khi nhập.'}${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}`.replace(/<[^>]+>/g,'');
   const dtip=`<span class="tip" tabindex="0" role="note" aria-label="${esc(dtipTxt)}" data-tip="${esc(dtipTxt)}">?</span>`;
@@ -864,8 +894,8 @@ function kpProducts(rows){
 }
 Object.assign(DEF,{
   p_ads:'Chi phí quảng cáo của sản phẩm ÷ doanh số gửi đi của sản phẩm (đơn tính cho sản phẩm chính).',
-  p_lng:'Lợi nhuận gộp ÷ doanh thu (đơn đã giao). Lợi nhuận gộp = doanh thu − giá vốn − vận chuyển − phí dịch vụ vận chuyển, GIP, fulfill − quảng cáo.',
-  p_net:'Lợi nhuận NET ÷ doanh thu. NET = lợi nhuận gộp − chi phí test, bao bì − phần chi phí chung (Việt Nam, kho Philippines) chia theo doanh thu.',
+  p_lng:'Lợi nhuận gộp ÷ doanh thu (đơn đã giao). Lợi nhuận gộp = doanh thu − giá vốn − vận chuyển − phí dịch vụ vận chuyển, GIP, fulfill − quảng cáo. Màu: xanh lãi từ 10%, vàng lãi dưới 10%, đỏ (▼) lỗ.',
+  p_net:'Lợi nhuận NET ÷ doanh thu. NET = lợi nhuận gộp − chi phí test, bao bì − phần chi phí chung (Việt Nam, kho Philippines) chia theo doanh thu. Màu: xanh từ 10%, vàng dưới 10%, đỏ (▼) lỗ.',
 });
 let kqMode=store.get('kqmode','team')==='prod'?'prod':'team';
 const pctCell=(v,base,bad)=>{if(!base||!isFinite(v/base))return '<span class="muted">–</span>';const x=v/base;return `<span class="${(bad?x>bad:x<0)?'neg':''}">${P(x)}</span>`};

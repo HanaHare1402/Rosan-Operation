@@ -65,7 +65,7 @@
       return `<a href="${href}"${data} title="${esc(label)}">${icon(ic)}<span class="lbl">${esc(label)}</span>${cnt ? `<span class="cnt" id="${cnt}"></span>` : ""}</a>`;
     };
     aside.innerHTML = `
-      <div class="brand-row"><div class="logo">RO</div><div><div class="brand">Rosan Operation</div><div class="brand-sub">Team Vương · Philippines</div></div></div>
+      <div class="brand-row"><div class="logo">RO</div><div><div class="brand">Rosan Operation</div><div class="brand-sub">Vận hành - Rosan</div></div></div>
       <nav id="nav" aria-label="Điều hướng chính">
         ${views.length ? `<div class="nav-group">Báo cáo</div>` + REPORT.filter(([k]) => views.includes(k)).map(([k, l, i, c]) => link(k, l, i, c, false)).join("") : ""}
         ${adminTabs.length ? `<div class="nav-group">Quản trị</div>` + adminTabs.map(([k, l, i, c]) => link(k, l, i, c, true)).join("") : ""}
