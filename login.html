@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/app.css?v=20261028i">
+<link rel="stylesheet" href="css/app.css?v=20261028j">
 </head>
 <body>
 <div class="authwrap auth2">
@@ -25,8 +25,8 @@
       <h1>Đăng nhập</h1>
       <p class="sub">Dùng email công ty và mật khẩu được cấp.</p>
       <form id="loginForm" novalidate>
-        <label>Email<input id="email" name="email" type="email" autocomplete="username" placeholder="ten@congty.com" required></label>
-        <label>Mật khẩu<span class="pwwrap"><input id="password" name="password" type="password" autocomplete="current-password" required><button class="pweye" type="button" aria-label="Hiện mật khẩu" aria-pressed="false" title="Hiện mật khẩu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="slash" d="M4 4l16 16"/></svg></button></span></label>
+        <label>Email<span class="inwrap"><svg class="inico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6 8.5-6"/></svg><input id="email" name="email" type="email" autocomplete="username" placeholder="ten@congty.com" required></span></label>
+        <label>Mật khẩu<span class="pwwrap inwrap"><svg class="inico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><input id="password" name="password" type="password" autocomplete="current-password" required><button class="pweye" type="button" aria-label="Hiện mật khẩu" aria-pressed="false" title="Hiện mật khẩu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="slash" d="M4 4l16 16"/></svg></button></span></label>
         <button class="btn" type="submit" id="loginBtn">Đăng nhập</button>
         <div class="msg" id="loginMsg" role="status"></div>
         <button class="lnk" type="button" id="forgot" style="align-self:flex-start">Quên mật khẩu?</button>
@@ -36,7 +36,7 @@
     <div id="recoverBox" hidden>
       <h1>Đặt mật khẩu mới</h1>
       <form id="recoverForm" novalidate>
-        <label>Mật khẩu mới (từ 8 ký tự)<span class="pwwrap"><input id="newPw" type="password" autocomplete="new-password" minlength="8" required><button class="pweye" type="button" aria-label="Hiện mật khẩu" aria-pressed="false" title="Hiện mật khẩu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="slash" d="M4 4l16 16"/></svg></button></span></label>
+        <label>Mật khẩu mới (từ 8 ký tự)<span class="pwwrap inwrap"><svg class="inico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><input id="newPw" type="password" autocomplete="new-password" minlength="8" required><button class="pweye" type="button" aria-label="Hiện mật khẩu" aria-pressed="false" title="Hiện mật khẩu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="slash" d="M4 4l16 16"/></svg></button></span></label>
         <button class="btn" type="submit">Lưu mật khẩu</button>
         <div class="msg" id="recoverMsg" role="status"></div>
       </form>
@@ -48,14 +48,15 @@
       <div class="formrow"><button class="btn" type="button" onclick="location.reload()">Tải lại</button><button class="btn ghost" type="button" id="logout">Đăng xuất</button></div>
     </div>
   </div>
-  <p class="authfoot">Tài khoản do quản trị viên cấp · Cần hỗ trợ, liên hệ admin hệ thống</p>
+  <ul class="authtrust"><li><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3z"/><path d="m9 12 2 2 4-4"/></svg>Kết nối mã hoá</li><li><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></svg>Đồng bộ đơn từ Pancake POS</li><li><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>Xem số theo đúng vai trò</li></ul>
+  <p class="authfoot">Tài khoản do quản trị viên cấp · Cần hỗ trợ, liên hệ Vy Hà</p>
   </div>
   </main>
 </div>
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261028i"></script>
+<script src="js/auth.js?v=20261028j"></script>
 <script>
 (async function () {
   const $ = (s) => document.querySelector(s);
