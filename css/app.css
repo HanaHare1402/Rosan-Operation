@@ -689,3 +689,57 @@ table.ptab td:first-child,table.ptab th:first-child{padding-left:12px}
 .pcell{min-width:170px}
 table.ptab .pill{padding-left:6px;padding-right:6px}
 table.ptab th{letter-spacing:.02em}
+/* Tên các thẻ / bảng to hơn ~25% (14 → 17.5px) để lướt là nhận ra từng khối */
+.card h2{font-size:17.5px;letter-spacing:-.015em}
+.card>h2:first-child::before{top:14px;bottom:14px}
+@media (max-width:640px){.card h2{font-size:16px}}
+.card>h2:not(:first-child){font-size:15px}
+
+/* ---------- Màu theo loại báo cáo (tham khảo MISA): cùng loại cùng màu ở mọi màn, khác loại khác màu ----------
+   Xanh lá: doanh số, target, bảng tính · Xanh dương: xu hướng theo ngày · Vàng: kênh bán · Tím: team, nhân sự
+   Cam: sản phẩm · Xanh ngọc: chi phí ads theo ngày, lợi nhuận */
+:root{--cyan:#0e7490}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--cyan:#4cc3d9}}
+:root[data-theme="dark"]{--cyan:#4cc3d9}
+.card{--cc:var(--accent)}
+.card.c-blue{--cc:var(--info)}.card.c-amber{--cc:var(--warn)}.card.c-purple{--cc:var(--lz)}.card.c-orange{--cc:var(--sp)}.card.c-cyan{--cc:var(--cyan)}
+.card:is(.c-blue,.c-amber,.card.c-purple,.c-orange,.c-cyan),.card.blk{border-top:3px solid var(--cc)}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>.cardhead:first-child,.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>h2:first-child{background:color-mix(in srgb,var(--cc) 8%,var(--panel));border-radius:calc(var(--r-lg) - 3px) calc(var(--r-lg) - 3px) 0 0}
+.card>.cardhead:first-child h2::before,.card>h2:first-child::before{background:var(--cc)}
+.card .bno{background:color-mix(in srgb,var(--cc) 16%,var(--panel));color:var(--ink)}
+/* Ô số: mỗi chỉ số một màu, giống nhau ở Tổng quan, Team, Nhân sự, KPI */
+.kpi{--mc:var(--line-2)}
+.kpi.m-rev,.kpi.m-k_ok{--mc:var(--accent)}.kpi.m-ord,.kpi.m-k_sent{--mc:var(--info)}.kpi.m-ret,.kpi.m-k_rr{--mc:var(--sp)}
+.kpi.m-adsp{--mc:var(--lz)}.kpi.m-gp,.kpi.m-ok,.kpi.m-k_lng{--mc:var(--cyan)}
+.kpi,.kpi.primary{border-top:3px solid var(--mc)}
+.kpi .l{color:color-mix(in srgb,var(--mc) 55%,var(--muted))}
+
+/* Khối báo cáo theo loại (c-*): thanh tiêu đề tô đặc màu, chữ trắng (bản tối: chữ tối trên màu sáng) — kiểu MISA */
+:root{--on-cc:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--on-cc:#0a0d0c}}
+:root[data-theme="dark"]{--on-cc:#0a0d0c}
+.card.c-orange{--cc:color-mix(in srgb,var(--sp) 82%,#000)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .card.c-orange{--cc:var(--sp)}}
+:root[data-theme="dark"] .card.c-orange{--cc:var(--sp)}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan){border-top-width:0}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>.cardhead:first-child,.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>h2:first-child{
+  background:var(--cc);color:var(--on-cc);border-bottom:0;border-radius:calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>.cardhead:first-child h2,.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>h2:first-child{color:var(--on-cc);padding-left:0}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>h2:first-child{padding-left:var(--cp)}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>.cardhead:first-child h2::before,.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>h2:first-child::before{display:none}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>:first-child .tip{border-color:currentColor;color:inherit;opacity:.85}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>:first-child .hint,.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>:first-child .sub2{color:inherit;opacity:.9}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>:first-child .bno{background:color-mix(in srgb,var(--on-cc) 22%,transparent);color:inherit}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>:first-child .seg{background:color-mix(in srgb,var(--on-cc) 18%,transparent)}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>:first-child .seg button{color:var(--on-cc)}
+.card:is(.c-blue,.c-amber,.c-purple,.c-orange,.c-cyan)>:first-child .seg button.on{background:var(--panel);color:var(--ink)}
+
+/* Dải số có biểu tượng tròn */
+.statstrip.ist>div{flex-direction:row;align-items:center;gap:12px}
+.statstrip.ist>div>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.statstrip.ist b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ico{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--ic);background:color-mix(in srgb,var(--ic) 14%,var(--panel));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ic) 35%,transparent)}
+.ico svg{width:19px;height:19px}
+.ico.i-green{--ic:var(--accent)}.ico.i-blue{--ic:var(--info)}.ico.i-amber{--ic:var(--warn)}.ico.i-red{--ic:var(--bad)}
+.ico.i-orange{--ic:var(--sp)}.ico.i-cyan{--ic:var(--cyan)}.ico.i-purple{--ic:var(--lz)}
+@media (max-width:640px){.ico{width:32px;height:32px}.ico svg{width:16px;height:16px}}
