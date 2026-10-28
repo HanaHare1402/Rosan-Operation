@@ -47,7 +47,10 @@
   };
 
   const configured = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
-  const sb = configured && window.supabase ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
+  // Giữ đăng nhập trên máy (localStorage) và tự gia hạn phiên; đóng trình duyệt mở lại không phải đăng nhập lại.
+  const sb = configured && window.supabase ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  }) : null;
 
   async function loadProfile() {
     if (!sb) return null;
@@ -58,11 +61,21 @@
     return data || { id: session.user.id, email: session.user.email, full_name: "", role: null, scope: "self", project_ids: [], team_id: null, staff_id: null };
   }
 
-  // Trang cần đăng nhập: chưa đăng nhập thì chuyển về login.html.
+  // Trang cần đăng nhập: chỉ chuyển về login.html khi thật sự chưa đăng nhập.
+  // Lỗi mạng lúc mở trang thì báo và cho tải lại, không bắt đăng nhập lại.
   async function requireAuth() {
     if (!configured) { location.replace("login.html"); return new Promise(() => {}); }
-    const profile = await loadProfile().catch(() => null);
-    if (!profile) { location.replace("login.html?next=" + encodeURIComponent(location.pathname.split("/").pop() + location.hash)); return new Promise(() => {}); }
+    const toLogin = () => { location.replace("login.html?next=" + encodeURIComponent(location.pathname.split("/").pop() + location.hash)); return new Promise(() => {}); };
+    // Thư viện Supabase đã tự thử lại khi máy chủ chưa trả lời, nên ở đây chỉ gọi một lần.
+    let profile = null, err = null;
+    try { profile = await loadProfile(); } catch (e) { err = e; }
+    if (err) {
+      const { data } = await sb.auth.getSession().catch(() => ({ data: {} }));
+      if (!data || !data.session) return toLogin();
+      document.body.innerHTML = `<div style="max-width:420px;margin:15vh auto;padding:24px;font-family:system-ui,sans-serif;text-align:center"><h1 style="font-size:20px">Chưa kết nối được máy chủ</h1><p style="color:#56635c">Cậu vẫn đang đăng nhập. Kiểm tra mạng rồi bấm Tải lại.</p><button onclick="location.reload()" style="padding:8px 16px;border-radius:8px;border:0;background:#0d7a62;color:#fff;font-weight:600;cursor:pointer">Tải lại</button></div>`;
+      return new Promise(() => {});
+    }
+    if (!profile) return toLogin();
     sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") location.replace("login.html"); });
     return profile;
   }
