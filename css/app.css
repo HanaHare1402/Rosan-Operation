@@ -757,3 +757,6 @@ aside{border-right:1px solid var(--side-line)}
 .pweye:hover{color:var(--ink);background:var(--sunk)}
 .pweye:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .pweye[aria-pressed="false"] .slash{display:none}
+/* Thanh điều hướng: xám than #2a2f2f (đỡ đen hơn), giống nhau ở giao diện sáng và tối */
+:root,:root[data-theme="dark"]{--side-bg:#2a2f2f;--side-bg-2:#232828}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--side-bg:#2a2f2f;--side-bg-2:#232828}}
