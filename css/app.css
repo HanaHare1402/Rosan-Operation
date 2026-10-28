@@ -1017,3 +1017,25 @@ table.daily th.wk,table.daily td.wk{box-shadow:inset 2px 0 0 var(--line-2)}
 table.daily tr.h td{padding-top:11px;padding-bottom:11px}
 .card.dly .cardhead{align-items:center}
 @media (max-width:640px){.card.dly .cardhead .seg{width:100%}.card.dly .cardhead .seg button{flex:1}}
+/* hộp đổi mật khẩu */
+dialog.pwdlg{border:0;padding:0;border-radius:16px;background:var(--panel);color:var(--ink);width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;box-shadow:var(--shadow-2)}
+dialog.pwdlg::backdrop{background:rgba(8,12,10,.55);backdrop-filter:blur(2px)}
+.pwdlg form{display:flex;flex-direction:column;gap:14px;padding:22px}
+.pwhead{display:flex;align-items:flex-start;gap:12px}
+.pwhead>div{flex:1;min-width:0}
+.pwhead h2{margin:0 0 4px;font-size:18px}
+.pwhead .hint{margin:0}
+.pwico{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-ink)}
+.pwico svg{width:20px;height:20px}
+.pwdlg label{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--ink-2);font-weight:600}
+.pwdlg .inwrap input{width:100%;min-height:40px;padding-right:44px}
+.pwrules{list-style:none;margin:0;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;background:var(--sunk);border-radius:10px;font-size:12.5px;color:var(--muted)}
+.pwrules li{display:flex;align-items:center;gap:7px}
+.pwchk{flex:none;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--faint);display:grid;place-items:center;color:transparent}
+.pwchk svg{width:11px;height:11px;stroke-width:3}
+.pwrules li.ok{color:var(--ink)}
+.pwrules li.ok .pwchk{background:var(--good);border-color:var(--good);color:#fff}
+.pwfoot{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap}
+.pwfoot .lnk{margin-right:auto}
+.pwdlg .msg:empty{display:none}
+@media (max-width:420px){.pwrules{grid-template-columns:1fr}.pwfoot .btn{flex:1}}

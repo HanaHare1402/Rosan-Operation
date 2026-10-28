@@ -58,7 +58,9 @@
     if (!session) return null;
     const { data, error } = await sb.from("profiles").select("id, email, full_name, role, scope, project_ids, team_id, staff_id").eq("id", session.user.id).maybeSingle();
     if (error) throw error;
-    return data || { id: session.user.id, email: session.user.email, full_name: "", role: null, scope: "self", project_ids: [], team_id: null, staff_id: null };
+    // must_change_pw: mật khẩu do quản trị viên cấp, chưa đổi sang mật khẩu riêng.
+    const must = !!(session.user.user_metadata && session.user.user_metadata.must_change_pw);
+    return Object.assign(data || { id: session.user.id, email: session.user.email, full_name: "", role: null, scope: "self", project_ids: [], team_id: null, staff_id: null }, { must_change_pw: must, login_email: session.user.email });
   }
 
   // Trang cần đăng nhập: chỉ chuyển về login.html khi thật sự chưa đăng nhập.
@@ -100,7 +102,19 @@
     return { projects: p.data, teams: t.data, markets: m.data, channels: c.data, staff: s.data };
   }
 
+  // Đổi mật khẩu: kiểm tra mật khẩu hiện tại trước, rồi đặt mật khẩu mới. Trả về câu lỗi tiếng Việt hoặc "" nếu xong.
+  async function changePassword(email, current, next) {
+    const a = await sb.auth.signInWithPassword({ email, password: current });
+    if (a.error) return /rate|too many/i.test(a.error.message) ? "Nhập sai nhiều lần. Đợi vài phút rồi thử lại." : "Mật khẩu hiện tại chưa đúng.";
+    const b = await sb.auth.updateUser({ password: next, data: { must_change_pw: false } });
+    if (!b.error) return "";
+    const m = b.error.message || "";
+    if (/different/i.test(m)) return "Mật khẩu mới phải khác mật khẩu hiện tại.";
+    if (/weak|least|characters|strength/i.test(m)) return "Mật khẩu mới chưa đủ mạnh: dùng từ 8 ký tự, có cả chữ và số.";
+    return "Chưa đổi được mật khẩu: " + m;
+  }
+
   async function signOut() { if (sb) await sb.auth.signOut(); location.replace("login.html"); }
 
-  window.Auth = { sb, configured, ROLES, VIEWS, ADMIN_TABS, SCOPES, DEFAULT_SCOPE, loadCatalog, loadProfile, requireAuth, callFn, signOut };
+  window.Auth = { sb, configured, ROLES, VIEWS, ADMIN_TABS, SCOPES, DEFAULT_SCOPE, loadCatalog, loadProfile, requireAuth, callFn, changePassword, signOut };
 })();

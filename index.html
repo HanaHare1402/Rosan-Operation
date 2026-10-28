@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261028r">
+<link rel="stylesheet" href="css/app.css?v=20261028t">
 </head>
 <body>
 
@@ -31,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261028r"></script>
-<script src="js/settings-db.js?v=20261028r"></script>
-<script src="js/shell.js?v=20261028r"></script>
+<script src="js/auth.js?v=20261028t"></script>
+<script src="js/settings-db.js?v=20261028t"></script>
+<script src="js/shell.js?v=20261028t"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -1309,7 +1309,7 @@ V.caidat=()=>{
   <div class="profile"><span class="pav big" aria-hidden="true">${esc((nm.trim()[0]||'?').toUpperCase())}</span>
     <div class="pinfo"><div class="pn">${esc(ME.full_name||'Chưa đặt tên')}</div><div class="sub2">${esc(ME.email||'')}</div>
       <div class="pchips"><span class="pill p-info">Vai trò: ${esc(Auth.ROLES[ME.role]||'–')}</span><span class="pill p-mute">Phạm vi: ${esc(Auth.SCOPES[ME.scope||'self'])}${scopeTxt?' · '+esc(scopeTxt):''}</span>${ME.staff_id?`<span class="pill p-good">Nhân sự: ${esc(staffName(ME.staff_id))}</span>`:''}</div></div>
-    <div class="pact">${ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin.html">Mở Quản trị</a>':''}<button class="btn ghost sm" type="button" onclick="Auth.signOut()">Đăng xuất</button></div></div>
+    <div class="pact">${ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin.html">Mở Quản trị</a>':''}<button class="btn ghost sm" type="button" onclick="document.getElementById('pwBtn').click()">Đổi mật khẩu</button><button class="btn ghost sm" type="button" onclick="Auth.signOut()">Đăng xuất</button></div></div>
   ${ME.role==='admin'||ME.role==='quan_ly'?'<p class="hint keep" style="margin:12px 0 0">Dự án, team, thị trường, kênh, nhân sự, shop POS được quản lý ở trang Quản trị.</p>':''}</div>
   <div class="card"><div class="cardhead"><div><h2>Đơn vị FFM</h2><p class="hint">Phí dịch vụ và cước dùng cho ô đối soát file ở màn KQKD.</p></div>${dbState==='ok'?'<span class="pill p-good">Đã lưu chung</span>':dbState==='loading'?'<span class="pill p-mute">Đang tải…</span>':'<span class="pill p-warn">Chưa lưu được</span>'}</div>
   <div class="tw"><table><thead><tr><th class="l">Đơn vị</th><th class="l">Kho trên POS</th><th>Phí dịch vụ (% COD)</th><th>Cước / đơn gửi (₱)</th><th class="l">Ghi chú</th><th></th></tr></thead><tbody>

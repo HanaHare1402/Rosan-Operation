@@ -74,6 +74,7 @@
       <div class="userbox">
         <div class="avatar">${esc(initials(me.full_name || me.email))}</div>
         <div class="meta"><div class="who" id="who">${esc(me.full_name || me.email)}</div><div class="role" id="whoRole">${esc(Auth.ROLES[me.role] || "Chưa có vai trò")}${me.scope && Auth.SCOPES[me.scope] ? " · " + esc(Auth.SCOPES[me.scope]) : ""}</div></div>
+        <button class="icon-btn" id="pwBtn" type="button" title="Đổi mật khẩu" aria-label="Đổi mật khẩu">${icon("lock")}</button>
         <button class="icon-btn" id="themeBtn" type="button"></button>
         <button class="icon-btn" id="logout" type="button" title="Đăng xuất" aria-label="Đăng xuất">${icon("logout")}</button>
       </div>`;
@@ -86,6 +87,10 @@
     app.querySelector(".scrim").onclick = close;
     aside.addEventListener("click", (e) => { if (e.target.closest("nav a")) close(); });
     aside.querySelector("#logout").onclick = () => Auth.signOut();
+    ME = me;
+    aside.querySelector("#pwBtn").onclick = () => pwDialog(false);
+    // Mật khẩu do quản trị viên cấp: bắt đổi sang mật khẩu riêng trước khi dùng tiếp.
+    if (me.must_change_pw) pwDialog(true);
     const tb = aside.querySelector("#themeBtn");
     const LABEL = { auto: "Giao diện: theo máy", light: "Giao diện: sáng", dark: "Giao diện: tối" };
     const paint = () => { const t = getTheme(); tb.innerHTML = icon(t === "dark" ? "moon" : t === "light" ? "sun" : "auto"); tb.title = LABEL[t] + " (bấm để đổi)"; tb.setAttribute("aria-label", LABEL[t]); };
@@ -106,6 +111,65 @@
       setH(); if (window.ResizeObserver) new ResizeObserver(setH).observe(sh); window.addEventListener("resize", setH);
     }
     return aside;
+  }
+
+  // ---------- đổi mật khẩu ----------
+  let ME = null;
+  const EYE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="slash" d="M4 4l16 16"/></svg>';
+  const pwField = (id, label, ac) => `<label>${label}<span class="inwrap">${icon("lock", ' class="inico" width="16" height="16"')}<input id="${id}" type="password" autocomplete="${ac}" required><button class="pweye" type="button" aria-label="Hiện mật khẩu" aria-pressed="false" title="Hiện mật khẩu">${EYE}</button></span></label>`;
+  const PW_RULES = [
+    ["len", "Ít nhất 8 ký tự", (c, n) => n.length >= 8],
+    ["mix", "Có cả chữ và số", (c, n) => /[A-Za-zÀ-ỹ]/.test(n) && /\d/.test(n)],
+    ["diff", "Khác mật khẩu hiện tại", (c, n) => !!n && n !== c],
+    ["same", "Hai ô mật khẩu mới giống nhau", (c, n, r) => !!n && n === r],
+  ];
+  function pwDialog(forced) {
+    if (!ME || document.querySelector("dialog.pwdlg")) return;
+    const d = document.createElement("dialog");
+    d.className = "pwdlg";
+    d.setAttribute("aria-labelledby", "pwT");
+    d.innerHTML = `<form id="pwForm" novalidate>
+      <div class="pwhead"><span class="pwico" aria-hidden="true">${icon("lock")}</span><div><h2 id="pwT">${forced ? "Đặt mật khẩu của riêng bạn" : "Đổi mật khẩu"}</h2>
+        <p class="hint keep">${forced ? "Mật khẩu hiện tại do quản trị viên cấp. Hãy đổi sang mật khẩu chỉ bạn biết để tiếp tục sử dụng." : "Tài khoản " + esc(ME.login_email || ME.email || "") + "."}</p></div>
+        ${forced ? "" : `<button class="icon-btn" type="button" data-pwclose aria-label="Đóng">${icon("x")}</button>`}</div>
+      ${pwField("pwCur", forced ? "Mật khẩu được cấp" : "Mật khẩu hiện tại", "current-password")}
+      ${pwField("pwNew", "Mật khẩu mới", "new-password")}
+      ${pwField("pwRep", "Nhập lại mật khẩu mới", "new-password")}
+      <ul class="pwrules" aria-label="Yêu cầu mật khẩu">${PW_RULES.map(([k, t]) => `<li data-r="${k}"><span class="pwchk" aria-hidden="true">${icon("check")}</span><span>${t}</span><span class="sr"> – chưa đạt</span></li>`).join("")}</ul>
+      <div class="msg" id="pwMsg" role="status" aria-live="polite"></div>
+      <div class="pwfoot">${forced ? '<button class="lnk" type="button" data-pwout>Đăng xuất</button>' : '<button class="btn ghost" type="button" data-pwclose>Huỷ</button>'}<button class="btn" type="submit" id="pwSave">Lưu mật khẩu mới</button></div>
+    </form>`;
+    document.body.appendChild(d);
+    const $ = (s) => d.querySelector(s), msg = (t, cls) => { $("#pwMsg").className = "msg" + (cls ? " " + cls : ""); $("#pwMsg").textContent = t; };
+    const check = () => {
+      const c = $("#pwCur").value, n = $("#pwNew").value, r = $("#pwRep").value;
+      let ok = true;
+      PW_RULES.forEach(([k, , f]) => { const v = f(c, n, r), li = d.querySelector(`[data-r="${k}"]`); li.classList.toggle("ok", v); li.querySelector(".sr").textContent = v ? " – đã đạt" : " – chưa đạt"; ok = ok && v; });
+      return ok;
+    };
+    const close = () => { d.close(); d.remove(); };
+    d.addEventListener("input", () => { check(); if ($("#pwMsg").textContent) msg(""); });
+    d.addEventListener("cancel", (e) => { if (forced) e.preventDefault(); else { e.preventDefault(); close(); } });
+    d.addEventListener("click", (e) => {
+      const eye = e.target.closest(".pweye");
+      if (eye) { const inp = eye.parentElement.querySelector("input"), on = inp.type === "password"; inp.type = on ? "text" : "password"; eye.setAttribute("aria-pressed", String(on)); const l = on ? "Ẩn mật khẩu" : "Hiện mật khẩu"; eye.setAttribute("aria-label", l); eye.title = l; return; }
+      if (e.target.closest("[data-pwclose]")) close();
+      if (e.target.closest("[data-pwout]")) Auth.signOut();
+    });
+    $("#pwForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!$("#pwCur").value) { msg("Nhập mật khẩu " + (forced ? "được cấp" : "hiện tại") + ".", "neg"); $("#pwCur").focus(); return; }
+      if (!check()) { const bad = PW_RULES.find(([k]) => !d.querySelector(`[data-r="${k}"]`).classList.contains("ok")); msg("Mật khẩu mới chưa đạt: " + bad[1].toLowerCase() + ".", "neg"); $("#pwNew").focus(); return; }
+      const btn = $("#pwSave"); btn.disabled = true; btn.textContent = "Đang lưu…";
+      const err = await Auth.changePassword(ME.login_email || ME.email, $("#pwCur").value, $("#pwNew").value).catch((x) => "Chưa đổi được mật khẩu: " + (x.message || x));
+      btn.disabled = false; btn.textContent = "Lưu mật khẩu mới";
+      if (err) { msg(err, "neg"); return; }
+      ME.must_change_pw = false; close();
+      toast("Đã đổi mật khẩu. Lần đăng nhập sau dùng mật khẩu mới.");
+    });
+    d.showModal();
+    check();
+    $("#pwCur").focus();
   }
 
   // Số trên huy hiệu menu; 0 thì ẩn.

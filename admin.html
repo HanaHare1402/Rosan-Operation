@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261028r">
+<link rel="stylesheet" href="css/app.css?v=20261028t">
 </head>
 <body>
 <div class="app">
@@ -44,7 +44,7 @@
           <div class="form">
             <label>Email<input id="ufEmail" type="email" autocomplete="off"></label>
             <label>Họ tên<input id="ufName" type="text" autocomplete="off"></label>
-            <label id="ufPwWrap">Mật khẩu (từ 8 ký tự)<input id="ufPw" type="text" autocomplete="off"></label>
+            <label id="ufPwWrap" title="Lần đầu đăng nhập, người dùng phải đổi sang mật khẩu riêng">Mật khẩu tạm (từ 8 ký tự, người dùng tự đổi khi đăng nhập)<input id="ufPw" type="text" autocomplete="off"></label>
             <label>Vai trò<select id="ufRole"></select></label>
             <label>Phạm vi xem<select id="ufScope"></select></label>
             <label id="ufTeamWrap">Team<select id="ufTeam"></select></label>
@@ -176,8 +176,8 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261028r"></script>
-<script src="js/shell.js?v=20261028r"></script>
+<script src="js/auth.js?v=20261028t"></script>
+<script src="js/shell.js?v=20261028t"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (async function () {
@@ -543,9 +543,10 @@
     try {
       if (act === "edit") { fillUserForm(u); $("#userForm").scrollIntoView({ block: "center" }); return; }
       if (act === "pw") {
-        const pw = prompt(`Mật khẩu mới cho ${u.email} (từ 8 ký tự):`); if (!pw) return;
+        const pw = prompt(`Mật khẩu tạm cho ${u.email} (từ 8 ký tự). Lần đăng nhập tới, người này sẽ phải đổi sang mật khẩu riêng.`, randPw()); if (!pw) return;
+        if (pw.length < 8) { say($("#usersMsg"), "Mật khẩu cần từ 8 ký tự. Chưa đổi gì.", "neg"); return; }
         await Auth.callFn("admin-users", { action: "set_password", id, password: pw });
-        say($("#usersMsg"), `Đã đặt mật khẩu mới cho ${esc(u.email)}.`, "pos"); return;
+        say($("#usersMsg"), `Đã đặt mật khẩu tạm cho ${esc(u.email)}: <code>${esc(pw)}</code> – gửi cho họ; lần đăng nhập tới họ sẽ phải đổi sang mật khẩu riêng.`, "pos"); return;
       }
       if (act === "ban" || act === "unban") { await Auth.callFn("admin-users", { action: act, id }); say($("#usersMsg"), `${act === "ban" ? "Đã khoá" : "Đã mở khoá"} ${esc(u.email)}.`, "pos"); }
       if (act === "del") {
@@ -556,7 +557,9 @@
     } catch (err) { say($("#usersMsg"), "Chưa làm được: " + esc(err.message), "neg"); }
   });
   $("#reloadUsers").onclick = loadUsers;
-  $("#genPw").onclick = () => { const a = crypto.getRandomValues(new Uint8Array(12)); $("#ufPw").value = Array.from(a, (x) => "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"[x % 55]).join(""); };
+  // Mật khẩu tạm ngẫu nhiên, bỏ ký tự dễ nhầm (0/O, 1/l/I); luôn có chữ và số.
+  const randPw = () => { const a = crypto.getRandomValues(new Uint8Array(12)); return Array.from(a, (x) => "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ"[x % 47]).join("").slice(0, 9) + String(100 + (a[0] * 7 + a[1]) % 900); };
+  $("#genPw").onclick = () => { $("#ufPw").value = randPw(); };
   $("#userForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const scope = $("#ufScope").value, role = $("#ufRole").value;
@@ -573,7 +576,7 @@
         const email = $("#ufEmail").value.trim(), password = $("#ufPw").value;
         if (!email || password.length < 8) { say($("#userMsg"), "Cần email và mật khẩu từ 8 ký tự.", "neg"); return; }
         await Auth.callFn("admin-users", { action: "create", email, password, ...payload });
-        say($("#usersMsg"), `Đã tạo ${esc(email)}. Gửi email và mật khẩu cho người đó; họ đổi mật khẩu bằng “Quên mật khẩu” ở trang đăng nhập.`, "pos"); userFormOpen = false; fillUserForm(null);
+        say($("#usersMsg"), `Đã tạo ${esc(email)} với mật khẩu tạm <code>${esc(password)}</code>. Gửi email và mật khẩu này cho người đó; lần đầu đăng nhập họ sẽ phải đổi sang mật khẩu riêng.`, "pos"); userFormOpen = false; fillUserForm(null);
       }
       await loadUsers();
     } catch (err) { say($("#userMsg"), "Chưa lưu được: " + esc(err.message), "neg"); }
