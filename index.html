@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261028p">
+<link rel="stylesheet" href="css/app.css?v=20261028q">
 </head>
 <body>
 
@@ -31,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261028p"></script>
-<script src="js/settings-db.js?v=20261028p"></script>
-<script src="js/shell.js?v=20261028p"></script>
+<script src="js/auth.js?v=20261028q"></script>
+<script src="js/settings-db.js?v=20261028q"></script>
+<script src="js/shell.js?v=20261028q"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -112,8 +112,12 @@ const F={proj:HP.get('p')??store.get('proj',''),mkt:HP.get('m')??store.get('mkt'
 if(F.proj&&!projOpts.some(p=>p.id===F.proj))F.proj='';
 if(!RANGES[F.range]&&F.range!=='90d')F.range='month';
 if(F.range==='custom'&&!(F.from&&F.to))F.range='month';
-if(F.ch!=='all'&&F.ch!=='__none'&&!byId(CAT.channels,F.ch))F.ch='all';
-if(F.mkt&&!byId(CAT.markets,F.mkt))F.mkt='';
+// Kênh / thị trường chọn được nhiều: lưu dạng 'fb,__none' ('__none' = chưa xác định kênh).
+const cleanList=(v,ok)=>String(v||'').split(',').filter(x=>x&&ok(x)).join(',');
+F.ch=F.ch==='all'?'all':(cleanList(F.ch,x=>x==='__none'||byId(CAT.channels,x))||'all');
+F.mkt=cleanList(F.mkt,x=>byId(CAT.markets,x));
+const fList=k=>!F[k]||F[k]==='all'?[]:F[k].split(',');
+const chLabel=id=>id==='__none'?'Chưa xác định kênh':chName(id);
 function hashFor(v){
   const q=new URLSearchParams();if(F.proj)q.set('p',F.proj);if(F.mkt)q.set('m',F.mkt);if(F.ch!=='all')q.set('c',F.ch);
   if(F.range!=='month')q.set('r',F.range);if(F.range==='custom'){q.set('f',F.from);q.set('t',F.to)}if(!F.cmp)q.set('cmp','0');
@@ -125,14 +129,30 @@ function scopeLabel(){
   return '';
 }
 const isDefault=()=>!F.proj&&!F.mkt&&F.ch==='all'&&F.range===(ME.scope==='self'?'today':'month');
+// Ô chọn nhiều (kênh, thị trường): bấm mở danh sách tích chọn, "Áp dụng" hoặc bấm ra ngoài để lọc, Esc / "Huỷ" để bỏ.
+let MP=null;
+function msel(k,label,allTxt,opts){
+  const cur=fList(k),open=!!(MP&&MP.k===k),sel=open?MP.sel:cur,nm=id=>(opts.find(o=>o[0]===id)||[id,id])[1];
+  const txt=!cur.length?allTxt:cur.length<=2?cur.map(nm).join(', '):cur.length+' '+label.toLowerCase();
+  return `<div class="msel${cur.length?' on':''}"><button type="button" class="mbtn" data-mopen="${k}" aria-haspopup="true" aria-expanded="${open}" aria-label="${esc(label+': '+txt)}" title="${esc(label+': '+txt)}"><span>${esc(txt)}</span>${cur.length>2?`<b class="mcnt">${cur.length}</b>`:''}</button>${open?`<div class="mpop" role="group" aria-label="Chọn ${esc(label.toLowerCase())}">
+    <label class="mopt mall"><input type="checkbox" data-mall ${sel.length?'':'checked'}> ${esc(allTxt)}</label>
+    ${opts.map(([v,t])=>`<label class="mopt"><input type="checkbox" data-mv="${esc(v)}" ${sel.includes(v)?'checked':''}> ${esc(t)}</label>`).join('')}
+    <div class="mfoot"><button type="button" class="btn ghost sm" data-mcancel>Huỷ</button><button type="button" class="btn sm" data-mapply>Áp dụng</button></div></div>`:''}</div>`;
+}
+function syncM(){const p=document.querySelector('.mpop');if(!p)return;p.querySelector('[data-mall]').checked=!MP.sel.length;p.querySelectorAll('[data-mv]').forEach(x=>x.checked=MP.sel.includes(x.dataset.mv))}
+function closeM(){if(!MP)return;const k=MP.k;MP=null;renderFilters();const b=document.querySelector(`[data-mopen="${k}"]`);if(b)b.focus()}
+function applyM(){if(!MP)return;const k=MP.k,p=document.querySelector('.mpop');
+  const all=p?p.querySelectorAll('[data-mv]').length:0,v=p?[...p.querySelectorAll('[data-mv]:checked')].map(x=>x.dataset.mv):MP.sel;
+  MP=null;const nv=!v.length||v.length===all?(k==='ch'?'all':''):v.join(',');
+  if(nv===F[k]){renderFilters();return}setF(k,nv)}
 function renderFilters(){
   // Bộ lọc gọn kiểu POS: ô chọn không kèm nhãn chữ (nhãn ở title / aria-label), nút biểu tượng cho so sánh và xoá lọc.
   const sel=(id,label,opts,cur)=>`<select id="${id}" class="fs" aria-label="${label}" title="${label}">${opts.map(([v,t])=>`<option value="${esc(v)}" ${String(cur)===String(v)?'selected':''}>${esc(t)}</option>`).join('')}</select>`;
   // KPI R&D gộp đơn mọi dự án của sản phẩm: bỏ chọn dự án cho khỏi hiểu nhầm. KPI không lọc kênh / thị trường như file gốc.
   const rd=view==='kpi'&&kMode==='rd';
   const pSel=projOpts.length?(rd?'':sel('fProj','Dự án',[['',ME.scope==='all'?'Tất cả dự án':'Dự án của tôi'],...projOpts.map(p=>[p.id,p.name])],F.proj)):`<span class="pill p-info">${scopeLabel()}</span>`;
-  const mSel=CAT.markets.length>1&&view!=='kpi'?sel('fMkt','Thị trường',[['','Mọi thị trường'],...CAT.markets.map(m=>[m.id,m.name])],F.mkt):'';
-  const cSel=CAT.channels.length&&view!=='kpi'&&view!=='canhbao'?sel('fCh','Kênh',[['all','Mọi kênh'],...CAT.channels.map(c=>[c.id,c.name]),['__none','Chưa xác định kênh']],F.ch):'';
+  const mSel=CAT.markets.length>1&&view!=='kpi'?msel('mkt','Thị trường','Mọi thị trường',CAT.markets.map(m=>[m.id,m.name])):'';
+  const cSel=CAT.channels.length&&view!=='kpi'&&view!=='canhbao'?msel('ch','Kênh','Mọi kênh',[...CAT.channels.map(c=>[c.id,c.name]),['__none','Chưa xác định kênh']]):'';
   const rSel=sel('fRange','Thời gian',Object.entries(RANGES),F.range);
   const custom=F.range==='custom'?`<span class="drange"><input type="date" id="fFrom" value="${esc(F.from)}" aria-label="Từ ngày" title="Từ ngày"><span aria-hidden="true">–</span><input type="date" id="fTo" value="${esc(F.to)}" aria-label="Đến ngày" title="Đến ngày"></span>`:'';
   const cmp=`<button type="button" class="ibtn ${F.cmp?'on':''}" id="fCmpBtn" aria-pressed="${F.cmp}" aria-label="So với ${cmpLabel()}" title="${F.cmp?'Đang so với':'Bấm để so với'} ${cmpLabel()}">${Shell.icon('compare')}</button>`;
@@ -148,13 +168,15 @@ const mapRow=r=>({day:r.day,proj:r.project_id,team:r.team_id,staff:r.staff_id,mk
 async function loadData(){
   const seq=++loadSeq;loading=true;loadErr='';render();
   // Chưa xác định kênh: lấy mọi kênh rồi giữ đơn chưa gán kênh (chạy được cả khi database chưa có bản lọc '__none').
-  const none=F.ch==='__none',base={p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'||none?null:F.ch};
+  // Chọn nhiều kênh / thị trường hoặc "Chưa xác định kênh": lấy rộng rồi lọc tại đây (chạy được cả khi database chưa có bản lọc nhiều).
+  const chs=fList('ch'),mks=fList('mkt');
+  const base={p_project:F.proj||null,p_market:mks.length===1?mks[0]:null,p_channel:chs.length===1&&chs[0]!=='__none'?chs[0]:null};
   const [from,to]=rangeDates(),[pf,pt]=prevDates();
   const [cur,prev]=await Promise.all([sbc.rpc('dash_orders',{...base,p_from:dayISO(from),p_to:dayISO(to)}),
     F.cmp?sbc.rpc('dash_orders',{...base,p_from:dayISO(pf),p_to:dayISO(pt)}):Promise.resolve({data:[]})]);
   if(seq!==loadSeq)return;
   loading=false;
-  const keep=r=>!none||!r.ch;
+  const keep=r=>(!chs.length||chs.includes(r.ch||'__none'))&&(!mks.length||mks.includes(r.mkt));
   if(cur.error){loadErr=cur.error.message;ROWS=[]}else ROWS=cur.data.map(mapRow).filter(keep);
   PREV=prev.error?[]:(prev.data||[]).map(mapRow).filter(keep);
   PRODS=null;
@@ -517,8 +539,9 @@ async function fetchOrders(key){
   // Lọc theo ngày tạo tính bằng giờ của thị trường (cột local_day); chưa có cột thì lọc theo giờ như cũ.
   q=useDay?q.gte('local_day',isoD(from)).lt('local_day',isoD(to)):q.gte('inserted_at',dayISO(from)).lt('inserted_at',dayISO(to));
   if(F.proj)q=q.eq('project_id',F.proj);
-  if(F.mkt)q=q.eq('market_id',F.mkt);
-  if(F.ch==='__none')q=q.is('channel_id',null);else if(F.ch!=='all')q=q.eq('channel_id',F.ch);
+  const mks=fList('mkt'),chs=fList('ch'),ids=chs.filter(x=>x!=='__none');
+  if(mks.length)q=q.in('market_id',mks);
+  if(chs.includes('__none'))q=q.or((ids.length?`channel_id.in.(${ids.map(x=>'"'+x+'"').join(',')}),`:'')+'channel_id.is.null');else if(ids.length)q=q.in('channel_id',ids);
   if(oSt!=='all')q=q.in('status',GROUPS[oSt]);
   const term=oQ.trim().replace(/[%,()*]/g,' ').trim();
   if(term)q=q.or(['pos_order_id','bill_phone_number','tracking','bill_full_name','marketer_name'].map(c=>`${c}.ilike.*${term}*`).join(','));
@@ -894,7 +917,7 @@ function dailyBody(rows,rate,o){
   const dtipTxt=`Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn.${DAILY_OLD?' Bảng này chưa lọc theo kênh / thị trường.':' Doanh số, số đơn theo thị trường và kênh đang lọc; chi phí ads theo kênh marketer chọn khi nhập.'}${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}`.replace(/<[^>]+>/g,'');
   const dtip=`<span class="tip" tabindex="0" role="note" aria-label="${esc(dtipTxt)}" data-tip="${esc(dtipTxt)}">?</span>`;
   return `<div class="card blk c-cyan"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div></div>
-    ${(F.ch!=='all')?`<div class="warnrow">${DAILY_OLD?`<span class="pill p-warn">Chưa lọc theo kênh ${tipT('Bảng đang hiện số của mọi kênh. Admin chạy file SQL 20261027010000_daily_filters.sql trên Supabase để bảng lọc theo kênh / thị trường.')}</span>`:`<span class="pill p-info">Chi phí ads ${F.ch==='__none'?'chưa chọn kênh':'kênh '+esc(adChName(F.ch))} ${tipT('Chỉ tính chi phí marketer chọn kênh này khi nhập. Khoản nhập trước khi có ô Kênh (chưa chọn kênh) chỉ được tính khi xem Mọi kênh. Nếu chi phí vẫn ra của mọi kênh, admin cần chạy file SQL 20261027020000_ad_channel.sql.')}</span>`}</div>`:''}
+    ${(F.ch!=='all')?`<div class="warnrow">${DAILY_OLD?`<span class="pill p-warn">Chưa lọc theo kênh ${tipT('Bảng đang hiện số của mọi kênh. Admin chạy file SQL 20261027010000_daily_filters.sql trên Supabase để bảng lọc theo kênh / thị trường.')}</span>`:`<span class="pill p-info">Chi phí ads: ${esc(fList('ch').map(x=>x==='__none'?'chưa chọn kênh':adChName(x)).join(', '))} ${tipT('Chỉ tính chi phí marketer chọn kênh này khi nhập. Khoản nhập trước khi có ô Kênh (chưa chọn kênh) chỉ được tính khi xem Mọi kênh. Nếu chi phí vẫn ra của mọi kênh, admin cần chạy file SQL 20261027020000_ad_channel.sql.')}</span>`}</div>`:''}
     ${contest}${strip}
     ${rows.length?(()=>{const mw=230+140+ds.length*112,cg=`<colgroup><col style="width:230px"><col style="width:140px">${ds.map(()=>'<col style="width:112px">').join('')}</colgroup>`;
       return `<div class="fh"><table class="daily" style="min-width:${mw}px">${cg}<thead>${head}</thead></table></div><div class="tw fhb"><table class="daily" style="min-width:${mw}px">${cg}<tbody>${body}</tbody></table></div>`})():Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
@@ -1319,6 +1342,10 @@ function render(){
 function go(v){view=v;keep={};delArm=null;try{history.replaceState(null,'',hashFor(v))}catch(e){}if((['sanpham','nhansu','tongquan','team','kqkd'].includes(v)||(SEE_COST&&v==='canhbao'))&&!PRODS)loadProducts();render();window.scrollTo(0,0)}
 function setF(k,v){F[k]=v;store.set({proj:'proj',mkt:'mkt',ch:'ch2',range:'range',from:'from',to:'to',cmp:'cmp'}[k],k==='cmp'?(v?'1':'0'):v);pgReset();try{history.replaceState(null,'',hashFor(view))}catch(e){}loadData()}
 document.addEventListener('click',e=>{
+  const mo=e.target.closest('[data-mopen]');if(mo){const k=mo.dataset.mopen;if(MP&&MP.k===k){closeM();return}if(MP)applyM();MP={k,sel:fList(k)};renderFilters();const f=document.querySelector('.mpop input');if(f)f.focus();return}
+  if(e.target.closest('[data-mapply]')){applyM();return}
+  if(e.target.closest('[data-mcancel]')){closeM();return}
+  if(MP&&!e.target.closest('.msel'))applyM();
   const n=e.target.closest('#nav a[data-v]');if(n){e.preventDefault();go(n.dataset.v);return}
   const rg=e.target.closest('[data-range]');if(rg){const k=rg.dataset.range;if(k==='custom'&&!(F.from&&F.to)){const [f,t]=rangeDates();F.from=isoD(f);F.to=isoD(addD(t,-1));store.set('from',F.from);store.set('to',F.to)}setF('range',k);return}
   const mt=e.target.closest('[data-metric]');if(mt){chartMetric=mt.dataset.metric;store.set('cmetric',chartMetric);render();return}
@@ -1354,7 +1381,7 @@ document.addEventListener('click',e=>{
   if(e.target.id==='ffCancel'){editFfm=null;formMsg.ffm='';keep={};render();return}
   const df=e.target.closest('[data-del-ffm]');if(df){const id=df.dataset.delFfm;if(delArm==='f:'+id){delArm=null;const nm=(FFMS.find(f=>f.id===id)||{}).name;db.collection('ffm').doc(id).delete().then(()=>{formMsg.ffm=`<span class="muted">Đã xoá ${esc(nm)}.</span>`;if(editFfm===id)editFfm=null;render()}).catch(err=>{formMsg.ffm=`<span class="neg">Chưa xoá được: ${esc(err.message||err.code)}.</span>`;render()})}else{delArm='f:'+id;render()}return}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-go]'))e.target.click();
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&MP){closeM();return}if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-go]'))e.target.click();
   if(e.key==='Enter'&&e.target.matches&&e.target.matches('[data-pggo]')){e.preventDefault();pgGo(e.target)}});
 
 document.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='ffmForm')submitFfm();if(e.target.id==='kSetForm')saveKSet();if(e.target.id==='adForm')saveAds();if(e.target.id==='plForm')savePL()});
@@ -1362,8 +1389,8 @@ document.addEventListener('change',e=>{
   if(e.target.matches&&e.target.matches('[data-pgper]')){const k=e.target.dataset.pgper,st=pgState(k);st.per=+e.target.value;st.page=0;store.set('per_'+k,String(st.per));render();return}
   if(e.target.matches&&e.target.matches('[data-pggo]')){pgGo(e.target);return}
   if(e.target.id==='fProj')setF('proj',e.target.value);
-  if(e.target.id==='fMkt')setF('mkt',e.target.value);
-  if(e.target.id==='fCh')setF('ch',e.target.value);
+  if(e.target.matches&&e.target.matches('[data-mv]')&&MP){const v=e.target.dataset.mv;MP.sel=e.target.checked?[...MP.sel,v]:MP.sel.filter(x=>x!==v);syncM();return}
+  if(e.target.matches&&e.target.matches('[data-mall]')&&MP){MP.sel=[];syncM();return}
   if(e.target.id==='fRange'){const k=e.target.value;if(k==='custom'&&!(F.from&&F.to)){const [f,t]=rangeDates();F.from=isoD(f);F.to=isoD(addD(t,-1));store.set('from',F.from);store.set('to',F.to)}setF('range',k)}
   if(e.target.id==='fCmp')setF('cmp',e.target.checked);
   if(e.target.id==='fFrom'||e.target.id==='fTo'){const k=e.target.id==='fFrom'?'from':'to';if(e.target.value){F[k]=e.target.value;store.set(k,F[k]);setF('range','custom')}}
