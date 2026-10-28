@@ -112,7 +112,7 @@ const F={proj:HP.get('p')??store.get('proj',''),mkt:HP.get('m')??store.get('mkt'
 if(F.proj&&!projOpts.some(p=>p.id===F.proj))F.proj='';
 if(!RANGES[F.range]&&F.range!=='90d')F.range='month';
 if(F.range==='custom'&&!(F.from&&F.to))F.range='month';
-if(F.ch!=='all'&&!byId(CAT.channels,F.ch))F.ch='all';
+if(F.ch!=='all'&&F.ch!=='__none'&&!byId(CAT.channels,F.ch))F.ch='all';
 if(F.mkt&&!byId(CAT.markets,F.mkt))F.mkt='';
 function hashFor(v){
   const q=new URLSearchParams();if(F.proj)q.set('p',F.proj);if(F.mkt)q.set('m',F.mkt);if(F.ch!=='all')q.set('c',F.ch);
@@ -132,7 +132,7 @@ function renderFilters(){
   const rd=view==='kpi'&&kMode==='rd';
   const pSel=projOpts.length?(rd?'':sel('fProj','Dự án',[['',ME.scope==='all'?'Tất cả dự án':'Dự án của tôi'],...projOpts.map(p=>[p.id,p.name])],F.proj)):`<span class="pill p-info">${scopeLabel()}</span>`;
   const mSel=CAT.markets.length>1&&view!=='kpi'?sel('fMkt','Thị trường',[['','Mọi thị trường'],...CAT.markets.map(m=>[m.id,m.name])],F.mkt):'';
-  const cSel=CAT.channels.length&&view!=='kpi'&&view!=='canhbao'?sel('fCh','Kênh',[['all','Mọi kênh'],...CAT.channels.map(c=>[c.id,c.name])],F.ch):'';
+  const cSel=CAT.channels.length&&view!=='kpi'&&view!=='canhbao'?sel('fCh','Kênh',[['all','Mọi kênh'],...CAT.channels.map(c=>[c.id,c.name]),['__none','Chưa xác định kênh']],F.ch):'';
   const rSel=sel('fRange','Thời gian',Object.entries(RANGES),F.range);
   const custom=F.range==='custom'?`<span class="drange"><input type="date" id="fFrom" value="${esc(F.from)}" aria-label="Từ ngày" title="Từ ngày"><span aria-hidden="true">–</span><input type="date" id="fTo" value="${esc(F.to)}" aria-label="Đến ngày" title="Đến ngày"></span>`:'';
   const cmp=`<button type="button" class="ibtn ${F.cmp?'on':''}" id="fCmpBtn" aria-pressed="${F.cmp}" aria-label="So với ${cmpLabel()}" title="${F.cmp?'Đang so với':'Bấm để so với'} ${cmpLabel()}">${Shell.icon('compare')}</button>`;
@@ -147,14 +147,16 @@ let ROWS=[],PREV=[],PRODS=null,loading=false,loadErr='',loadSeq=0;
 const mapRow=r=>({day:r.day,proj:r.project_id,team:r.team_id,staff:r.staff_id,mk:r.marketer,ch:r.channel_id,mkt:r.market_id,shop:r.shop_id,g:r.st_group,n:+r.orders,rev:+r.revenue_vnd,cogs:+r.cogs_vnd||0,miss:+r.cogs_missing||0});
 async function loadData(){
   const seq=++loadSeq;loading=true;loadErr='';render();
-  const base={p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch};
+  // Chưa xác định kênh: lấy mọi kênh rồi giữ đơn chưa gán kênh (chạy được cả khi database chưa có bản lọc '__none').
+  const none=F.ch==='__none',base={p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'||none?null:F.ch};
   const [from,to]=rangeDates(),[pf,pt]=prevDates();
   const [cur,prev]=await Promise.all([sbc.rpc('dash_orders',{...base,p_from:dayISO(from),p_to:dayISO(to)}),
     F.cmp?sbc.rpc('dash_orders',{...base,p_from:dayISO(pf),p_to:dayISO(pt)}):Promise.resolve({data:[]})]);
   if(seq!==loadSeq)return;
   loading=false;
-  if(cur.error){loadErr=cur.error.message;ROWS=[]}else ROWS=cur.data.map(mapRow);
-  PREV=prev.error?[]:(prev.data||[]).map(mapRow);
+  const keep=r=>!none||!r.ch;
+  if(cur.error){loadErr=cur.error.message;ROWS=[]}else ROWS=cur.data.map(mapRow).filter(keep);
+  PREV=prev.error?[]:(prev.data||[]).map(mapRow).filter(keep);
   PRODS=null;
   if(['sanpham','nhansu','tongquan','team','kqkd'].includes(view)||(SEE_COST&&view==='canhbao'))loadProducts();
   render();
@@ -516,7 +518,7 @@ async function fetchOrders(key){
   q=useDay?q.gte('local_day',isoD(from)).lt('local_day',isoD(to)):q.gte('inserted_at',dayISO(from)).lt('inserted_at',dayISO(to));
   if(F.proj)q=q.eq('project_id',F.proj);
   if(F.mkt)q=q.eq('market_id',F.mkt);
-  if(F.ch!=='all')q=q.eq('channel_id',F.ch);
+  if(F.ch==='__none')q=q.is('channel_id',null);else if(F.ch!=='all')q=q.eq('channel_id',F.ch);
   if(oSt!=='all')q=q.in('status',GROUPS[oSt]);
   const term=oQ.trim().replace(/[%,()*]/g,' ').trim();
   if(term)q=q.or(['pos_order_id','bill_phone_number','tracking','bill_full_name','marketer_name'].map(c=>`${c}.ilike.*${term}*`).join(','));
@@ -892,7 +894,7 @@ function dailyBody(rows,rate,o){
   const dtipTxt=`Chi phí ads (USD × ${N(rate)}) ${o.targets===false?'do người này nhập':'theo team của người nhập'}; doanh số và số đơn theo ngày tạo đơn, bỏ đơn huỷ; nhóm theo sản phẩm chính của đơn.${DAILY_OLD?' Bảng này chưa lọc theo kênh / thị trường.':' Doanh số, số đơn theo thị trường và kênh đang lọc; chi phí ads theo kênh marketer chọn khi nhập.'}${cap?` Ô có ▲ là vượt trần ${PF(cap)}%.`:''}${!tgt&&canTgt&&o.targets!==false?' Đặt target, trần % chi phí ở Quản trị → Danh mục → Team.':''}`.replace(/<[^>]+>/g,'');
   const dtip=`<span class="tip" tabindex="0" role="note" aria-label="${esc(dtipTxt)}" data-tip="${esc(dtipTxt)}">?</span>`;
   return `<div class="card blk c-cyan"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div></div>
-    ${(F.ch!=='all')?`<div class="warnrow">${DAILY_OLD?`<span class="pill p-warn">Chưa lọc theo kênh ${tipT('Bảng đang hiện số của mọi kênh. Admin chạy file SQL 20261027010000_daily_filters.sql trên Supabase để bảng lọc theo kênh / thị trường.')}</span>`:`<span class="pill p-info">Chi phí ads kênh ${esc(adChName(F.ch))} ${tipT('Chỉ tính chi phí marketer chọn kênh này khi nhập. Khoản nhập trước khi có ô Kênh (chưa chọn kênh) chỉ được tính khi xem Mọi kênh. Nếu chi phí vẫn ra của mọi kênh, admin cần chạy file SQL 20261027020000_ad_channel.sql.')}</span>`}</div>`:''}
+    ${(F.ch!=='all')?`<div class="warnrow">${DAILY_OLD?`<span class="pill p-warn">Chưa lọc theo kênh ${tipT('Bảng đang hiện số của mọi kênh. Admin chạy file SQL 20261027010000_daily_filters.sql trên Supabase để bảng lọc theo kênh / thị trường.')}</span>`:`<span class="pill p-info">Chi phí ads ${F.ch==='__none'?'chưa chọn kênh':'kênh '+esc(adChName(F.ch))} ${tipT('Chỉ tính chi phí marketer chọn kênh này khi nhập. Khoản nhập trước khi có ô Kênh (chưa chọn kênh) chỉ được tính khi xem Mọi kênh. Nếu chi phí vẫn ra của mọi kênh, admin cần chạy file SQL 20261027020000_ad_channel.sql.')}</span>`}</div>`:''}
     ${contest}${strip}
     ${rows.length?(()=>{const mw=230+140+ds.length*112,cg=`<colgroup><col style="width:230px"><col style="width:140px">${ds.map(()=>'<col style="width:112px">').join('')}</colgroup>`;
       return `<div class="fh"><table class="daily" style="min-width:${mw}px">${cg}<thead>${head}</thead></table></div><div class="tw fhb"><table class="daily" style="min-width:${mw}px">${cg}<tbody>${body}</tbody></table></div>`})():Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
