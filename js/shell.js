@@ -177,5 +177,37 @@
   // Kéo ngang thân bảng thì hàng tiêu đề tách riêng kéo theo.
   document.addEventListener("scroll", (e) => { const t = e.target; if (t.classList && t.classList.contains("fhb")) { const h = t.previousElementSibling; if (h && h.classList.contains("fh")) h.scrollLeft = t.scrollLeft; } }, true);
 
+  // Lời giải thích của nút (?): vẽ ở một lớp riêng gắn vào <body>, vị trí cố định theo màn hình,
+  // nên không bị bảng (vùng cuộn ngang, tiêu đề cố định) che hay cắt. Rê chuột, Tab tới hoặc chạm để xem; Esc để tắt.
+  const tipBox = document.createElement("div");
+  tipBox.className = "tipbox"; tipBox.id = "tipbox"; tipBox.setAttribute("role", "tooltip"); tipBox.hidden = true;
+  let tipOn = null;
+  function showTip(t) {
+    const txt = t.dataset.tip || t.getAttribute("aria-label") || "";
+    if (!txt) return;
+    if (!tipBox.isConnected) document.body.appendChild(tipBox);
+    tipOn = t; tipBox.textContent = txt; tipBox.hidden = false; tipBox.style.left = "0px"; tipBox.style.top = "0px";
+    t.setAttribute("aria-describedby", "tipbox");
+    const r = t.getBoundingClientRect(), b = tipBox.getBoundingClientRect(), gap = 8, vw = document.documentElement.clientWidth;
+    let x = r.left + r.width / 2 - b.width / 2;
+    x = Math.max(8, Math.min(x, vw - b.width - 8));
+    const above = r.top - b.height - gap >= 8;
+    tipBox.style.left = Math.round(x) + "px";
+    tipBox.style.top = Math.round(above ? r.top - b.height - gap : r.bottom + gap) + "px";
+    tipBox.dataset.side = above ? "top" : "bottom";
+    tipBox.style.setProperty("--ax", Math.round(r.left + r.width / 2 - x) + "px");
+  }
+  function hideTip() { if (tipOn) tipOn.removeAttribute("aria-describedby"); tipOn = null; tipBox.hidden = true; }
+  document.addEventListener("mouseover", (e) => { const t = e.target.closest && e.target.closest(".tip"); if (t && t !== tipOn) showTip(t); });
+  document.addEventListener("mouseout", (e) => { const t = e.target.closest && e.target.closest(".tip"); if (t && t === tipOn && !t.contains(e.relatedTarget) && document.activeElement !== t) hideTip(); });
+  document.addEventListener("focusin", (e) => { const t = e.target.closest && e.target.closest(".tip"); if (t) showTip(t); else if (tipOn) hideTip(); });
+  document.addEventListener("focusout", (e) => { if (tipOn && e.target === tipOn) hideTip(); });
+  document.addEventListener("click", (e) => { const t = e.target.closest && e.target.closest(".tip"); if (t) { e.stopPropagation(); if (tipOn === t && e.pointerType !== "mouse") hideTip(); else showTip(t); } else if (tipOn) hideTip(); }, true);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && tipOn) hideTip(); });
+  // Cuộn trang / bảng: lời giải thích đi theo nút (?); nút ra khỏi màn hình thì tắt.
+  const followTip = () => { if (!tipOn) return; const r = tipOn.getBoundingClientRect(); if (!tipOn.isConnected || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) hideTip(); else showTip(tipOn); };
+  window.addEventListener("scroll", followTip, true);
+  window.addEventListener("resize", followTip);
+
   window.Shell = { render, icon, badge, empty, toast, fixHeads };
 })();

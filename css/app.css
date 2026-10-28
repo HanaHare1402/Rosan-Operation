@@ -874,3 +874,11 @@ aside{border-right:1px solid var(--side-line)}
 .pager .pg-gap{padding:0 4px;color:var(--faint)}
 @media (max-width:640px){.pager{justify-content:flex-start}.pager .pg-nav{margin-left:0;order:3;width:100%}.pager .pg-go{order:4}}
 nav.pager{flex-direction:row;gap:10px 16px}
+
+/* Nút (?): lời giải thích vẽ ở lớp riêng (#tipbox) trên cùng màn hình, không bị bảng che */
+.tip::after{content:none!important;display:none!important}
+.tipbox{position:fixed;z-index:10000;max-width:min(320px,calc(100vw - 16px));background:var(--ink);color:var(--bg);font-size:12px;font-weight:500;line-height:1.5;
+  padding:8px 11px;border-radius:8px;box-shadow:var(--shadow-2);white-space:normal;text-align:left;pointer-events:none;text-transform:none;letter-spacing:0}
+.tipbox::after{content:"";position:absolute;left:var(--ax,50%);width:10px;height:10px;background:inherit;transform:translateX(-50%) rotate(45deg)}
+.tipbox[data-side="top"]::after{bottom:-4px}
+.tipbox[data-side="bottom"]::after{top:-4px}
