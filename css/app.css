@@ -856,3 +856,21 @@ aside{border-right:1px solid var(--side-line)}
 .auth3 .btn{color:#fff}
 .auth3 .lnk{color:var(--brand-link)}
 .authwrap.auth3 .authcard .btn{color:#fff}
+
+/* ---------- Phân trang dùng chung: số dòng / trang, dải số trang, về đầu / cuối, nhập số trang ---------- */
+.pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+.pager .pg-info b{color:var(--ink);font-weight:650}
+.pager .pg-per,.pager .pg-go{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.pager .pg-per select{min-height:32px;padding:4px 26px 4px 10px;font-size:12.5px}
+.pager .pg-go input{width:64px;min-height:32px;padding:4px 8px;font-size:12.5px;text-align:center}
+.pager .pg-nav{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;margin-left:auto}
+.pager .pg-nav button{min-width:32px;height:32px;padding:0 8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;font:600 12.5px var(--font);cursor:pointer;font-variant-numeric:tabular-nums}
+.pager .pg-nav button:hover:not(:disabled){border-color:var(--line-2);background:var(--panel-2)}
+.pager .pg-nav button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] .pager .pg-nav button.on{color:#06231b}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .pager .pg-nav button.on{color:#06231b}}
+.pager .pg-nav button:disabled{opacity:.4;cursor:default}
+.pager .pg-nav button:focus-visible,.pager select:focus-visible,.pager input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.pager .pg-gap{padding:0 4px;color:var(--faint)}
+@media (max-width:640px){.pager{justify-content:flex-start}.pager .pg-nav{margin-left:0;order:3;width:100%}.pager .pg-go{order:4}}
+nav.pager{flex-direction:row;gap:10px 16px}

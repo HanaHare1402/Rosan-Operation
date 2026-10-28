@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261028l">
+<link rel="stylesheet" href="css/app.css?v=20261028m">
 </head>
 <body>
 
@@ -31,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261028l"></script>
-<script src="js/settings-db.js?v=20261028l"></script>
-<script src="js/shell.js?v=20261028l"></script>
+<script src="js/auth.js?v=20261028m"></script>
+<script src="js/settings-db.js?v=20261028m"></script>
+<script src="js/shell.js?v=20261028m"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -276,15 +276,38 @@ function targetBlock(list,target){
 // ---------- bảng: sắp xếp, xuất Excel ----------
 // cols: [{k, label, l (căn trái), fmt(row) → html, val(row) → số/chuỗi để sắp xếp và xuất, tip}]
 const SORT={},TBL={};
+// ---------- phân trang dùng chung ----------
+// PG[key] = {page, per}. Số dòng mỗi trang nhớ trên máy theo từng bảng.
+const PG={},PER_OPTS=[10,25,50,100,200];
+function pgState(key,defPer){if(!PG[key]){const v=+store.get('per_'+key,'');PG[key]={page:0,per:PER_OPTS.includes(v)?v:(defPer||25)}}return PG[key]}
+// Dải số trang gọn: 1 … 4 5 [6] 7 8 … 120
+function pgNums(p,n){const out=[],add=x=>{if(!out.includes(x))out.push(x)};add(0);for(let i=p-2;i<=p+2;i++)if(i>0&&i<n-1)add(i);if(n>1)add(n-1);
+  const r=[];out.sort((a,b)=>a-b).forEach((x,i)=>{if(i&&x-out[i-1]>1)r.push('…');r.push(x)});return r}
+function pager(key,total){
+  const st=pgState(key),n=Math.max(1,Math.ceil(total/st.per)),p=Math.min(st.page,n-1),a=total?p*st.per+1:0,b=Math.min(total,(p+1)*st.per);
+  const btn=(to,label,aria,dis,cur)=>`<button type="button" data-pgk="${key}" data-pgto="${to}" ${dis?'disabled':''} ${aria?`aria-label="${aria}" title="${aria}"`:''} ${cur?'aria-current="page" class="on"':''}>${label}</button>`;
+  return `<nav class="pager" aria-label="Phân trang">
+    <span class="pg-info">Hiển thị <b>${N(a)}–${N(b)}</b> / ${N(total)}</span>
+    <label class="pg-per">Mỗi trang <select data-pgper="${key}" aria-label="Số dòng mỗi trang">${PER_OPTS.map(v=>`<option value="${v}" ${v===st.per?'selected':''}>${v}</option>`).join('')}</select></label>
+    ${n>1?`<div class="pg-nav">${btn(0,'«','Trang đầu',p===0)}${btn(p-1,'‹','Trang trước',p===0)}${pgNums(p,n).map(x=>x==='…'?'<span class="pg-gap" aria-hidden="true">…</span>':btn(x,N(x+1),'Trang '+(x+1),false,x===p)).join('')}${btn(p+1,'›','Trang sau',p>=n-1)}${btn(n-1,'»','Trang cuối',p>=n-1)}</div>
+    <label class="pg-go">Đến trang <input type="number" min="1" max="${n}" inputmode="numeric" data-pggo="${key}" placeholder="${p+1}" aria-label="Nhập số trang, từ 1 đến ${n}"> / ${N(n)}</label>`:''}
+  </nav>`;
+}
+// Cắt dòng cho trang hiện tại (bảng có sẵn hết dữ liệu trong máy).
+function pgSlice(key,rows,defPer){const st=pgState(key,defPer),n=Math.max(1,Math.ceil(rows.length/st.per));if(st.page>n-1)st.page=n-1;return rows.slice(st.page*st.per,(st.page+1)*st.per)}
+const pgReset=()=>{Object.values(PG).forEach(x=>x.page=0)};
+// Ô "Đến trang": nhận số 1…n, ngoài khoảng thì đưa về trang gần nhất.
+function pgGo(el){const k=el.dataset.pggo,n=+el.max||1,v=parseInt(el.value,10);if(!isFinite(v))return;pgState(k).page=Math.min(n,Math.max(1,v))-1;render();const i=document.querySelector(`[data-pggo="${k}"]`);if(i)i.focus()}
 function dataTable(id,cols,rows,o={}){
   const s=SORT[id]||(SORT[id]={k:o.sortKey||cols[1].k,dir:-1});
   const c=cols.find(x=>x.k===s.k)||cols[1];
   const sorted=rows.slice().sort((a,b)=>{const x=c.val(a),y=c.val(b);return (typeof x==='string'?String(x).localeCompare(String(y),'vi'):(isFinite(x)?x:-Infinity)-(isFinite(y)?y:-Infinity))*s.dir});
   TBL[id]={cols,xcols:o.xcols||[],rows:sorted,name:o.name||id};
   const th=x=>`<th class="${x.l?'l ':''}sort" data-sortt="${id}:${x.k}" aria-sort="${s.k===x.k?(s.dir>0?'ascending':'descending'):'none'}" title="Bấm để sắp xếp">${x.label}${x.tip?' '+tip(x.tip):''}${s.k===x.k?`<span class="sarr">${s.dir>0?'↑':'↓'}</span>`:''}</th>`;
+  const paged=sorted.length>25,shown=paged?pgSlice(id,sorted,50):sorted;
   return `<div class="tw"><table id="${id}" class="sthead"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>
-  ${sorted.map(r=>`<tr class="${o.click&&o.click(r)?'click':''}" ${o.click&&o.click(r)?`data-go="${esc(o.click(r))}" tabindex="0"`:''}>${cols.map(x=>`<td class="${x.l?'l':''}">${x.fmt(r)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}">${Shell.empty('inbox','Không có dữ liệu','Thử đổi bộ lọc hoặc khoảng ngày.')}</td></tr>`}
-  </tbody>${o.foot&&sorted.length>1?`<tfoot><tr>${cols.map(x=>`<td class="${x.l?'l':''}">${o.foot[x.k]??''}</td>`).join('')}</tr></tfoot>`:''}</table></div>`;
+  ${shown.map(r=>`<tr class="${o.click&&o.click(r)?'click':''}" ${o.click&&o.click(r)?`data-go="${esc(o.click(r))}" tabindex="0"`:''}>${cols.map(x=>`<td class="${x.l?'l':''}">${x.fmt(r)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}">${Shell.empty('inbox','Không có dữ liệu','Thử đổi bộ lọc hoặc khoảng ngày.')}</td></tr>`}
+  </tbody>${o.foot&&sorted.length>1?`<tfoot><tr>${cols.map(x=>`<td class="${x.l?'l':''}">${o.foot[x.k]??''}</td>`).join('')}</tr></tfoot>`:''}</table></div>${paged?pager(id,sorted.length):''}`;
 }
 const exportBtn=id=>`<button class="btn ghost sm" type="button" data-export="${id}" title="Tải bảng về dạng CSV (mở bằng Excel)">Xuất Excel</button>`;
 function exportTable(id){
@@ -406,7 +429,7 @@ V.nhansu=()=>{
   `<div class="${days().length<2?'grid2 even':'grid2'}">${chartCard('Xu hướng theo ngày',list,plist)}
    <div class="card c-amber"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn.</p>${legend(list,r=>r.ch,chTag,chColor)}</div></div>
   ${staffDailyCard(curStaff)}
-  <div class="card blk c-orange"><div class="cardhead"><div><h2>Sản phẩm đã bán</h2></div></div>${prods==null?'<div class="skel" style="height:12px"></div>':prodTable(prods,false,KP.rows.filter(r=>r.who===curStaff))}</div>`;
+  <div class="card blk c-orange"><div class="cardhead"><div><h2>Sản phẩm đã bán</h2></div></div>${prods==null?'<div class="skel" style="height:12px"></div>':prodTable(prods,false,KP.rows.filter(r=>r.who===curStaff),{pk:'prodStaff'})}</div>`;
 };
 // Bảng sản phẩm. kpRows: số theo sản phẩm (KP) cùng phạm vi để tính % chi phí ads, % LNG, % Net.
 // o.top: chỉ hiện N sản phẩm doanh số cao nhất, ít cột (Tổng quan, Team).
@@ -443,9 +466,10 @@ function prodTable(rows,withSearch,kpRows,o={}){
     ${g.map((a,i)=>`<tr class="${SEE_COST&&a.gp3<0?'loss':''}"><td class="l"><div style="display:flex;gap:10px;align-items:center"><span class="rank r${i+1}">${i+1}</span>${name(a)}</div></td><td>${rev(a)}</td><td>${N(a.ord)}</td><td>${retPill(retRate(a))}</td><td>${adsC(a.adsP)}</td>${SEE_COST?`<td>${grade(a.lngP)}</td>`:''}</tr>`).join('')||`<tr><td colspan="6">${Shell.empty('box','Chưa có sản phẩm bán ra','Không có đơn trong khoảng đang lọc.')}</td></tr>`}
     </tbody></table></div>${total>g.length&&ALLOWED.includes('sanpham')?`<div style="margin-top:10px"><button class="lnk" data-go="sanpham:">Xem tất cả ${N(total)} sản phẩm</button></div>`:''}`;
   // Giá vốn, LNG, % LNG, % Net: chỉ người xem được chi phí (SEE_COST).
+  const pk=o.pk||'prod',paged=g.length>25,rowsAll=g.length;if(paged)g=pgSlice(pk,g,50);
   return `<div class="tw"><table class="sthead ptab"><thead><tr><th class="l">Sản phẩm</th>${th('rev','Doanh số')}${th('ord','Số đơn')}${th('qty','Số lượng','','sec')}<th class="sec">Đã giao</th>${th('rr','% hoàn')}${th('ads','% CP ads','p_ads')}${SEE_COST?`<th class="sec">Giá vốn/SP</th>${th('gp','LNG')}${th('lng','% LNG','p_lng')}${th('net','% Net','p_net')}`:''}</tr></thead><tbody>
   ${g.map(a=>`<tr class="${SEE_COST&&a.gp3<0?'loss':''}"><td class="l">${name(a)}</td><td>${rev(a)}</td><td>${N(a.ord)}</td><td class="sec">${N(a.qty)}</td><td class="sec">${N(a.ok)}</td><td>${retPill(retRate(a))}</td><td>${adsC(a.adsP)}</td>${SEE_COST?`<td class="sec">${a.unit!=null?N(a.unit):'<span class="pill p-bad">Chưa có</span>'}</td><td class="lng">${lng(a)}</td><td>${grade(a.lngP)}</td><td>${grade(a.netP)}</td>`:''}</tr>`).join('')||`<tr><td colspan="11">${Shell.empty('box','Không có sản phẩm khớp','Thử từ khoá khác hoặc khoảng ngày dài hơn.')}</td></tr>`}
-  </tbody></table></div>`;
+  </tbody></table></div>${paged?pager(pk,rowsAll):''}`;
 }
 // Dải tóm tắt trên bảng sản phẩm: đọc lướt là biết bao nhiêu mã, mã nào chạy nhất, bao nhiêu mã lỗ, mã nào hoàn nhiều.
 function prodStrip(rows,kpRows){
@@ -477,9 +501,9 @@ const GROUPS={'Chờ xử lý':[0,1,8,9,11,12,13,20],'Đang giao':[2],'Đã giao
 const GPILL={'Chờ xử lý':'p-mute','Đang giao':'p-warn','Đã giao':'p-good','Hoàn':'p-bad','Đã huỷ':'p-mute'};
 const groupOf=st=>Object.keys(GROUPS).find(g=>GROUPS[g].includes(st))||'Chờ xử lý';
 const maskPhone=ME.scope==='self'&&ME.role==='marketing';
-let O={rows:[],count:0,key:'',loading:false,err:'',timer:null},oQ='',oSt='all',oPage=0;
+let O={rows:[],count:0,key:'',loading:false,err:'',timer:null},oQ='',oSt='all';
 async function fetchOrders(key){
-  const per=25,[from,to]=rangeDates(F.range);
+  const {page,per}=pgState('orders'),[from,to]=rangeDates(F.range);
   let q=sbc.from('orders').select('pos_order_id,status,status_name,inserted_at,cod,total_price,bill_full_name,bill_phone_number,tracking,marketer_name,seller_name,staff_id,team_id,channel_id,source_name,items,pos_shops(name)',{count:'exact'})
     .gte('inserted_at',from.toISOString()).lt('inserted_at',to.toISOString());
   if(F.proj)q=q.eq('project_id',F.proj);
@@ -488,16 +512,15 @@ async function fetchOrders(key){
   if(oSt!=='all')q=q.in('status',GROUPS[oSt]);
   const term=oQ.trim().replace(/[%,()*]/g,' ').trim();
   if(term)q=q.or(['pos_order_id','bill_phone_number','tracking','bill_full_name','marketer_name'].map(c=>`${c}.ilike.*${term}*`).join(','));
-  const {data,error,count}=await q.order('inserted_at',{ascending:false}).range(oPage*per,oPage*per+per-1);
+  const {data,error,count}=await q.order('inserted_at',{ascending:false}).range(page*per,page*per+per-1);
   if(key!==O.key)return;
   O.loading=false;
   if(error){O.err=error.message;O.rows=[];O.count=0}else{O.err='';O.rows=data;O.count=count||0}
   if(view==='donhang')render();
 }
 V.donhang=()=>{
-  const key=JSON.stringify([F,oSt,oQ,oPage,ROWS.length]);
+  const pg=pgState('orders'),key=JSON.stringify([F,oSt,oQ,pg.page,pg.per,ROWS.length]);
   if(key!==O.key){O.key=key;O.loading=true;clearTimeout(O.timer);O.timer=setTimeout(()=>fetchOrders(key),oQ?300:0)}
-  const per=25,pages=Math.max(1,Math.ceil(O.count/per));
   const items=o=>(o.items||[]).map(i=>`${esc(i.name||i.code||'?')}${i.quantity>1?' ×'+i.quantity:''}`).join('<br>')||'<span class="muted">–</span>';
   const phone=p=>!p?'<span class="muted">–</span>':maskPhone?esc(String(p).slice(0,3)+'•••'+String(p).slice(-3)):esc(p);
   return `<div class="tools"><input type="search" id="oq" placeholder="Mã đơn, SĐT, mã vận đơn, khách, marketer" value="${esc(oQ)}"><div class="chips">${['all'].concat(Object.keys(GROUPS)).map(s=>`<button class="chip ${oSt===s?'on':''}" data-st="${s}">${s==='all'?'Tất cả':s}</button>`).join('')}</div></div>
@@ -506,7 +529,7 @@ V.donhang=()=>{
   <div class="tw"><table><thead><tr><th class="l">Mã đơn</th><th class="l">Vận đơn</th><th class="l">Kênh / shop</th><th class="l">Ngày</th><th class="l">Marketer</th><th class="l">Team</th><th class="l">Khách</th><th class="l">SĐT</th><th class="l">Sản phẩm</th><th>COD</th><th class="l">Trạng thái</th></tr></thead><tbody>
   ${O.rows.map(o=>{const g=groupOf(o.status);return `<tr><td class="l mono">${esc(o.pos_order_id)}</td><td class="l mono">${o.tracking?esc(o.tracking):'<span class="muted">–</span>'}</td><td class="l">${chTag(o.channel_id)}<div class="muted" style="font-size:12px">${esc(o.pos_shops?o.pos_shops.name:'')}${o.source_name?' · '+esc(o.source_name):''}</div></td><td class="l">${o.inserted_at?new Date(o.inserted_at).toLocaleString('vi-VN',{dateStyle:'short',timeStyle:'short'}):'–'}</td><td class="l">${o.staff_id?esc(staffName(o.staff_id)):`<span class="muted">${esc(o.marketer_name||o.seller_name||'–')}</span>`}</td><td class="l">${o.team_id?esc(teamName(o.team_id)):'<span class="muted">–</span>'}</td><td class="l">${esc(o.bill_full_name||'')}</td><td class="l mono">${phone(o.bill_phone_number)}</td><td class="l" style="white-space:normal;min-width:160px">${items(o)}</td><td>${o.cod!=null?N(o.cod):'–'}</td><td class="l"><span class="pill ${GPILL[g]}">${esc(POS_ST[o.status]||o.status_name||g)}</span></td></tr>`}).join('')||`<tr><td colspan="11" class="l muted">${O.loading?'Đang tải…':'Không có đơn khớp bộ lọc.'}</td></tr>`}
   </tbody></table></div>
-  <div class="pager"><span>${O.count?`${oPage*per+1}–${Math.min(O.count,oPage*per+per)} / ${N(O.count)}`:'0'}</span><button id="pPrev" ${oPage===0?'disabled':''}>Trước</button><button id="pNext" ${oPage>=pages-1?'disabled':''}>Sau</button></div></div>`;
+  ${pager('orders',O.count)}</div>`;
 };
 
 // ---------- KQKD ----------
@@ -1234,7 +1257,7 @@ function render(){
   Shell.badge('alertCnt',alerts().length);
 }
 function go(v){view=v;keep={};delArm=null;try{history.replaceState(null,'',hashFor(v))}catch(e){}if((['sanpham','nhansu','tongquan','team','kqkd'].includes(v)||(SEE_COST&&v==='canhbao'))&&!PRODS)loadProducts();render();window.scrollTo(0,0)}
-function setF(k,v){F[k]=v;store.set({proj:'proj',mkt:'mkt',ch:'ch2',range:'range',from:'from',to:'to',cmp:'cmp'}[k],k==='cmp'?(v?'1':'0'):v);oPage=0;try{history.replaceState(null,'',hashFor(view))}catch(e){}loadData()}
+function setF(k,v){F[k]=v;store.set({proj:'proj',mkt:'mkt',ch:'ch2',range:'range',from:'from',to:'to',cmp:'cmp'}[k],k==='cmp'?(v?'1':'0'):v);pgReset();try{history.replaceState(null,'',hashFor(view))}catch(e){}loadData()}
 document.addEventListener('click',e=>{
   const n=e.target.closest('#nav a[data-v]');if(n){e.preventDefault();go(n.dataset.v);return}
   const rg=e.target.closest('[data-range]');if(rg){const k=rg.dataset.range;if(k==='custom'&&!(F.from&&F.to)){const [f,t]=rangeDates();F.from=isoD(f);F.to=isoD(addD(t,-1));store.set('from',F.from);store.set('to',F.to)}setF('range',k);return}
@@ -1264,24 +1287,27 @@ document.addEventListener('click',e=>{
   if(e.target.id==='adImpBtn'){adImpOpen=!adImpOpen;render();return}
   if(e.target.id==='adImpClose'){adImpOpen=false;adImp=null;render();return}
   if(e.target.id==='adImpGo'){e.target.disabled=true;runAdImport();return}
-  const so=e.target.closest('[data-sort]');if(so){pSort=so.dataset.sort;store.set('psort2',pSort);render();return}
-  const st=e.target.closest('[data-st]');if(st){oSt=st.dataset.st;oPage=0;render();return}
-  if(e.target.id==='pPrev'){oPage--;render();return} if(e.target.id==='pNext'){oPage++;render();return}
+  const so=e.target.closest('[data-sort]');if(so){pSort=so.dataset.sort;store.set('psort2',pSort);pgState('prod').page=0;render();return}
+  const st=e.target.closest('[data-st]');if(st){oSt=st.dataset.st;pgState('orders').page=0;render();return}
+  const pgb=e.target.closest('[data-pgto]');if(pgb&&!pgb.disabled){pgState(pgb.dataset.pgk).page=Math.max(0,+pgb.dataset.pgto);render();const t=pgb.closest('.card');if(t&&t.getBoundingClientRect().top<0)t.scrollIntoView({block:'start'});return}
   const ef=e.target.closest('[data-edit-ffm]');if(ef){editFfm=ef.dataset.editFfm;delArm=null;formMsg.ffm='';keep={};render();$('#ffmForm').scrollIntoView({block:'center'});$('#ffName').focus();return}
   if(e.target.id==='ffCancel'){editFfm=null;formMsg.ffm='';keep={};render();return}
   const df=e.target.closest('[data-del-ffm]');if(df){const id=df.dataset.delFfm;if(delArm==='f:'+id){delArm=null;const nm=(FFMS.find(f=>f.id===id)||{}).name;db.collection('ffm').doc(id).delete().then(()=>{formMsg.ffm=`<span class="muted">Đã xoá ${esc(nm)}.</span>`;if(editFfm===id)editFfm=null;render()}).catch(err=>{formMsg.ffm=`<span class="neg">Chưa xoá được: ${esc(err.message||err.code)}.</span>`;render()})}else{delArm='f:'+id;render()}return}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-go]'))e.target.click()});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-go]'))e.target.click();
+  if(e.key==='Enter'&&e.target.matches&&e.target.matches('[data-pggo]')){e.preventDefault();pgGo(e.target)}});
 
 document.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='ffmForm')submitFfm();if(e.target.id==='kSetForm')saveKSet();if(e.target.id==='adForm')saveAds();if(e.target.id==='plForm')savePL()});
 document.addEventListener('change',e=>{
+  if(e.target.matches&&e.target.matches('[data-pgper]')){const k=e.target.dataset.pgper,st=pgState(k);st.per=+e.target.value;st.page=0;store.set('per_'+k,String(st.per));render();return}
+  if(e.target.matches&&e.target.matches('[data-pggo]')){pgGo(e.target);return}
   if(e.target.id==='fProj')setF('proj',e.target.value);
   if(e.target.id==='fMkt')setF('mkt',e.target.value);
   if(e.target.id==='fCh')setF('ch',e.target.value);
   if(e.target.id==='fRange'){const k=e.target.value;if(k==='custom'&&!(F.from&&F.to)){const [f,t]=rangeDates();F.from=isoD(f);F.to=isoD(addD(t,-1));store.set('from',F.from);store.set('to',F.to)}setF('range',k)}
   if(e.target.id==='fCmp')setF('cmp',e.target.checked);
   if(e.target.id==='fFrom'||e.target.id==='fTo'){const k=e.target.id==='fFrom'?'from':'to';if(e.target.value){F[k]=e.target.value;store.set(k,F[k]);setF('range','custom')}}
-  if(e.target.id==='staffSel'){curStaff=e.target.value;store.set('staff',curStaff);render()}
+  if(e.target.id==='staffSel'){curStaff=e.target.value;store.set('staff',curStaff);pgState('prodStaff').page=0;render()}
   if(e.target.id==='jtFile'&&e.target.files[0])runJT(e.target.files[0]);
   if(e.target.id==='kWhoSel'){kWho=e.target.value;render()}
   if(e.target.matches&&e.target.matches('[data-kshow]')){kShowHow=e.target.checked;render()}
@@ -1292,7 +1318,7 @@ document.addEventListener('change',e=>{
   if(e.target.matches&&e.target.matches('#adForm .adName')){const r=readAdForm();adEdit=r;const i=+e.target.closest('.adrow').dataset.i;if(i===r.length-1&&r[i].name){render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adUsd`);if(n)n.focus()}}
 });
 function liveSearch(id,set){document.addEventListener('input',e=>{if(e.target.id!==id)return;set(e.target.value);const pos=e.target.selectionStart;render();const el=$('#'+id);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(x){}}})}
-liveSearch('pq',v=>pQ=v);
+liveSearch('pq',v=>{pQ=v;pgState('prod').page=0});
 document.addEventListener('input',e=>{if(!(e.target.matches&&e.target.matches('#adForm .adUsd, #adForm .adName, #adForm .adCh')))return;
   // Gõ: chỉ cập nhật VNĐ, tổng và trạng thái "chưa lưu", không vẽ lại cả màn để giữ con trỏ.
   adEdit=readAdForm();
