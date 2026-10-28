@@ -65,7 +65,7 @@
       return `<a href="${href}"${data} title="${esc(label)}">${icon(ic)}<span class="lbl">${esc(label)}</span>${cnt ? `<span class="cnt" id="${cnt}"></span>` : ""}</a>`;
     };
     aside.innerHTML = `
-      <div class="brand-row"><div class="logo">RO</div><div><div class="brand">Rosan Operation</div><div class="brand-sub">Vận hành - Rosan</div></div></div>
+      <div class="brand-row"><img class="logo logo-img" src="img/rosan-mark.png" width="34" height="34" alt=""><div><div class="brand">Rosan Operation</div><div class="brand-sub">Vận hành - Rosan</div></div></div>
       <nav id="nav" aria-label="Điều hướng chính">
         ${views.length ? `<div class="nav-group">Báo cáo</div>` + REPORT.filter(([k]) => views.includes(k)).map(([k, l, i, c]) => link(k, l, i, c, false)).join("") : ""}
         ${adminTabs.length ? `<div class="nav-group">Quản trị</div>` + adminTabs.map(([k, l, i, c]) => link(k, l, i, c, true)).join("") : ""}
@@ -80,7 +80,7 @@
     // Nút menu trên điện thoại + lớp phủ.
     if (!app.querySelector(".scrim")) app.insertAdjacentHTML("beforeend", '<div class="scrim"></div>');
     const main = app.querySelector("main");
-    if (!main.querySelector(".mtop")) main.insertAdjacentHTML("afterbegin", `<div class="mtop"><button class="icon-btn" id="menuBtn" type="button" aria-label="Mở menu">${icon("menu")}</button><div class="logo" style="width:28px;height:28px;font-size:11px">RO</div><div class="brand">Rosan Operation</div></div>`);
+    if (!main.querySelector(".mtop")) main.insertAdjacentHTML("afterbegin", `<div class="mtop"><button class="icon-btn" id="menuBtn" type="button" aria-label="Mở menu">${icon("menu")}</button><img class="logo logo-img" src="img/rosan-mark.png" width="28" height="28" alt="" style="width:28px;height:28px"><div class="brand">Rosan Operation</div></div>`);
     const close = () => app.classList.remove("nav-open");
     main.querySelector("#menuBtn").onclick = () => app.classList.add("nav-open");
     app.querySelector(".scrim").onclick = close;
