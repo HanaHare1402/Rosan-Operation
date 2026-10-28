@@ -104,6 +104,11 @@
           <div class="formrow"><button class="btn" type="submit" id="sfSubmit">Thêm shop</button><button class="btn ghost" type="button" id="sfCancel">Huỷ</button><span class="fmsg" id="shopMsg"></span></div>
         </form>
       </div>
+      <div class="card c-blue" id="cmpCard">
+        <div class="cardhead"><div><h2>Đối chiếu số đơn với POS</h2><p class="hint">Chọn một ngày: web hỏi thẳng POS ngày đó có bao nhiêu đơn rồi đặt cạnh số web đang có. Ngày tính theo giờ của thị trường của shop, như trên POS và các báo cáo. Số đơn gồm cả đơn huỷ, không tính đơn đã xoá.</p></div></div>
+        <form id="cmpForm" class="formrow" novalidate style="margin:0"><label class="flabel" for="cmpDay">Ngày</label><input type="date" id="cmpDay" required><button class="btn" type="submit">Đối chiếu</button><span class="fmsg" id="cmpMsg"></span></form>
+        <div id="cmpOut" style="margin-top:12px"></div>
+      </div>
       <div class="card" id="outCard" hidden><div class="cardhead"><h2 id="outTitle">Kết quả</h2><button class="lnk" id="outClose">Đóng</button></div><div id="out"></div></div>
     </section>
 
@@ -693,6 +698,29 @@
     } catch (err) { say($("#shopsMsg"), (act === "test" ? "Kết nối lỗi: " : "Lỗi: ") + esc(err.message), "neg"); }
   });
   $("#syncAll").onclick = () => runSync({ action: "sync" }, "Đang đồng bộ tất cả shop");
+  // ---------- đối chiếu số đơn một ngày với POS ----------
+  { const d = new Date(); d.setDate(d.getDate() - 1); $("#cmpDay").value = d.toISOString().slice(0, 10); }
+  $("#cmpForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const day = $("#cmpDay").value; if (!day) { say($("#cmpMsg"), "Chọn ngày cần đối chiếu.", "neg"); return; }
+    say($("#cmpMsg"), "Đang hỏi POS…", "muted"); $("#cmpOut").innerHTML = "";
+    try {
+      const r = await Auth.callFn("pos", { action: "count", day });
+      say($("#cmpMsg"), "", "");
+      const tzName = (tz) => tz === "Asia/Ho_Chi_Minh" ? "Giờ Việt Nam" : tz === "Asia/Manila" ? "Giờ Philippines" : tz === "Asia/Bangkok" ? "Giờ Thái Lan" : tz;
+      const rows = [];
+      (r.results || []).forEach((x) => (x.by_tz || []).forEach((t) => {
+        const miss = Number.isFinite(t.pos) ? t.pos - t.web_total : NaN;
+        const verdict = t.pos_error ? `<span class="pill p-bad">Không hỏi được POS</span> <span class="muted">${esc(t.pos_error)}</span>`
+          : miss > 0 ? `<span class="pill p-bad">Web thiếu ${nf.format(miss)} đơn</span> <span class="muted">Bấm Đồng bộ, hoặc kiểm tra Khoảng đồng bộ có gồm ngày này</span>`
+          : miss < 0 ? `<span class="pill p-warn">Web nhiều hơn ${nf.format(-miss)} đơn</span> <span class="muted">Có thể POS đã xoá đơn mà web chưa cập nhật: bấm Đồng bộ</span>`
+          : `<span class="pill p-good">Khớp</span>`;
+        rows.push(`<tr><td class="l"><b>${esc(x.shop)}</b></td><td class="l">${esc(tzName(t.tz))}</td><td>${Number.isFinite(t.pos) ? nf.format(t.pos) : "–"}</td><td><b>${nf.format(t.web_total)}</b></td><td>${nf.format(t.web_cancel)}</td><td class="l" style="white-space:normal;min-width:220px">${verdict}</td></tr>`);
+      }));
+      $("#cmpOut").innerHTML = rows.length ? `<div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Ngày theo</th><th>Số đơn trên POS</th><th>Số đơn trên web</th><th>Trong đó đã huỷ</th><th class="l">Kết luận</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`
+        : Shell.empty("inbox", "Chưa có shop nào để đối chiếu", "Thêm shop và API key ở thẻ phía trên.");
+    } catch (err) { say($("#cmpMsg"), "Không đối chiếu được: " + esc(err.message), "neg"); }
+  });
   $("#keyForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const shop = $("#kfShop").value, key = $("#kfKey").value.trim();

@@ -98,6 +98,18 @@ async function upsertSplit(sb: ReturnType<typeof adminClient>, rows: any[]): Pro
   await upsertSplit(sb, rows.slice(mid));
 }
 
+// Mốc đầu / cuối một ngày (yyyy-mm-dd) theo múi giờ, trả về mili-giây UTC.
+function tzOffsetMs(tz: string, at: number) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    .formatToParts(new Date(at)).map((x) => [x.type, x.value]));
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - at;
+}
+function dayBounds(day: string, tz: string): [number, number] {
+  const [y, m, d] = day.split("-").map(Number), utc0 = Date.UTC(y, m - 1, d);
+  const from = utc0 - tzOffsetMs(tz, utc0), to = Date.UTC(y, m - 1, d + 1) - tzOffsetMs(tz, Date.UTC(y, m - 1, d + 1));
+  return [from, to];
+}
+
 async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger: string, deadline: number) {
   // Lượt khác đang kéo shop này thì bỏ qua, tránh hai lượt ghi chồng nhau.
   const { data: locked, error: le } = await sb.rpc("internal_lock_shop", { p_shop: shop.id });
@@ -276,6 +288,44 @@ Deno.serve(async (req) => {
       }
       const recomputed = await drainRecompute(sb, deadline + 20_000);
       return json({ ok: true, results, purged, recomputed });
+    }
+
+    // Đối chiếu số đơn một ngày giữa POS và web, cắt ngày theo giờ của thị trường của shop (như POS và các báo cáo trên web).
+    if (body.action === "count") {
+      if (!["admin", "quan_ly"].includes(role || "")) return json({ error: "Chỉ admin hoặc quản lý" }, 403);
+      const day = String(body.day || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return json({ error: "Ngày không hợp lệ" }, 400);
+      const { data: shops, error } = await sb.from("pos_shops").select("id, name, pos_shop_id, market_id, markets(timezone)")
+        .eq("active", true).not("api_key_secret_id", "is", null).order("name");
+      if (error) throw error;
+      const results = await Promise.all((shops as any[]).map(async (s) => {
+        const shopTz = s.markets?.timezone || "Asia/Ho_Chi_Minh";
+        const tzs = [shopTz];
+        const { data: key } = await sb.rpc("internal_get_pos_key", { p_shop: s.id });
+        const out: any = { shop: s.name, shop_tz: shopTz, by_tz: [] };
+        for (const tz of tzs) {
+          const [from, to] = dayBounds(day, tz);
+          const q = { updateStatus: "inserted_at", startDateTime: Math.floor(from / 1000), endDateTime: Math.floor(to / 1000) - 1, page_number: 1, page_size: 1 };
+          const path = `/shops/${encodeURIComponent(s.pos_shop_id)}/orders`;
+          const row: any = { tz, from: new Date(from).toISOString(), to: new Date(to).toISOString() };
+          try {
+            const [a, b] = await Promise.all([posGet(path, key, q), posGet(path, key, { ...q, include_removed: 1 })]);
+            row.pos = Number(a.total_entries ?? a.total ?? NaN); row.pos_with_removed = Number(b.total_entries ?? b.total ?? NaN);
+          } catch (e) { row.pos_error = (e as Error).message; }
+          // Web: đơn có ngày theo giờ thị trường = ngày đã chọn (cột local_day), không tính đơn đã xoá (7).
+          const base = (byDay: boolean) => {
+            const q = sb.from("orders").select("pos_order_id", { count: "exact", head: true }).eq("shop_id", s.id).or("status.is.null,status.neq.7");
+            return byDay ? q.eq("local_day", day) : q.gte("inserted_at", new Date(from).toISOString()).lt("inserted_at", new Date(to).toISOString());
+          };
+          let all = await base(true), byDay = true;
+          if (all.error) { byDay = false; all = await base(false); }
+          const cancel = await base(byDay).eq("status", 6);
+          row.web_total = all.count ?? 0; row.web_cancel = cancel.count ?? 0;
+          out.by_tz.push(row);
+        }
+        return out;
+      }));
+      return json({ ok: true, day, results });
     }
 
     if (body.action === "refresh") {
