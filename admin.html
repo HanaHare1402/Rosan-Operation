@@ -452,7 +452,7 @@
       <div class="tw"><table><thead><tr><th class="l">Nguồn đơn trên POS</th><th>Số đơn</th><th class="l">Gán vào kênh</th></tr></thead><tbody>
       ${src.map((u) => `<tr><td class="l"><b>${esc(u.value)}</b></td><td>${nf.format(u.orders)}</td><td class="l">${isAdmin ? `<select class="mapCh" data-v="${esc(u.value)}">${chOpts}</select>` : '<span class="muted">admin gán</span>'}</td></tr>`).join("") || '<tr><td colspan="3" class="l muted">Mọi nguồn đơn đều đã thuộc một kênh.</td></tr>'}
       </tbody></table></div>
-      ${nn.length ? `<h2 style="margin-top:20px">Đơn không có marketer lẫn người được gán</h2><p class="hint">Gán theo page: thêm page ID hoặc tên page vào ô “Page phụ trách” của nhân sự.</p><div class="tw"><table><thead><tr><th class="l">Page</th><th>Số đơn</th><th></th></tr></thead><tbody>${nn.map((u) => `<tr><td class="l">${esc(u.value)}</td><td>${nf.format(u.orders)}</td><td class="actions">${u.value !== "(trống)" ? `<button class="lnk" data-newpage="${esc(u.value)}">Khai báo nhân sự cho page này</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""}
+      ${nn.length ? `<h2 style="margin-top:20px">Đơn không có marketer lẫn người được gán <span class="muted" style="font-weight:400">(${nn.length})</span></h2><p class="hint keep">Thường là đơn sàn (Shopee…) hoặc page không chạy quảng cáo. Gán page vào một nhân sự (VD nhân sự “Shopee” thuộc team phụ trách sàn): đơn của page đó sẽ tính cho người và team đó. Nhiều page gán chung một người được.</p><div class="tw"><table><thead><tr><th class="l">Page</th><th>Số đơn</th><th class="l">Gán vào nhân sự có sẵn</th><th></th></tr></thead><tbody>${nn.map((u) => `<tr><td class="l">${esc(u.value)}</td><td>${nf.format(u.orders)}</td><td class="l">${u.value !== "(trống)" ? `<select class="mapPage" data-v="${esc(u.value)}" aria-label="Gán page ${esc(u.value)} vào nhân sự">${opts(C.staff.filter((s) => s.active !== false).map((s) => [s.id, s.name + (s.team_id ? " · " + (byId(C.teams, s.team_id)?.name || "") : "")]), "", "Chọn nhân sự…")}</select>` : '<span class="muted">không có tên page</span>'}</td><td class="actions">${u.value !== "(trống)" ? `<button class="lnk" data-newpage="${esc(u.value)}">Khai báo nhân sự mới</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""}
       ${ns.length ? `<p class="hint" style="margin-top:16px">${nf.format(ns[0].orders)} đơn không có nguồn đơn nên chưa xác định được kênh. Gửi “đơn mẫu” cho người phát triển để kiểm tra POS ghi nguồn ở trường nào.</p>` : ""}`;
   }
   $("#unmapped").addEventListener("change", async (e) => {
@@ -460,6 +460,12 @@
       const s = byId(C.staff, ms.value), name = ms.dataset.v;
       const { data, error } = await sb.from("staff").update({ pos_names: [...new Set([...(s.pos_names || []), ms.dataset.k])] }).eq("id", s.id).select("id");
       say($("#unmappedMsg"), error ? "Chưa gán được: " + esc(error.message) : !data.length ? "Không có quyền sửa nhân sự này." : `Đã gán “${esc(name)}” cho ${esc(s.name)}.`, error || !data.length ? "neg" : "pos");
+      await reloadCatalog(); if (!error && data.length) drainRecompute($("#unmappedMsg"), loadUnmapped); return;
+    }
+    const mpg = e.target.closest(".mapPage"); if (mpg && mpg.value) {
+      const s = byId(C.staff, mpg.value), pg = mpg.dataset.v;
+      const { data, error } = await sb.from("staff").update({ pages: [...new Set([...(s.pages || []), pg])] }).eq("id", s.id).select("id");
+      say($("#unmappedMsg"), error ? "Chưa gán được: " + esc(error.message) : !data.length ? "Không có quyền sửa nhân sự này." : `Đã gán page “${esc(pg)}” cho ${esc(s.name)}. Đơn cũ của page đang được tính lại.`, error || !data.length ? "neg" : "pos");
       await reloadCatalog(); if (!error && data.length) drainRecompute($("#unmappedMsg"), loadUnmapped); return;
     }
     const mc = e.target.closest(".mapCh"); if (mc && mc.value) {
