@@ -73,11 +73,12 @@
 
   // ---------- trạng thái trang ----------
   const HP = new URLSearchParams((location.hash.split("?")[1]) || "");
-  const TABS = [["ton", "Tồn kho"], ["phieu", "Phiếu kho"], ["kiem", "Kiểm kho"], ...(CAN_CFG ? [["kho", "Cấu hình kho"]] : [])];
+  const TABS = [["ton", "Tồn kho"], ["phieu", "Phiếu kho"], ["kiem", "Kiểm kho"], ["combo", "Combo"], ...(CAN_CFG ? [["kho", "Cấu hình kho"]] : [])];
   let tab = (location.hash.slice(1).split("?")[0]) || "ton"; if (!TABS.some(([k]) => k === tab)) tab = "ton";
   const S = { wh: store.get("stk_wh", "all"), st: HP.get("st") || "all", q: "", page: 0, per: +store.get("per_stk", "50") || 50, detail: null, sortCover: false };
   let WH = [], R = [], COUNTS = [], MOVES = [], POSWH = [], KNOWN = new Map(), loading = true, err = "", loadedAt = null;
   let form = null, formMsg = "", arm = null, kiem = null, cfgEdit = null, cfgMsg = "";
+  let KITS = null, kitQ = "", kitEdit = null, kitMsg = "";
 
   const whName = (id) => (WH.find((w) => w.id === id) || { name: id }).name;
   const activeWH = () => WH.filter((w) => w.active);
@@ -144,7 +145,7 @@
     if (err) { $("#view").innerHTML = `<div class="card">${Shell.empty("alert", "Chưa tải được tồn kho", esc(err), '<button class="btn ghost sm" type="button" id="reload2">Thử lại</button>')}</div>`; return; }
     if (loading && !WH.length) return;
     const keepFocus = document.activeElement && document.activeElement.id, selStart = document.activeElement && document.activeElement.selectionStart;
-    $("#view").innerHTML = ({ ton: vTon, phieu: vPhieu, kiem: vKiem, kho: vKho })[tab]();
+    $("#view").innerHTML = ({ ton: vTon, phieu: vPhieu, kiem: vKiem, combo: vCombo, kho: vKho })[tab]();
     if (keepFocus) { const e = document.getElementById(keepFocus); if (e) { e.focus(); try { if (selStart != null) e.setSelectionRange(selStart, selStart); } catch (x) {} } }
   }
 
@@ -313,8 +314,8 @@
       if (f.kind === "chuyen") { const cur = onHand(f.wh, pk(l.code)); if (cur != null && +l.qty > cur) return bad(`Dòng ${i + 1} (${esc(l.code)}): ${esc(whName(f.wh))} chỉ còn ${Q(cur)}, không chuyển ${Q(+l.qty)} được. Kiểm tra lại số, hoặc điều chỉnh tồn trước.`); }
       if (f.kind === "dieu_chinh" && onHand(f.wh, pk(l.code)) == null && !asOf(f.wh)) return bad(`${esc(whName(f.wh))} chưa kiểm kho: nhập số kiểm kho trước rồi mới điều chỉnh.`);
     }
-    const dup = lines.map((l) => pk(l.code)).find((k, i, a) => a.indexOf(k) !== i);
-    if (dup) return bad(`Mã ${esc(dup)} bị nhập hai lần: gộp vào một dòng.`);
+    const dup = lines.find((l, i) => lines.findIndex((x) => pk(x.code) === pk(l.code)) !== i);
+    if (dup) return bad(`Mã ${esc(dup.code)} bị nhập hai lần: gộp vào một dòng.`);
     const mk = (l, kind, wh, qty) => ({ day: f.day, wh_id: wh, kind, product_key: pk(l.code), code: l.code.trim(), name: l.name || null, qty, note: f.note || null, created_by_name: WHO });
     let res;
     if (f.kind === "nhap") res = await sb.from("stock_moves").insert(lines.map((l) => mk(l, "nhap", f.wh, +l.qty)));
@@ -341,12 +342,13 @@
     const batches = countBatches(), exists = batches.find((b) => b.wh === k.wh && b.as_of === asof);
     const prev = k.rows;
     const preview = prev ? (() => {
-      const ok = prev.items, unknown = ok.filter((x) => !KNOWN.has(pk(x.code)));
+      const ok = prev.items, kitLike = ok.filter((x) => isKitCode(x.code)), unknown = ok.filter((x) => !KNOWN.has(pk(x.code)) && !isKitCode(x.code));
       return `<div class="kprev">
         <div class="statstrip" style="margin:12px 0"><div><span class="l">Số mã</span><b>${N(ok.length)}</b><span class="muted">${esc(k.file)}</span></div><div><span class="l">Tổng số lượng</span><b>${Q(ok.reduce((t, x) => t + x.qty, 0))}</b><span class="muted">${esc(whName(k.wh))}</span></div>
           <div><span class="l">Tính từ</span><b>đầu ngày ${fmtD(asof)}</b><span class="muted">${k.end ? "đếm cuối ngày " + fmtD(k.day) : "đếm đầu ngày"}</span></div><div><span class="l">Bỏ qua</span><b>${N(prev.skipped.length)}</b><span class="muted">dòng không có mã</span></div></div>
         ${prev.blank ? `<div class="msg muted">${N(prev.blank)} dòng để trống số đếm: coi như 0 (không có trong kho).</div>` : ""}
         ${prev.merged ? `<div class="msg muted">${N(prev.merged)} mã xuất hiện nhiều dòng: đã cộng dồn.</div>` : ""}
+        ${kitLike.length ? `<div class="msg warn">${N(kitLike.length)} dòng trông như mã combo: ${kitLike.slice(0, 6).map((x) => "<b>" + esc(x.code) + "</b>").join(", ")}${kitLike.length > 6 ? "…" : ""}. Kiểm kho nên đếm <b>từng món lẻ</b> (VD “ACSE + CER” đếm vào ACSE và CER). Sửa file rồi tải lại, hoặc khai báo mã này ở phần Combo nếu nó là một món riêng.</div>` : ""}
         ${unknown.length ? `<div class="msg warn">${N(unknown.length)} mã chưa thấy trong đơn 45 ngày qua: ${unknown.slice(0, 8).map((x) => "<b>" + esc(x.code) + "</b>").join(", ")}${unknown.length > 8 ? "…" : ""}. Kiểm tra lại có đúng mã sản phẩm trên POS không (vẫn lưu được).</div>` : ""}
         ${exists ? `<div class="msg warn">${esc(whName(k.wh))} đã có số kiểm kho tính từ ${fmtD(asof)} (${N(exists.n)} mã). Lưu sẽ <b>thay thế</b> số cũ.</div>` : ""}
         <div class="tw" style="max-height:320px;overflow:auto"><table><thead><tr><th class="l">Mã</th><th class="l">Tên</th><th>Số đếm</th><th>Tồn trên web hiện tại</th></tr></thead><tbody>
@@ -425,6 +427,62 @@
     Shell.toast("Đã lưu số kiểm kho."); await loadAll();
   }
 
+  // ===== Combo =====
+  // Cùng quy tắc tự tách với database (stock_parts): "A + B" và đuôi "x2".
+  const autoParts = (code) => String(code || "").trim().split(/\s*\+\s*/).filter((x) => x.trim()).map((x) => { const m = x.trim().match(/^(.+?)\s*[xX×]\s*(\d+)$/); return m ? { code: m[1].trim(), qty: +m[2] } : { code: x.trim(), qty: 1 }; });
+  const isKitCode = (code) => { const k = KITS && KITS.find((x) => pk(x.code) === pk(code)); const p = k ? k.parts : autoParts(code); return p.length > 1 || (!!p[0] && (p[0].qty !== 1 || pk(p[0].code) !== pk(code))); };
+  async function loadKits() {
+    const { data, error } = await sb.rpc("stock_kit_list_all");
+    KITS = error ? [] : (data || []).map((k) => ({ code: k.code, orders: +k.orders, manual: !!k.manual, parts: (k.parts || []).map((p) => ({ code: p.code, qty: +p.qty })) }));
+    if (error) kitMsg = `<span class="neg">${/stock_kit/.test(error.message) ? "Chưa có phần combo trên database. Admin chạy file SQL 20261029010000_stock_kits.sql trên Supabase." : esc(error.message)}</span>`;
+    if (tab === "combo" || tab === "kiem") paint();
+  }
+  const partsTxt = (ps) => ps.map((p) => `<span class="chip">${esc(p.code)}${p.qty !== 1 ? ` <b>× ${Q(p.qty)}</b>` : ""}</span>`).join(" ");
+  function vCombo() {
+    if (!KITS) { loadKits(); return `<div class="card"><div class="skel" style="height:14px"></div><div class="skel" style="height:160px;margin-top:12px"></div></div>`; }
+    const q = pk(kitQ), list = KITS.filter((k) => !q || pk(k.code).includes(q) || k.parts.some((p) => pk(p.code).includes(q)));
+    const e = kitEdit;
+    const editor = e ? `<form id="kitForm" class="editor stkform" novalidate><h3 style="margin:0 0 4px">${e.isNew ? "Khai báo combo" : "Sửa combo"}</h3>
+      <p class="hint keep" style="margin:0 0 10px">Mỗi lần bán 1 “${esc(e.code || "mã này")}” sẽ trừ kho các món dưới đây.</p>
+      <div class="frow"><label class="grow">Mã bán trên POS<input type="text" id="kitCode" value="${esc(e.code)}" ${e.isNew ? "" : "readonly"} placeholder="VD: Bộ vệ sinh xe hơi"></label></div>
+      <div class="mlines">${e.parts.map((p, i) => `<div class="mline kline">
+        <label>Món trong kho<input type="text" class="kpCode" list="dlProd" value="${esc(p.code)}" aria-label="Mã món ${i + 1}" autocomplete="off"></label>
+        <label>Số lượng<input type="number" class="kpQty" min="0" step="any" inputmode="decimal" value="${esc(p.qty)}" aria-label="Số lượng món ${i + 1}"></label>
+        <button type="button" class="icon-btn" data-delpart="${i}" aria-label="Bỏ món ${i + 1}" title="Bỏ món" ${e.parts.length < 2 ? "disabled" : ""}>${Shell.icon("x")}</button>
+        <div class="mhint">${p.code && !KNOWN.has(pk(p.code)) ? '<span class="warnt">Mã chưa thấy trong đơn gần đây – kiểm tra lại</span>' : ""}</div></div>`).join("")}</div>
+      <div class="formrow"><button type="button" class="btn ghost sm" id="kitAdd">+ Thêm món</button></div>
+      <div class="msg" role="status">${kitMsg}</div>
+      <div class="formrow"><button type="submit" class="btn">Lưu combo</button>
+        ${!e.isNew ? `<button type="button" class="btn ghost" id="kitSelf" title="Mã này là một món riêng trong kho, không tách">Không phải combo</button>` : ""}
+        ${e.manual ? `<button type="button" class="btn ghost" id="kitAuto">Về cách tự tách</button>` : ""}
+        <button type="button" class="btn ghost" id="kitCancel">Huỷ</button></div></form>` : "";
+    return `<div class="card c-cyan"><div class="cardhead"><div><h2>Combo / bộ sản phẩm</h2><p class="hint keep">Mã bán trên POS gồm nhiều món (VD “ACSE + CER + BRR”, “Aqua Clean Tabletsx2”) được tách ra để trừ đúng từng món trong kho. Web tự tách theo dấu <b>+</b> và đuôi <b>x2, x3…</b>; bộ nào tách sai hoặc tên không theo quy tắc thì sửa / khai báo ở đây.</p></div>
+        ${CAN_WRITE && !e ? '<button type="button" class="btn sm" id="kitNew">+ Khai báo combo</button>' : ""}</div>
+      ${editor}${!e && kitMsg ? `<div class="msg">${kitMsg}</div>` : ""}
+      <div class="frow" style="margin:12px 0 10px"><input type="search" id="kitq" placeholder="Tìm mã combo hoặc món" value="${esc(kitQ)}" aria-label="Tìm combo" style="max-width:280px"><span class="muted">${N(list.length)} combo · bán trong 45 ngày qua</span></div>
+      ${list.length ? `<div class="tw"><table><thead><tr><th class="l">Mã bán trên POS</th><th class="l">Trừ kho các món</th><th>Đơn 45 ngày</th><th class="l">Cách tách</th>${CAN_WRITE ? "<th></th>" : ""}</tr></thead><tbody>
+        ${list.slice(0, 500).map((k) => `<tr><td class="l"><b>${esc(k.code)}</b></td><td class="l" style="white-space:normal">${partsTxt(k.parts)}</td><td>${N(k.orders)}</td>
+          <td class="l">${k.manual ? '<span class="pill p-info">Khai báo tay</span>' : '<span class="pill p-mute">Tự tách</span>'}</td>${CAN_WRITE ? `<td class="actions"><button type="button" class="lnk" data-editkit="${esc(k.code)}">Sửa</button></td>` : ""}</tr>`).join("")}
+      </tbody></table></div>${list.length > 500 ? `<p class="hint keep">Hiện 500 / ${N(list.length)} – gõ vào ô tìm để lọc.</p>` : ""}` : Shell.empty("box", kitQ ? "Không có combo khớp" : "Chưa thấy combo nào", kitQ ? "Thử từ khoá khác." : "Đơn 45 ngày qua chưa có mã bán nào gồm nhiều món.", "")}</div>`;
+  }
+  function readKit() {
+    if (!kitEdit) return;
+    const c = $("#kitCode"); if (c) kitEdit.code = c.value.trim();
+    document.querySelectorAll(".kline").forEach((row, i) => { const p = kitEdit.parts[i]; if (!p) return; p.code = row.querySelector(".kpCode").value.trim(); p.qty = row.querySelector(".kpQty").value; });
+  }
+  async function saveKit(parts) {
+    readKit();
+    const e = kitEdit, bad = (t) => { kitMsg = `<span class="neg">${t}</span>`; paint(); };
+    if (!e.code) return bad("Nhập mã bán trên POS.");
+    parts = parts || e.parts.filter((p) => p.code || p.qty !== "");
+    if (!parts.length) return bad("Thêm ít nhất một món.");
+    for (const [i, p] of parts.entries()) { if (!p.code) return bad(`Món ${i + 1}: chưa có mã.`); if (!(+p.qty > 0)) return bad(`Món ${i + 1} (${esc(p.code)}): số lượng phải lớn hơn 0.`); }
+    const dup = parts.find((p, i) => parts.findIndex((x) => pk(x.code) === pk(p.code)) !== i); if (dup) return bad(`Món ${esc(dup.code)} bị nhập hai lần: gộp vào một dòng.`);
+    const { error } = await sb.from("stock_kits").upsert({ kit_key: pk(e.code), kit_code: e.code, parts: parts.map((p) => ({ code: p.code.trim(), qty: +p.qty })), updated_by_name: WHO, updated_at: new Date().toISOString() });
+    if (error) return bad("Chưa lưu được: " + esc(error.message));
+    kitEdit = null; kitMsg = ""; Shell.toast(`Đã lưu combo ${e.code}. Tồn kho đã tính lại theo cách tách mới.`); KITS = null; await loadKits(); await loadAll();
+  }
+
   // ===== Cấu hình kho =====
   function vKho() {
     const used = (id) => POSWH.filter((p) => p.wh_id === id).reduce((t, p) => t + +p.orders, 0);
@@ -475,7 +533,7 @@
   }
 
   // ---------- sự kiện ----------
-  function setTab(t) { tab = t; S.detail = null; arm = null; try { history.replaceState(null, "", "#" + t); } catch (e) {} paint(); window.scrollTo(0, 0); }
+  function setTab(t) { tab = t; S.detail = null; arm = null; if (t === "kiem" && !KITS) loadKits(); try { history.replaceState(null, "", "#" + t); } catch (e) {} paint(); window.scrollTo(0, 0); }
   document.addEventListener("click", async (e) => {
     const t = e.target.closest("[data-tab]"); if (t) return setTab(t.dataset.tab);
     if (e.target.closest("#reload,#reload2")) return loadAll();
@@ -514,6 +572,17 @@
       if (r.error || !r.data.length) Shell.toast("Chưa xoá được: " + (r.error ? r.error.message : "không có quyền"), { err: 1 }); else Shell.toast(`Đã xoá lần kiểm kho ${whName(wh)} ${fmtD(as)}. Tồn tính lại theo lần kiểm kho trước đó (nếu có).`);
       return loadAll();
     }
+    if (e.target.closest("#kitNew")) { kitEdit = { isNew: true, code: "", parts: [{ code: "", qty: 1 }, { code: "", qty: 1 }] }; kitMsg = ""; loadKnown(); paint(); $("#kitCode").focus(); return; }
+    const ek = e.target.closest("[data-editkit]"); if (ek) { const k = KITS.find((x) => x.code === ek.dataset.editkit); kitEdit = { code: k.code, manual: k.manual, parts: k.parts.map((p) => ({ code: p.code, qty: p.qty })) }; kitMsg = ""; loadKnown(); paint(); window.scrollTo(0, 0); const f = document.querySelector(".kpCode"); if (f) f.focus(); return; }
+    if (e.target.closest("#kitAdd")) { readKit(); kitEdit.parts.push({ code: "", qty: 1 }); paint(); const c = document.querySelectorAll(".kpCode"); c[c.length - 1].focus(); return; }
+    const dp = e.target.closest("[data-delpart]"); if (dp) { readKit(); kitEdit.parts.splice(+dp.dataset.delpart, 1); return paint(); }
+    if (e.target.closest("#kitCancel")) { kitEdit = null; kitMsg = ""; return paint(); }
+    if (e.target.closest("#kitSelf")) { readKit(); return saveKit([{ code: kitEdit.code, qty: 1 }]); }
+    if (e.target.closest("#kitAuto")) {
+      const code = kitEdit.code, { error } = await sb.from("stock_kits").delete().eq("kit_key", pk(code));
+      if (error) { kitMsg = `<span class="neg">Chưa đổi được: ${esc(error.message)}</span>`; return paint(); }
+      kitEdit = null; Shell.toast(`“${code}” quay về cách tự tách.`); KITS = null; await loadKits(); return loadAll();
+    }
     if (e.target.closest("#cAdd")) { cfgEdit = { name: "", pos_names: [], note: "" }; cfgMsg = ""; paint(); $("#cName").focus(); return; }
     const ew = e.target.closest("[data-editwh]"); if (ew) { cfgEdit = Object.assign({}, WH.find((x) => x.id === ew.dataset.editwh)); cfgMsg = ""; paint(); $("#cName").focus(); return; }
     if (e.target.closest("#cCancel")) { cfgEdit = null; return paint(); }
@@ -522,6 +591,7 @@
   document.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches && e.target.matches("tr[data-pk]")) e.target.click(); });
   document.addEventListener("input", (e) => {
     if (e.target.id === "stq") { S.q = e.target.value; S.page = 0; paint(); return; }
+    if (e.target.id === "kitq") { kitQ = e.target.value; paint(); return; }
     if (form && e.target.closest(".mline")) { readForm(); document.querySelectorAll(".mline").forEach((r, i) => { const h = document.getElementById("mh" + i); if (h) h.innerHTML = lineHint(form.lines[i]); }); }
   });
   document.addEventListener("change", (e) => {
@@ -531,12 +601,13 @@
     if (e.target.id === "kFile" && e.target.files[0]) { loadKnown().then(() => parseCount(e.target.files[0])); return; }
     const mp = e.target.closest("[data-mappos]"); if (mp) return mapPos(mp.dataset.mappos, mp.value);
   });
-  document.addEventListener("submit", (e) => { e.preventDefault(); if (e.target.id === "mForm") saveForm(); if (e.target.id === "cfgForm") saveCfg(); });
+  document.addEventListener("submit", (e) => { e.preventDefault(); if (e.target.id === "mForm") saveForm(); if (e.target.id === "cfgForm") saveCfg(); if (e.target.id === "kitForm") saveKit(); });
   window.addEventListener("hashchange", () => { const t = location.hash.slice(1).split("?")[0]; if (TABS.some(([k]) => k === t) && t !== tab) setTab(t); });
 
   paint();
   await loadAll();
   if (tab === "kiem" || tab === "phieu") loadKnown();
+  if (tab === "kiem") loadKits();
 })();
 </script>
 </body>
