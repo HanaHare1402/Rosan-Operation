@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261029b">
+<link rel="stylesheet" href="css/app.css?v=20261029c">
 </head>
 <body>
 
@@ -31,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261029b"></script>
-<script src="js/settings-db.js?v=20261029b"></script>
-<script src="js/shell.js?v=20261029b"></script>
+<script src="js/auth.js?v=20261029c"></script>
+<script src="js/settings-db.js?v=20261029c"></script>
+<script src="js/shell.js?v=20261029c"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -701,7 +701,7 @@ function kWarn(a){
 function kSettingsCard(){
   const s=K.set||KDEF,from=s.from&&s.from!==K.month?` (đang dùng của tháng ${fmtM(s.from)})`:s.from?'':' (mặc định theo file KPI)';
   return `<form class="card" id="kSetForm" novalidate><div class="cardhead"><div><h2>Thông số tính tháng ${fmtM(K.month)} ${tip('k_set')}</h2><p class="hint">Áp dụng cho kỳ bắt đầu trong tháng ${fmtM(K.month)}${from}.${CAN_KSET?'':' Chỉ admin và kế toán sửa được.'}</p></div></div>
-    <div class="form">${KFIELDS.map(([k,l])=>`<label for="ks_${k}">${l}<input id="ks_${k}" type="number" step="any" min="0" value="${esc(s[k])}" ${CAN_KSET?'':'disabled'}></label>`).join('')}</div>
+    <div class="form kset">${KFIELDS.map(([k,l])=>`<label for="ks_${k}">${l}<input id="ks_${k}" type="number" step="any" min="0" value="${esc(s[k])}" ${CAN_KSET?'':'disabled'}></label>`).join('')}</div>
     ${CAN_KSET?`<div class="formrow"><button class="btn" type="submit">Lưu cho tháng ${fmtM(K.month)}</button><span class="fmsg" id="kSetMsg"></span></div>`:''}</form>`;
 }
 async function saveKSet(){
