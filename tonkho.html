@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261029a">
+<link rel="stylesheet" href="css/app.css?v=20261029b">
 </head>
 <body>
 <div class="app">
@@ -24,8 +24,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261029a"></script>
-<script src="js/shell.js?v=20261029a"></script>
+<script src="js/auth.js?v=20261029b"></script>
+<script src="js/shell.js?v=20261029b"></script>
 <script>
 (async function () {
   const ME = await Auth.requireAuth();
@@ -157,45 +157,76 @@
   // ===== Tồn kho =====
   function vTon() {
     if (S.detail) return vDetail(S.detail);
-    const whs = activeWH(), noCount = whs.filter((w) => !asOf(w.id));
-    const all = products(S.wh), counted = all.filter((a) => a.st !== "chua");
+    const whs = activeWH(), unmapped = POSWH.filter((p) => !p.wh_id);
+    const STC = { het: "var(--bad)", sap: "var(--warn)", lau: "var(--info)", on: "var(--good)", chua: "var(--faint)" };
+    // Thanh tình trạng: tỷ lệ số mã theo trạng thái, kèm chữ (không chỉ dùng màu).
+    const health = (ps) => {
+      const c = { het: 0, sap: 0, lau: 0, on: 0 }; ps.forEach((a) => { if (c[a.st] != null) c[a.st]++; });
+      const tot = c.het + c.sap + c.lau + c.on;
+      if (!tot) return '<div class="hbar empty" aria-hidden="true"></div><div class="hleg muted">Chưa có mã nào</div>';
+      const seg = ["het", "sap", "lau", "on"].filter((k) => c[k]).map((k) => `<i style="flex:${c[k]};background:${STC[k]}" title="${ST[k][0]}: ${N(c[k])} mã"></i>`).join("");
+      const lab = ["het", "sap", "lau", "on"].filter((k) => c[k]).map((k) => `<span><b style="--dc:${STC[k]}"></b>${N(c[k])} ${ST[k][0].toLowerCase()}</span>`).join("");
+      return `<div class="hbar" role="img" aria-label="${["het", "sap", "lau", "on"].map((k) => N(c[k]) + " " + ST[k][0].toLowerCase()).join(", ")}">${seg}</div><div class="hleg">${lab}</div>`;
+    };
+    // Thẻ từng kho (và "Tất cả kho"): bấm để xem kho đó.
+    const whCard = (id, name, ico2) => {
+      const ps = products(id), cnt = ps.filter((a) => a.st !== "chua"), on = id === "all" ? S.wh === "all" : S.wh === id;
+      const counted = id === "all" ? whs.some((w) => asOf(w.id)) : !!asOf(id);
+      const sumOn = cnt.reduce((t, a) => t + Math.max(0, a.on || 0), 0), sumAv = cnt.reduce((t, a) => t + (a.av || 0), 0), value = cnt.reduce((t, a) => t + a.value, 0);
+      const meta = id === "all" ? `${N(whs.length)} kho${whs.some((w) => !asOf(w.id)) ? ` · ${N(whs.filter((w) => !asOf(w.id)).length)} chưa kiểm kho` : ""}` : asOf(id) ? "kiểm kho đầu ngày " + fmtD(asOf(id)) : "";
+      const body = counted ? `
+          <div class="whv">${SEE_COST ? M(value) : N(cnt.filter((a) => a.on > 0).length)}<small>${SEE_COST ? "giá trị tồn" : "mã còn hàng"}</small></div>
+          <div class="whq"><span>Thực tế <b>${Q(sumOn)}</b></span><span>Có thể bán <b class="${sumAv < 0 ? "neg" : ""}">${Q(sumAv)}</b></span></div>
+          ${health(cnt)}`
+        : `<div class="whnone"><span class="pill p-warn">Chưa kiểm kho</span><p>Chưa tính được tồn của kho này.</p>${CAN_WRITE ? `<button type="button" class="btn sm" data-go="kiem" data-gowh="${esc(id)}">Nhập số kiểm kho</button>` : ""}</div>`;
+      return `<div class="whcard${on ? " on" : ""}${counted ? "" : " nocount"}" data-wh="${esc(id)}" role="button" tabindex="0" aria-pressed="${on}" aria-label="Xem ${esc(name)}">
+        <div class="whhead">${ico(ico2, id === "all" ? "i-green" : "i-blue")}<div><b>${esc(name)}</b><div class="sub2">${meta}</div></div></div>${body}</div>`;
+    };
+    const cards = `<div class="whcards">${whCard("all", "Tất cả kho", "chart")}${whs.map((w) => whCard(w.id, w.name, "warehouse")).join("")}</div>`;
+    const all = products(S.wh);
+    // Cần chú ý: đơn chưa biết trừ kho nào, mã đang bán quá.
+    const over = all.filter((a) => a.av != null && a.av < 0);
+    const attn = [
+      over.length ? `<div class="arow">${ico("alert", "i-red")}<div><b>${N(over.length)} mã đang bán quá số hàng</b><span class="muted">${over.slice(0, 4).map((a) => esc(a.name || a.code) + " (" + Q(a.av) + ")").join(", ")}${over.length > 4 ? "…" : ""}</span></div><button type="button" class="lnk" data-st="het">Xem</button></div>` : "",
+      unmapped.length ? `<div class="arow">${ico("plug", "i-amber")}<div><b>${N(unmapped.reduce((t, p) => t + +p.orders, 0))} đơn chưa biết trừ kho nào</b><span class="muted">Kho trên POS chưa gán: ${unmapped.slice(0, 3).map((p) => "“" + esc(p.pos_name) + "”").join(", ")}${unmapped.length > 3 ? "…" : ""}</span></div>${CAN_CFG ? '<button type="button" class="lnk" data-go="kho">Gán kho</button>' : '<span class="muted">Báo quản lý</span>'}</div>` : "",
+    ].filter(Boolean).join("");
+    const attnCard = attn ? `<div class="card attnbox"><div class="cardhead"><div><h2>Cần chú ý</h2></div></div>${attn}</div>` : "";
+    if (S.wh !== "all" && !asOf(S.wh)) return cards + attnCard;
+
+    // Lọc trạng thái kèm số mã.
     const cnt = (st) => all.filter((a) => a.st === st).length;
-    const value = counted.reduce((t, a) => t + a.value, 0), missCost = counted.filter((a) => a.on > 0 && a.cost == null).length;
-    const segWh = `<div class="seg" role="group" aria-label="Chọn kho">${[["all", "Tất cả kho"], ...whs.map((w) => [w.id, w.name])].map(([k, l]) => `<button type="button" data-wh="${esc(k)}" class="${S.wh === k ? "on" : ""}" aria-pressed="${S.wh === k}">${esc(l)}</button>`).join("")}</div>`;
-    // Ô chỉ số: bấm để lọc theo trạng thái.
-    const tile = (k, label, v, sub, cls, icn, t) => `<button type="button" class="kpi stk m-${k}${S.st === k ? " on" : ""}" data-st="${k}" aria-pressed="${S.st === k}"><div class="l">${ico(icn, cls)} ${label} ${t ? tip(t) : ""}</div><div class="v">${v}</div><div class="n">${sub}</div></button>`;
-    const tiles = `<div class="kpis kpis5 stkk">
-      ${SEE_COST ? tile("all", "Giá trị tồn", M(value), missCost ? `${N(missCost)} mã chưa có giá vốn` : `${N(counted.filter((a) => a.on > 0).length)} mã còn hàng`, "i-green", "coins", DEF.value) : tile("all", "Mã còn hàng", N(counted.filter((a) => a.on > 0).length), `trên ${N(counted.length)} mã đang theo dõi`, "i-green", "box")}
-      ${tile("sap", "Sắp hết", N(cnt("sap")), "có thể bán đủ dưới 7 ngày", "i-amber", "alert")}
-      ${tile("het", "Hết hàng", N(cnt("het")), `có thể bán ≤ 0${all.some((a) => a.av < 0) ? ` · ${N(all.filter((a) => a.av < 0).length)} mã bán quá` : ""}`, "i-red", "x")}
-      ${tile("lau", "Tồn lâu", N(cnt("lau")), "30 ngày không bán được", "i-blue", "inbox")}
-      ${tile("on", "Ổn", N(cnt("on")), "đủ bán từ 7 ngày", "i-cyan", "check")}
-    </div>`;
-    const unmapped = POSWH.filter((p) => !p.wh_id);
-    const warns = [
-      ...noCount.map((w) => `<div class="msg warn"><b>${esc(w.name)}</b> chưa kiểm kho nên chưa tính được tồn. ${CAN_WRITE ? `<button type="button" class="lnk" data-go="kiem" data-gowh="${esc(w.id)}">Nhập số kiểm kho</button>` : "Báo kho nhập số kiểm kho."}</div>`),
-      ...(unmapped.length ? [`<div class="msg warn">${N(unmapped.reduce((t, p) => t + +p.orders, 0))} đơn trong 60 ngày xuất từ kho POS chưa gán vào kho nào (${unmapped.slice(0, 3).map((p) => "“" + esc(p.pos_name) + "”").join(", ")}${unmapped.length > 3 ? "…" : ""}), nên chưa trừ tồn. ${CAN_CFG ? '<button type="button" class="lnk" data-go="kho">Gán kho</button>' : "Báo quản lý gán kho."}</div>`] : []),
-    ].join("");
-    if (S.wh !== "all" && !asOf(S.wh)) {
-      return `${segWh}<div style="height:14px"></div><div class="card">${Shell.empty("inbox", "Kho này chưa kiểm kho", "Nhập số đếm thực tế của kho, web sẽ tính tồn từ thời điểm đó.", CAN_WRITE ? `<button class="btn sm" type="button" data-go="kiem" data-gowh="${esc(S.wh)}">Nhập số kiểm kho</button>` : "")}</div>`;
-    }
+    const chips = [["all", "Tất cả", all.length], ["het", "Hết hàng", cnt("het")], ["sap", "Sắp hết", cnt("sap")], ["lau", "Tồn lâu", cnt("lau")], ["on", "Ổn", cnt("on")], ...(cnt("chua") ? [["chua", "Chưa kiểm kho", cnt("chua")]] : [])]
+      .map(([k, l, n]) => `<button type="button" class="stchip${S.st === k ? " on" : ""}" data-st="${k}" aria-pressed="${S.st === k}">${k === "all" ? "" : `<b style="--dc:${STC[k]}"></b>`}${l}<span>${N(n)}</span></button>`).join("");
     let rows = all.filter((a) => S.st === "all" || a.st === S.st);
     const q = pk(S.q); if (q) rows = rows.filter((a) => pk(a.code).includes(q) || pk(a.name).includes(q));
     rows.sort((a, b) => S.sortCover ? (a.cover - b.cover) : (ST[a.st][2] - ST[b.st][2]) || (a.cover - b.cover) || (b.s30 - a.s30));
     const n = Math.max(1, Math.ceil(rows.length / S.per)); if (S.page > n - 1) S.page = n - 1;
     const pg = rows.slice(S.page * S.per, (S.page + 1) * S.per);
+    const ini = (t) => String(t || "?").replace(/[^\p{L}\p{N} ]/gu, " ").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?";
     const whCell = (a) => S.wh === "all" && a.whs.length > 1 ? `<div class="sub2">${a.whs.filter((r) => r.on != null).map((r) => esc(whName(r.wh)) + " " + Q(r.on)).join(" · ")}</div>` : "";
+    // Thanh "có thể bán": cả thanh = tồn thực tế; phần đặc = có thể bán, phần sọc = chờ gửi. Âm: thanh đỏ.
+    const avBar = (a) => {
+      if (a.on == null) return "";
+      if (a.av < 0) return `<span class="avbar neg" aria-hidden="true"><i style="width:100%"></i></span>`;
+      if (!(a.on > 0)) return `<span class="avbar" aria-hidden="true"></span>`;
+      const g = Math.max(0, a.av) / a.on * 100, p = Math.min(100 - g, a.pend / a.on * 100);
+      return `<span class="avbar" aria-hidden="true"><i style="width:${g.toFixed(1)}%;background:${STC[a.st]}"></i><u style="width:${p.toFixed(1)}%"></u></span>`;
+    };
+    // Thước "đủ bán": đầy khi ≥ 30 ngày.
+    const gauge = (a) => a.av == null ? "" : `<span class="cvbar" aria-hidden="true"><i style="width:${(a.cover === Infinity ? (a.av > 0 ? 100 : 0) : Math.max(0, Math.min(1, a.cover / 30)) * 100).toFixed(1)}%;background:${STC[a.st]}"></i></span>`;
     const body = pg.map((a) => `<tr data-pk="${esc(a.pk)}" tabindex="0" class="${a.st === "het" ? "lossrow" : ""}" title="Bấm để xem chi tiết">
-        <td class="l"><b>${esc(a.name || a.code)}</b><div class="sub2"><span class="mono">${esc(a.code)}</span><span class="monly"> · ${stPill(a.st)}</span></div></td>
-        <td>${onTxt(a.on)}${whCell(a)}</td><td>${avTxt(a.av)}${a.pend ? `<div class="sub2">chờ gửi ${Q(a.pend)}</div>` : ""}</td><td>${coverTxt(a)}<div class="sub2">${a.s30 ? "bán TB " + Q(Math.round(a.avg * 10) / 10) + " / ngày" : "30 ngày chưa bán"}</div></td>
-        ${SEE_COST ? `<td>${a.cost == null ? (a.on > 0 ? '<span class="muted" title="Chưa có giá vốn">–</span>' : "–") : M(a.value)}</td>` : ""}
+        <td class="l"><div class="pcell"><span class="pav" style="--gc:${STC[a.st]}" aria-hidden="true">${esc(ini(a.name || a.code))}</span><div><div class="pn">${esc(a.name || a.code)}</div><div class="sub2"><span class="mono">${esc(a.code)}</span><span class="monly"> · ${stPill(a.st)}${a.av != null ? ` · có thể bán <b class="${a.av < 0 ? "neg" : ""}">${Q(a.av)}</b>` : ""}</span></div></div></div></td>
+        <td>${onTxt(a.on)}${whCell(a)}</td>
+        <td>${avTxt(a.av)}${avBar(a)}${a.pend ? `<div class="sub2">chờ gửi ${Q(a.pend)}</div>` : ""}</td>
+        <td>${coverTxt(a)}${gauge(a)}<div class="sub2">${a.s30 ? "bán TB " + Q(Math.round(a.avg * 10) / 10) + " / ngày" : "30 ngày chưa bán"}</div></td>
+        ${SEE_COST ? `<td>${a.cost == null ? (a.on > 0 ? '<span class="muted" title="Chưa có giá vốn">chưa có giá vốn</span>' : "–") : M(a.value)}</td>` : ""}
         <td class="l">${stPill(a.st)}</td></tr>`).join("");
     const head = `<tr><th class="l">Sản phẩm</th><th>Tồn thực tế ${tip(DEF.on)}</th><th>Có thể bán ${tip(DEF.av)}</th><th><button type="button" class="thbtn" data-sortcover aria-pressed="${S.sortCover}" title="Sắp xếp theo số ngày đủ bán">Đủ bán${S.sortCover ? " ↑" : ""}</button> ${tip(DEF.cover)}</th>${SEE_COST ? `<th>Giá trị tồn ${tip(DEF.value)}</th>` : ""}<th class="l">Trạng thái ${tip(DEF.st)}</th></tr>`;
-    const stName = S.st === "all" ? "" : " · đang lọc: " + ST[S.st][0];
-    return `${segWh}<div style="height:14px"></div>${tiles}${warns}
+    return `${cards}${attnCard}
       <div class="card c-blue"><div class="cardhead"><div><h2>Tồn theo sản phẩm${S.wh === "all" ? "" : " · " + esc(whName(S.wh))}</h2></div>
         <input type="search" id="stq" placeholder="Tìm mã hoặc tên sản phẩm" value="${esc(S.q)}" aria-label="Tìm sản phẩm" style="max-width:260px"></div>
-        <p class="hint keep" style="margin:0 0 10px">${N(rows.length)} sản phẩm${stName}${S.st !== "all" ? ' · <button type="button" class="lnk" data-st="all">Bỏ lọc</button>' : ""} · bấm một dòng để xem chi tiết theo kho.</p>
+        <div class="stchips" role="group" aria-label="Lọc theo trạng thái">${chips}</div>
+        <p class="hint keep" style="margin:0 0 10px">${N(rows.length)} sản phẩm · bấm một dòng để xem chi tiết từng kho và phiếu gần đây.</p>
         ${rows.length ? `<div class="tw"><table class="stktab"><thead>${head}</thead><tbody>${body}</tbody></table></div>${pager(rows.length)}` : Shell.empty("inbox", S.q || S.st !== "all" ? "Không có sản phẩm khớp" : "Chưa có số tồn", S.q || S.st !== "all" ? "Thử bỏ lọc hoặc đổi từ khoá." : "Nhập số kiểm kho để bắt đầu theo dõi tồn.", "")}
       </div>`;
   }
@@ -543,7 +574,8 @@
   document.addEventListener("click", async (e) => {
     const t = e.target.closest("[data-tab]"); if (t) return setTab(t.dataset.tab);
     if (e.target.closest("#reload,#reload2")) return loadAll();
-    const w = e.target.closest("[data-wh]"); if (w) { S.wh = w.dataset.wh; store.set("stk_wh", S.wh); S.page = 0; return paint(); }
+    const go0 = e.target.closest("[data-go]"); if (go0) { if (go0.dataset.gowh) { S.gowh = go0.dataset.gowh; kiem = null; } return setTab(go0.dataset.go); }
+    const w = e.target.closest("[data-wh]"); if (w) { S.wh = w.dataset.wh; store.set("stk_wh", S.wh); S.page = 0; S.st = "all"; return paint(); }
     const st = e.target.closest("[data-st]"); if (st && !e.target.closest(".tip")) { S.st = S.st === st.dataset.st && st.dataset.st !== "all" ? "all" : st.dataset.st; S.page = 0; return paint(); }
     if (e.target.closest("[data-sortcover]")) { S.sortCover = !S.sortCover; return paint(); }
     const pg = e.target.closest("[data-pgto]"); if (pg) { S.page = +pg.dataset.pgto; paint(); const tb = document.querySelector(".stktab"); if (tb) tb.scrollIntoView({ block: "nearest" }); return; }
@@ -594,7 +626,7 @@
     if (e.target.closest("#cCancel")) { cfgEdit = null; return paint(); }
     if (arm && !e.target.closest("[data-delmove],[data-delcount]")) { arm = null; paint(); }
   });
-  document.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches && e.target.matches("tr[data-pk]")) e.target.click(); });
+  document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || (e.key === " " && e.target.matches && e.target.matches(".whcard"))) && e.target.matches && e.target.matches("tr[data-pk], .whcard")) { e.preventDefault(); e.target.click(); } });
   document.addEventListener("input", (e) => {
     if (e.target.id === "stq") { S.q = e.target.value; S.page = 0; paint(); return; }
     if (e.target.id === "kitq") { kitQ = e.target.value; paint(); return; }

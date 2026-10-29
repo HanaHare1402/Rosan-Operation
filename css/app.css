@@ -1076,3 +1076,44 @@ table.stktab tr.lossrow td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
 .filebtn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width:600px){.mline{grid-template-columns:minmax(0,1fr) 34px}.mline label:nth-child(2){grid-column:1/2}.stkform .frow>label{flex:1 1 100%}}
 .monly{display:none}@media (max-width:600px){.monly{display:inline}}
+/* tồn kho v2: thẻ kho, cần chú ý, lọc trạng thái, thanh có thể bán / đủ bán */
+.whcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:16px}
+.whcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px;box-shadow:var(--shadow-1);cursor:pointer;display:flex;flex-direction:column;gap:10px;min-width:0;transition:border-color .15s,box-shadow .15s}
+.whcard:hover{border-color:var(--line-2);box-shadow:var(--shadow-2)}
+.whcard.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 28%,transparent)}
+.whcard:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.whcard.nocount{background:var(--panel-2);border-style:dashed}
+.whhead{display:flex;gap:10px;align-items:center;min-width:0}
+.whhead>div{min-width:0}
+.whhead b{font-size:14px;color:var(--ink)}
+.whhead .ico{width:32px;height:32px}
+.whv{font-size:22px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.15;color:var(--ink)}
+.whv small{display:block;font-size:11.5px;font-weight:550;color:var(--muted);letter-spacing:0;margin-top:2px}
+.whq{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.whq b{color:var(--ink);font-variant-numeric:tabular-nums}
+.whq b.neg{color:var(--bad)}
+.hbar{display:flex;gap:2px;height:8px;border-radius:99px;overflow:hidden;background:var(--sunk)}
+.hbar i{display:block;min-width:4px}
+.hleg{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:var(--ink-2)}
+.hleg b,.stchip b{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dc);margin-right:5px;flex:none}
+.hleg span{display:inline-flex;align-items:center}
+.whnone p{margin:6px 0 10px;font-size:12.5px;color:var(--muted)}
+.attnbox .cardhead{margin-bottom:4px}
+.attnbox .arow{display:flex;align-items:center;gap:12px;padding:10px 0}
+.attnbox .arow+.arow{border-top:1px solid var(--line)}
+.arow>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:13px}
+.arow .muted{font-size:12px}
+.stchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.stchip{display:inline-flex;align-items:center;min-height:32px;padding:4px 6px 4px 11px;border:1px solid var(--line-2);border-radius:99px;background:var(--panel);font:500 12.5px var(--font);color:var(--ink-2);cursor:pointer}
+.stchip:hover{color:var(--ink);border-color:var(--faint)}
+.stchip span{margin-left:7px;min-width:22px;text-align:center;background:var(--sunk);border-radius:99px;padding:1px 7px;font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums}
+.stchip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.stchip.on span{background:var(--panel)}
+.stchip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.avbar,.cvbar{display:flex;width:96px;max-width:100%;height:6px;margin:6px 0 2px auto;border-radius:99px;background:var(--sunk);overflow:hidden}
+.avbar i,.cvbar i{display:block;height:100%}
+.avbar u{display:block;height:100%;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--ink) 30%,transparent) 0 3px,transparent 3px 6px)}
+.avbar.neg i{background:var(--bad)}
+table.stktab td{vertical-align:middle}
+table.stktab .pcell{min-width:200px}
+@media (max-width:600px){.whcards{grid-template-columns:1fr 1fr;gap:8px}.whcard{padding:12px}.whv{font-size:17px}.hleg{display:none}.whq{font-size:11.5px}}
