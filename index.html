@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261028t">
+<link rel="stylesheet" href="css/app.css?v=20261029a">
 </head>
 <body>
 
@@ -31,15 +31,19 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261028t"></script>
-<script src="js/settings-db.js?v=20261028t"></script>
-<script src="js/shell.js?v=20261028t"></script>
+<script src="js/auth.js?v=20261029a"></script>
+<script src="js/settings-db.js?v=20261029a"></script>
+<script src="js/shell.js?v=20261029a"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
 const ME=await Auth.requireAuth();
 if(!ME.role){location.replace('login.html');return}
-const ALLOWED=Auth.VIEWS[ME.role]||[];
+// Tồn kho là trang riêng (tonkho.html), không phải một màn của trang này.
+const ALLOWED=(Auth.VIEWS[ME.role]||[]).filter(v=>v!=='tonkho');
+const SEE_STOCK=(Auth.VIEWS[ME.role]||[]).includes('tonkho');
+// Vai trò kho: mở thẳng trang Tồn kho khi vào bảng điều hành không kèm màn cụ thể.
+if(ME.role==='kho'&&!(location.hash||'').slice(1)){location.replace('tonkho.html');return}
 const sbc=Auth.sb;
 const $=s=>document.querySelector(s);
 Shell.render(ME,'index');
@@ -488,7 +492,7 @@ function prodTable(rows,withSearch,kpRows,o={}){
   const adsC=v=>kpLoading?skel:!isFinite(v)?dash:cap&&v*100>cap?`<span class="pill p-bad" title="Vượt trần ${PF(cap)}%">${P(v)} ▲</span>`:P(v);
   const grade=v=>kpLoading?skel:!isFinite(v)?dash:v<0?`<span class="pill p-bad" title="Lỗ">▼ ${P(v)}</span>`:v<.1?`<span class="pill p-warn" title="Lãi mỏng, dưới 10%">${P(v)}</span>`:`<span class="pill p-good" title="Lãi tốt, từ 10%">${P(v)}</span>`;
   const ini=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
-  const name=a=>`<div class="pcell"><span class="pav${a.grp?' g'+a.grp:''}" aria-hidden="true">${esc(ini(a.name))}</span><div><div class="pn">${esc(a.name||'')}</div><div class="sub2"><span class="mono">${esc(a.code)}</span>${a.grp?` · <span title="${esc(GNAME(a.grp))}">Nhóm ${a.grp}</span>`:''}</div></div></div>`;
+  const name=a=>`<div class="pcell"><span class="pav${a.grp?' g'+a.grp:''}" aria-hidden="true">${esc(ini(a.name))}</span><div><div class="pn">${esc(a.name||'')}</div><div class="sub2"><span class="mono">${esc(a.code)}</span>${a.grp?` · <span title="${esc(GNAME(a.grp))}">Nhóm ${a.grp}</span>`:''}${stockTag(a.code)}</div></div></div>`;
   const rev=a=>`<span class="vbar"><b>${M(a.rev)}</b><i style="width:${(a.rev/maxRev*100).toFixed(1)}%"></i></span>`;
   const lng=a=>kpLoading?skel:isFinite(a.gp3)?`<b class="${a.gp3<0?'neg':''}">${M(a.gp3)}</b>`:dash;
   if(o.top)return `<div class="tw"><table class="sthead ptab"><thead><tr><th class="l">Sản phẩm</th><th>Doanh số</th><th>Số đơn</th><th>% hoàn ${tip('ret')}</th><th>% chi phí ads ${tip('p_ads')}</th>${SEE_COST?`<th>% LNG ${tip('p_lng')}</th>`:''}</tr></thead><tbody>
@@ -1276,8 +1280,19 @@ async function runAdImport(){
 
 // ---------- cảnh báo ----------
 let UNMAPPED=null;
+// Tồn kho (gộp mọi kho theo sản phẩm): nhãn ở bảng Sản phẩm và cảnh báo hết / sắp hết hàng.
+let STK=null;
+function loadStock(){if(!SEE_STOCK)return;sbc.rpc('stock_report_all').then(({data,error})=>{if(error)return;const m=new Map();
+  (data||[]).forEach(r=>{if(r.on_hand==null)return;const k=String(r.product_key);const a=m.get(k)||{on:0,s30:0,name:r.name||r.code};a.on+=+r.on_hand;a.s30+=+r.sold_30d;m.set(k,a)});
+  m.forEach(a=>{const avg=a.s30/30;a.st=a.on<=0?'het':avg>0&&a.on/avg<7?'sap':a.s30===0?'lau':'on';a.days=avg>0?Math.floor(a.on/avg):null});STK=m;render()})}
+function stockTag(code){const a=STK&&STK.get(String(code||'').trim().toLowerCase());if(!a||(a.st!=='het'&&a.st!=='sap'))return '';
+  return ` · <a class="pill ${a.st==='het'?'p-bad':'p-warn'}" href="tonkho.html#ton?st=${a.st}" title="${a.st==='het'?'Tồn kho: hết hàng':'Tồn kho: còn '+N(a.on)+', đủ bán khoảng '+N(a.days)+' ngày'}">${a.st==='het'?'Hết hàng':'Sắp hết'}</a>`}
 function alerts(){
   const out=[];
+  if(STK){const c=st=>[...STK.values()].filter(a=>a.st===st);const lnk=st=>`<a href="tonkho.html#ton?st=${st}">Xem tồn kho</a>`,nm=l=>l.slice(0,4).map(a=>a.name).join(', ')+(l.length>4?'…':'');
+    const h=c('het'),s=c('sap');
+    if(h.length)out.push(['bad','Hết hàng',`${h.length} sản phẩm đã hết trong kho: ${nm(h)}`,lnk('het')]);
+    if(s.length)out.push(['warn','Sắp hết hàng',`${s.length} sản phẩm chỉ đủ bán dưới 7 ngày: ${nm(s)}`,lnk('sap')]);}
   if(SEE_COST){const miss=new Set();(PRODS?PRODS.rows:[]).forEach(r=>{if(r.unit==null&&r.g!=='cancel')miss.add(r.code)});
     if(miss.size)out.push(['warn','Sản phẩm chưa có giá vốn',`${miss.size} sản phẩm đang bán chưa có dữ liệu nhập hàng: ${[...miss].slice(0,5).join(', ')}${miss.size>5?'…':''}`,Auth.ADMIN_TABS.giavon.includes(ME.role)?'<a href="admin.html#giavon">Tải giá vốn</a>':'Báo kế toán'])}
   SHOPS.filter(s=>s.active!==false&&s.last_sync_status==='error').forEach(s=>out.push(['bad','Shop đồng bộ lỗi',`${s.name}: ${s.last_sync_error||''}`,ME.role==='admin'?'<a href="admin.html#pos">Xem</a>':'Báo admin']));
@@ -1449,7 +1464,7 @@ const HOME={ke_toan:'kqkd',van_don:'donhang',kho:'donhang'}[ME.role];
 const h=(location.hash||'').slice(1).split('?')[0];
 view=V[h]&&ALLOWED.includes(h)?h:(HOME&&ALLOWED.includes(HOME)?HOME:ALLOWED[0]);
 try{history.replaceState(null,'',hashFor(view))}catch(e){}
-render();loadData();
+render();loadData();loadStock();
 sbc.from('pos_shops').select('id,name,active,last_sync_status,last_sync_error').then(({data})=>{SHOPS=data||[]});
 if(ME.role==='admin'||ME.role==='quan_ly')sbc.rpc('admin_unmapped').then(({data})=>{UNMAPPED=data||[];render()});
 
