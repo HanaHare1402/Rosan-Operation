@@ -1117,3 +1117,7 @@ table.stktab tr.lossrow td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
 table.stktab td{vertical-align:middle}
 table.stktab .pcell{min-width:200px}
 @media (max-width:600px){.whcards{grid-template-columns:1fr 1fr;gap:8px}.whcard{padding:12px}.whv{font-size:17px}.hleg{display:none}.whq{font-size:11.5px}}
+/* thông số KPI: tiêu đề dài xuống 2 dòng thì ô nhập vẫn thẳng hàng */
+.form.kset label input{margin-top:auto}
+/* mọi form: tiêu đề dài xuống dòng thì ô nhập vẫn bám đáy, cả hàng thẳng nhau */
+.form>label>:is(input,select,textarea):last-child{margin-top:auto}
