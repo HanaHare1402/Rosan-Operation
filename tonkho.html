@@ -63,11 +63,12 @@
 
   // Định nghĩa cho nút (?) và trạng thái.
   const DEF = {
-    on: "Tồn hiện tại = số kiểm kho gần nhất + nhập kho ± chuyển kho ± điều chỉnh − hàng đã gửi đi + hàng hoàn về, tính từ ngày kiểm kho. Đơn trừ kho lúc chuyển sang “Đã gửi hàng”.",
+    av: "Có thể bán = tồn thực tế − chờ gửi. Chờ gửi là hàng của các đơn đã lên nhưng chưa gửi đi (mới, đã xác nhận, đang đóng gói, chờ lấy hàng…), không tính đơn huỷ. Số âm nghĩa là đã nhận đơn nhiều hơn số hàng đang có.",
+    on: "Tồn thực tế = hàng đang nằm trong kho = số kiểm kho gần nhất + nhập kho ± chuyển kho ± điều chỉnh − hàng đã gửi đi + hàng hoàn về, tính từ ngày kiểm kho. Đơn trừ kho lúc chuyển sang “Đã gửi hàng”.",
     avg: "Bán trung bình mỗi ngày = số lượng đã gửi đi trong 30 ngày gần nhất ÷ 30.",
-    cover: "Đủ bán = tồn hiện tại ÷ bán trung bình mỗi ngày. Dưới 7 ngày là “Sắp hết”.",
-    value: "Giá trị tồn = tồn hiện tại × giá vốn của lần nhập gần nhất (bảng Giá vốn).",
-    st: "Hết hàng: tồn ≤ 0. Sắp hết: đủ bán dưới 7 ngày. Tồn lâu: còn hàng nhưng 30 ngày không bán được cái nào. Chưa kiểm kho: kho chưa có số kiểm kho nên chưa tính được.",
+    cover: "Đủ bán = có thể bán ÷ bán trung bình mỗi ngày (bán TB = số đã gửi đi trong 30 ngày ÷ 30). Dưới 7 ngày là “Sắp hết”.",
+    value: "Giá trị tồn = tồn thực tế × giá vốn của lần nhập gần nhất (bảng Giá vốn).",
+    st: "Theo số có thể bán. Hết hàng: có thể bán ≤ 0 (âm là đã nhận đơn vượt số hàng). Sắp hết: đủ bán dưới 7 ngày. Tồn lâu: còn hàng nhưng 30 ngày không bán được cái nào. Chưa kiểm kho: kho chưa có số kiểm kho nên chưa tính được.",
   };
   const ST = { het: ["Hết hàng", "p-bad", 0], sap: ["Sắp hết", "p-warn", 1], lau: ["Tồn lâu", "p-info", 2], on: ["Ổn", "p-good", 3], chua: ["Chưa kiểm kho", "p-mute", 4] };
 
@@ -100,7 +101,7 @@
     if (e) { err = /stock_|warehouses|function|relation/i.test(e.error.message) ? "Chưa có bảng tồn kho trên database. Admin chạy file SQL 20261029000000_inventory.sql trên Supabase." : e.error.message; paint(); return; }
     WH = w.data || []; COUNTS = c.data || []; MOVES = mv.data || []; POSWH = pw.error ? [] : (pw.data || []);
     R = (r.data || []).map((x) => ({ wh: x.wh_id, pk: x.product_key, code: x.code, name: x.name, as_of: x.as_of, base: +x.base, nhap: +x.nhap, chuyen: +x.chuyen, dc: +x.dieu_chinh, ban: +x.ban, hoan: +x.hoan,
-      on: x.on_hand == null ? null : +x.on_hand, s30: +x.sold_30d, last: x.last_sale, cost: x.unit_cost == null ? null : +x.unit_cost }));
+      on: x.on_hand == null ? null : +x.on_hand, pend: +x.cho_gui || 0, s30: +x.sold_30d, last: x.last_sale, cost: x.unit_cost == null ? null : +x.unit_cost }));
     if (S.wh !== "all" && !WH.some((x) => x.id === S.wh)) S.wh = "all";
     R.forEach((x) => { if (x.code && !KNOWN.has(x.pk)) KNOWN.set(x.pk, { code: x.code, name: x.name || "" }); });
     fillDatalist();
@@ -121,19 +122,23 @@
     const m = new Map();
     R.filter((r) => wh === "all" || r.wh === wh).forEach((r) => {
       let a = m.get(r.pk);
-      if (!a) m.set(r.pk, a = { pk: r.pk, code: r.code, name: r.name, on: null, s30: 0, cost: r.cost, last: null, whs: [] });
-      if (r.on != null) a.on = (a.on || 0) + r.on;
+      if (!a) m.set(r.pk, a = { pk: r.pk, code: r.code, name: r.name, on: null, pend: 0, s30: 0, cost: r.cost, last: null, whs: [] });
+      if (r.on != null) { a.on = (a.on || 0) + r.on; a.pend += r.pend; }
       a.s30 += r.s30; if (r.last && (!a.last || r.last > a.last)) a.last = r.last;
       if (a.cost == null) a.cost = r.cost; if (!a.name && r.name) a.name = r.name; a.whs.push(r);
     });
     return [...m.values()].map((a) => {
-      a.avg = a.s30 / 30; a.cover = a.avg > 0 ? (a.on || 0) / a.avg : Infinity;
-      a.st = a.on == null ? "chua" : a.on <= 0 ? "het" : a.cover < 7 ? "sap" : a.s30 === 0 ? "lau" : "on";
+      a.av = a.on == null ? null : a.on - a.pend;
+      a.avg = a.s30 / 30; a.cover = a.avg > 0 ? (a.av || 0) / a.avg : Infinity;
+      a.st = stOf(a.av, a.cover, a.s30);
       a.value = a.on > 0 && a.cost != null ? a.on * a.cost : 0;
       return a;
     });
   }
-  const coverTxt = (a) => a.on == null ? "–" : a.cover === Infinity ? '<span class="muted">không bán</span>' : a.on <= 0 ? "0 ngày" : a.cover < 1 ? "< 1 ngày" : N(Math.floor(a.cover)) + " ngày";
+  // Trạng thái theo số có thể bán (MKT cần biết còn bán được bao nhiêu).
+  function stOf(av, cover, s30) { return av == null ? "chua" : av <= 0 ? "het" : cover < 7 ? "sap" : s30 === 0 ? "lau" : "on"; }
+  const avTxt = (v) => v == null ? '<span class="muted">–</span>' : v < 0 ? `<b class="neg" title="Đã nhận đơn vượt số hàng đang có">${Q(v)}</b>` : `<b>${Q(v)}</b>`;
+  const coverTxt = (a) => a.av == null ? "–" : a.cover === Infinity ? '<span class="muted">không bán</span>' : a.av <= 0 ? "0 ngày" : a.cover < 1 ? "< 1 ngày" : N(Math.floor(a.cover)) + " ngày";
   const onTxt = (v) => v == null ? '<span class="muted">–</span>' : v < 0 ? `<b class="neg" title="Tồn âm: kiểm tra lại số kiểm kho hoặc phiếu nhập">${Q(v)}</b>` : `<b>${Q(v)}</b>`;
   const stPill = (st) => `<span class="pill ${ST[st][1]}">${ST[st][0]}</span>`;
 
@@ -161,8 +166,8 @@
     const tile = (k, label, v, sub, cls, icn, t) => `<button type="button" class="kpi stk m-${k}${S.st === k ? " on" : ""}" data-st="${k}" aria-pressed="${S.st === k}"><div class="l">${ico(icn, cls)} ${label} ${t ? tip(t) : ""}</div><div class="v">${v}</div><div class="n">${sub}</div></button>`;
     const tiles = `<div class="kpis kpis5 stkk">
       ${SEE_COST ? tile("all", "Giá trị tồn", M(value), missCost ? `${N(missCost)} mã chưa có giá vốn` : `${N(counted.filter((a) => a.on > 0).length)} mã còn hàng`, "i-green", "coins", DEF.value) : tile("all", "Mã còn hàng", N(counted.filter((a) => a.on > 0).length), `trên ${N(counted.length)} mã đang theo dõi`, "i-green", "box")}
-      ${tile("sap", "Sắp hết", N(cnt("sap")), "đủ bán dưới 7 ngày", "i-amber", "alert")}
-      ${tile("het", "Hết hàng", N(cnt("het")), "tồn bằng 0 hoặc âm", "i-red", "x")}
+      ${tile("sap", "Sắp hết", N(cnt("sap")), "có thể bán đủ dưới 7 ngày", "i-amber", "alert")}
+      ${tile("het", "Hết hàng", N(cnt("het")), `có thể bán ≤ 0${all.some((a) => a.av < 0) ? ` · ${N(all.filter((a) => a.av < 0).length)} mã bán quá` : ""}`, "i-red", "x")}
       ${tile("lau", "Tồn lâu", N(cnt("lau")), "30 ngày không bán được", "i-blue", "inbox")}
       ${tile("on", "Ổn", N(cnt("on")), "đủ bán từ 7 ngày", "i-cyan", "check")}
     </div>`;
@@ -182,10 +187,10 @@
     const whCell = (a) => S.wh === "all" && a.whs.length > 1 ? `<div class="sub2">${a.whs.filter((r) => r.on != null).map((r) => esc(whName(r.wh)) + " " + Q(r.on)).join(" · ")}</div>` : "";
     const body = pg.map((a) => `<tr data-pk="${esc(a.pk)}" tabindex="0" class="${a.st === "het" ? "lossrow" : ""}" title="Bấm để xem chi tiết">
         <td class="l"><b>${esc(a.name || a.code)}</b><div class="sub2"><span class="mono">${esc(a.code)}</span><span class="monly"> · ${stPill(a.st)}</span></div></td>
-        <td>${onTxt(a.on)}${whCell(a)}</td><td>${a.s30 ? Q(Math.round(a.avg * 10) / 10) : '<span class="muted">0</span>'}</td><td>${coverTxt(a)}</td>
+        <td>${onTxt(a.on)}${whCell(a)}</td><td>${avTxt(a.av)}${a.pend ? `<div class="sub2">chờ gửi ${Q(a.pend)}</div>` : ""}</td><td>${coverTxt(a)}<div class="sub2">${a.s30 ? "bán TB " + Q(Math.round(a.avg * 10) / 10) + " / ngày" : "30 ngày chưa bán"}</div></td>
         ${SEE_COST ? `<td>${a.cost == null ? (a.on > 0 ? '<span class="muted" title="Chưa có giá vốn">–</span>' : "–") : M(a.value)}</td>` : ""}
         <td class="l">${stPill(a.st)}</td></tr>`).join("");
-    const head = `<tr><th class="l">Sản phẩm</th><th>Tồn hiện tại ${tip(DEF.on)}</th><th>Bán TB / ngày ${tip(DEF.avg)}</th><th><button type="button" class="thbtn" data-sortcover aria-pressed="${S.sortCover}" title="Sắp xếp theo số ngày đủ bán">Đủ bán${S.sortCover ? " ↑" : ""}</button> ${tip(DEF.cover)}</th>${SEE_COST ? `<th>Giá trị tồn ${tip(DEF.value)}</th>` : ""}<th class="l">Trạng thái ${tip(DEF.st)}</th></tr>`;
+    const head = `<tr><th class="l">Sản phẩm</th><th>Tồn thực tế ${tip(DEF.on)}</th><th>Có thể bán ${tip(DEF.av)}</th><th><button type="button" class="thbtn" data-sortcover aria-pressed="${S.sortCover}" title="Sắp xếp theo số ngày đủ bán">Đủ bán${S.sortCover ? " ↑" : ""}</button> ${tip(DEF.cover)}</th>${SEE_COST ? `<th>Giá trị tồn ${tip(DEF.value)}</th>` : ""}<th class="l">Trạng thái ${tip(DEF.st)}</th></tr>`;
     const stName = S.st === "all" ? "" : " · đang lọc: " + ST[S.st][0];
     return `${segWh}<div style="height:14px"></div>${tiles}${warns}
       <div class="card c-blue"><div class="cardhead"><div><h2>Tồn theo sản phẩm${S.wh === "all" ? "" : " · " + esc(whName(S.wh))}</h2></div>
@@ -208,22 +213,23 @@
     const back = `<nav class="crumbs" aria-label="Đường dẫn"><button type="button" class="lnk" data-back>Tồn kho</button><span aria-hidden="true">›</span><span>${esc(a ? a.name || a.code : key)}</span></nav>`;
     if (!a) return back + `<div class="card">${Shell.empty("inbox", "Không thấy sản phẩm", "Sản phẩm này không còn trong bảng tồn.", '<button class="btn ghost sm" type="button" data-back>Quay lại</button>')}</div>`;
     const lines = a.whs.map((r) => {
-      const st = r.on == null ? "chua" : r.on <= 0 ? "het" : (r.s30 ? r.on / (r.s30 / 30) : Infinity) < 7 ? "sap" : r.s30 === 0 ? "lau" : "on";
+      const av = r.on == null ? null : r.on - r.pend, st = stOf(av, r.s30 ? (av || 0) / (r.s30 / 30) : Infinity, r.s30);
       const sg = (v) => v ? (v > 0 ? "+" : "−") + Q(Math.abs(v)) : '<span class="z">–</span>';
       return `<tr><td class="l"><b>${esc(whName(r.wh))}</b><div class="sub2">${r.as_of ? "kiểm kho đầu ngày " + fmtD(r.as_of) : "chưa kiểm kho"}</div></td>
-        <td>${r.as_of ? Q(r.base) : "–"}</td><td>${sg(r.nhap)}</td><td>${sg(r.chuyen + r.dc)}</td><td>${sg(-r.ban + r.hoan)}</td><td>${onTxt(r.on)}</td><td class="l">${stPill(st)}</td></tr>`;
+        <td>${r.as_of ? Q(r.base) : "–"}</td><td>${sg(r.nhap)}</td><td>${sg(r.chuyen + r.dc)}</td><td>${sg(-r.ban + r.hoan)}</td><td>${onTxt(r.on)}</td><td>${r.pend ? "−" + Q(r.pend) : '<span class="z">–</span>'}</td><td>${avTxt(av)}</td><td class="l">${stPill(st)}</td></tr>`;
     }).join("");
     const mv = MOVES.filter((m) => m.product_key === key).slice(0, 30);
     const acts = CAN_WRITE ? `<div class="formrow" style="margin:0">${[["nhap", "+ Nhập kho"], ["chuyen", "Chuyển kho"], ["dieu_chinh", "Điều chỉnh"]].map(([k, l]) => `<button type="button" class="btn ${k === "nhap" ? "" : "ghost "}sm" data-newform="${k}" data-code="${esc(a.code)}">${l}</button>`).join("")}</div>` : "";
     return `${back}
       <div class="statstrip ist" style="margin-bottom:16px">
-        <div>${ico("box", "i-green")}<div><span class="l">Tồn hiện tại ${tip(DEF.on)}</span><b>${a.on == null ? "–" : Q(a.on)}</b><span class="muted">${esc(a.code)}</span></div></div>
-        <div>${ico("chart", "i-blue")}<div><span class="l">Bán 30 ngày</span><b>${Q(a.s30)}</b><span class="muted">TB ${Q(Math.round(a.avg * 10) / 10)} / ngày</span></div></div>
+        <div>${ico("box", "i-green")}<div><span class="l">Tồn thực tế ${tip(DEF.on)}</span><b>${a.on == null ? "–" : Q(a.on)}</b><span class="muted">${esc(a.code)}</span></div></div>
+        <div>${ico("receipt", a.av != null && a.av < 0 ? "i-red" : "i-orange")}<div><span class="l">Có thể bán ${tip(DEF.av)}</span><b class="${a.av != null && a.av < 0 ? "neg" : ""}">${a.av == null ? "–" : Q(a.av)}</b><span class="muted">chờ gửi ${Q(a.pend)}</span></div></div>
+        <div>${ico("chart", "i-blue")}<div><span class="l">Bán 30 ngày</span><b>${Q(a.s30)}</b><span class="muted">TB ${Q(Math.round(a.avg * 10) / 10)} / ngày · gần nhất ${fmtD(a.last)}</span></div></div>
         <div>${ico("alert", a.st === "het" ? "i-red" : a.st === "sap" ? "i-amber" : "i-cyan")}<div><span class="l">Đủ bán ${tip(DEF.cover)}</span><b>${coverTxt(a)}</b><span class="muted">${ST[a.st][0]}</span></div></div>
-        <div>${ico("receipt", "i-purple")}<div><span class="l">Bán gần nhất</span><b>${fmtD(a.last)}</b><span class="muted">${SEE_COST && a.cost != null ? "giá vốn " + M(a.cost) : ""}</span></div></div>
+
       </div>
       <div class="card c-cyan"><div class="cardhead"><div><h2>Theo từng kho</h2></div>${acts}</div>
-        <div class="tw"><table><thead><tr><th class="l">Kho</th><th>Kiểm kho</th><th>Nhập</th><th>Chuyển / điều chỉnh</th><th>Gửi đi / hoàn về</th><th>Tồn</th><th class="l">Trạng thái</th></tr></thead><tbody>${lines}</tbody></table></div></div>
+        <div class="tw"><table><thead><tr><th class="l">Kho</th><th>Kiểm kho</th><th>Nhập</th><th>Chuyển / điều chỉnh</th><th>Gửi đi / hoàn về</th><th>Tồn thực tế</th><th>Chờ gửi</th><th>Có thể bán</th><th class="l">Trạng thái</th></tr></thead><tbody>${lines}</tbody></table></div></div>
       <div class="card"><div class="cardhead"><div><h2>Phiếu kho gần đây</h2></div></div>
         ${mv.length ? `<div class="tw"><table><thead><tr><th class="l">Ngày</th><th class="l">Loại</th><th class="l">Kho</th><th>Số lượng</th><th class="l">Người tạo</th></tr></thead><tbody>${mv.map((m) => `<tr><td class="l">${fmtD(m.day)}</td><td class="l">${KIND[m.kind]}</td><td class="l">${esc(whName(m.wh_id))}</td><td>${m.qty > 0 ? "+" : "−"}${Q(Math.abs(m.qty))}</td><td class="l muted">${esc(m.created_by_name || "")}${m.note ? " · " + esc(m.note) : ""}</td></tr>`).join("")}</tbody></table></div>` : '<p class="muted">Chưa có phiếu nào cho sản phẩm này.</p>'}</div>`;
   }

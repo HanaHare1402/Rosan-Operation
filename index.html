@@ -1283,10 +1283,10 @@ let UNMAPPED=null;
 // Tồn kho (gộp mọi kho theo sản phẩm): nhãn ở bảng Sản phẩm và cảnh báo hết / sắp hết hàng.
 let STK=null;
 function loadStock(){if(!SEE_STOCK)return;sbc.rpc('stock_report_all').then(({data,error})=>{if(error)return;const m=new Map();
-  (data||[]).forEach(r=>{if(r.on_hand==null)return;const k=String(r.product_key);const a=m.get(k)||{on:0,s30:0,name:r.name||r.code};a.on+=+r.on_hand;a.s30+=+r.sold_30d;m.set(k,a)});
+  (data||[]).forEach(r=>{if(r.on_hand==null)return;const k=String(r.product_key);const a=m.get(k)||{on:0,s30:0,name:r.name||r.code};a.on+=+r.on_hand-(+r.cho_gui||0);a.s30+=+r.sold_30d;m.set(k,a)});
   m.forEach(a=>{const avg=a.s30/30;a.st=a.on<=0?'het':avg>0&&a.on/avg<7?'sap':a.s30===0?'lau':'on';a.days=avg>0?Math.floor(a.on/avg):null});STK=m;render()})}
 function stockTag(code){const a=STK&&STK.get(String(code||'').trim().toLowerCase());if(!a||(a.st!=='het'&&a.st!=='sap'))return '';
-  return ` · <a class="pill ${a.st==='het'?'p-bad':'p-warn'}" href="tonkho.html#ton?st=${a.st}" title="${a.st==='het'?'Tồn kho: hết hàng':'Tồn kho: còn '+N(a.on)+', đủ bán khoảng '+N(a.days)+' ngày'}">${a.st==='het'?'Hết hàng':'Sắp hết'}</a>`}
+  return ` · <a class="pill ${a.st==='het'?'p-bad':'p-warn'}" href="tonkho.html#ton?st=${a.st}" title="${a.st==='het'?(a.on<0?'Có thể bán: âm '+N(-a.on)+' (đã nhận đơn vượt số hàng)':'Có thể bán: hết hàng'):'Có thể bán: còn '+N(a.on)+', đủ bán khoảng '+N(a.days)+' ngày'}">${a.st==='het'?'Hết hàng':'Sắp hết'}</a>`}
 function alerts(){
   const out=[];
   if(STK){const c=st=>[...STK.values()].filter(a=>a.st===st);const lnk=st=>`<a href="tonkho.html#ton?st=${st}">Xem tồn kho</a>`,nm=l=>l.slice(0,4).map(a=>a.name).join(', ')+(l.length>4?'…':'');
