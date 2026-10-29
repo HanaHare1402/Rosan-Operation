@@ -14,15 +14,15 @@
   };
   // Màn nào của bảng điều hành mỗi vai trò được xem.
   const VIEWS = {
-    admin: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "kpi", "chiphi", "canhbao", "caidat"],
+    admin: ["tongquan", "team", "nhansu", "sanpham", "tonkho", "donhang", "kqkd", "kpi", "chiphi", "canhbao", "caidat"],
     // Ban lãnh đạo: xem mọi báo cáo và số chi phí, không có màn nhập liệu (chi phí ads, cài đặt). Database cũng không cho ghi.
-    lanh_dao: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "kpi", "canhbao"],
-    quan_ly: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kqkd", "kpi", "chiphi", "canhbao", "caidat"],
-    truong_team: ["tongquan", "team", "nhansu", "sanpham", "donhang", "kpi", "chiphi", "canhbao"],
-    marketing: ["tongquan", "nhansu", "sanpham", "donhang", "kpi", "chiphi", "canhbao"],
-    ke_toan: ["tongquan", "donhang", "kqkd", "kpi", "chiphi", "canhbao", "caidat"],
+    lanh_dao: ["tongquan", "team", "nhansu", "sanpham", "tonkho", "donhang", "kqkd", "kpi", "canhbao"],
+    quan_ly: ["tongquan", "team", "nhansu", "sanpham", "tonkho", "donhang", "kqkd", "kpi", "chiphi", "canhbao", "caidat"],
+    truong_team: ["tongquan", "team", "nhansu", "sanpham", "tonkho", "donhang", "kpi", "chiphi", "canhbao"],
+    marketing: ["tongquan", "nhansu", "sanpham", "tonkho", "donhang", "kpi", "chiphi", "canhbao"],
+    ke_toan: ["tongquan", "tonkho", "donhang", "kqkd", "kpi", "chiphi", "canhbao", "caidat"],
     van_don: ["donhang", "canhbao"],
-    kho: ["sanpham", "donhang", "canhbao"],
+    kho: ["sanpham", "tonkho", "donhang", "canhbao"],
     sale: ["tongquan", "nhansu", "donhang", "sanpham"],
   };
 

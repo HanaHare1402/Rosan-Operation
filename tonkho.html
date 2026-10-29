@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="vi" class="auth-pending">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tồn kho - Rosan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="stylesheet" href="css/app.css?v=20261029a">
+</head>
+<body>
+<div class="app">
+  <aside></aside>
+  <main>
+    <div class="stickhead"><header class="page-h"><div><h1 id="title">Tồn kho</h1><p class="sub" id="subtitle">Số lượng từng sản phẩm trong từng kho, tính từ lần kiểm kho gần nhất</p></div>
+      <div class="page-actions"><div class="fresh" id="fresh" role="status"></div></div></header></div>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Phần của trang Tồn kho"></div>
+    <div id="view"><div class="card"><div class="skel" style="height:14px"></div><div class="skel" style="height:220px;margin-top:12px"></div></div></div>
+    <datalist id="dlProd"></datalist>
+  </main>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
+<script src="js/auth.js?v=20261029a"></script>
+<script src="js/shell.js?v=20261029a"></script>
+<script>
+(async function () {
+  const ME = await Auth.requireAuth();
+  if (!ME.role) { location.replace("login.html"); return; }
+  const sb = Auth.sb;
+  document.documentElement.classList.remove("auth-pending");
+  Shell.render(ME, "tonkho");
+  const $ = (s) => document.querySelector(s);
+  if (!(Auth.VIEWS[ME.role] || []).includes("tonkho")) {
+    $("#tabs").hidden = true;
+    $("#view").innerHTML = `<div class="card">${Shell.empty("lock", "Không có quyền", "Màn Tồn kho dành cho quản lý, kế toán, kho, trưởng team và marketing.", '<a class="btn ghost sm" href="index.html">Về bảng điều hành</a>')}</div>`;
+    return;
+  }
+
+  // ---------- tiện ích ----------
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const nf = new Intl.NumberFormat("vi-VN"), qf = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 });
+  const N = (v) => nf.format(Math.round(v || 0));
+  const Q = (v) => qf.format(v || 0);                         // số lượng (có thể lẻ)
+  const M = (v) => (v < 0 ? "−" : "") + N(Math.abs(v || 0));  // tiền: đủ số đồng
+  const pad = (n) => String(n).padStart(2, "0");
+  const isoD = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const fmtD = (s) => { if (!s) return "–"; const [y, m, d] = String(s).slice(0, 10).split("-"); return `${d}/${m}/${y}`; };
+  const addDay = (s, n) => { const [y, m, d] = s.split("-").map(Number); return isoD(new Date(y, m - 1, d + n)); };
+  const pk = (code) => String(code || "").trim().toLowerCase();
+  const tip = (t) => `<span class="tip" tabindex="0" role="note" aria-label="${esc(t)}" data-tip="${esc(t)}">?</span>`;
+  const ico = (name, cls) => `<span class="ico ${cls}" aria-hidden="true">${Shell.icon(name)}</span>`;
+  const store = { get(k, d) { try { const v = localStorage.getItem("tv_" + k); return v == null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem("tv_" + k, v); } catch (e) {} } };
+  const today = isoD(new Date());
+  const WHO = ME.full_name || ME.email || "";
+
+  const CAN_WRITE = ["admin", "quan_ly", "ke_toan", "kho"].includes(ME.role);
+  const CAN_CFG = ["admin", "quan_ly"].includes(ME.role);
+  const SEE_COST = ["admin", "lanh_dao", "quan_ly", "ke_toan"].includes(ME.role);
+
+  // Định nghĩa cho nút (?) và trạng thái.
+  const DEF = {
+    on: "Tồn hiện tại = số kiểm kho gần nhất + nhập kho ± chuyển kho ± điều chỉnh − hàng đã gửi đi + hàng hoàn về, tính từ ngày kiểm kho. Đơn trừ kho lúc chuyển sang “Đã gửi hàng”.",
+    avg: "Bán trung bình mỗi ngày = số lượng đã gửi đi trong 30 ngày gần nhất ÷ 30.",
+    cover: "Đủ bán = tồn hiện tại ÷ bán trung bình mỗi ngày. Dưới 7 ngày là “Sắp hết”.",
+    value: "Giá trị tồn = tồn hiện tại × giá vốn của lần nhập gần nhất (bảng Giá vốn).",
+    st: "Hết hàng: tồn ≤ 0. Sắp hết: đủ bán dưới 7 ngày. Tồn lâu: còn hàng nhưng 30 ngày không bán được cái nào. Chưa kiểm kho: kho chưa có số kiểm kho nên chưa tính được.",
+  };
+  const ST = { het: ["Hết hàng", "p-bad", 0], sap: ["Sắp hết", "p-warn", 1], lau: ["Tồn lâu", "p-info", 2], on: ["Ổn", "p-good", 3], chua: ["Chưa kiểm kho", "p-mute", 4] };
+
+  // ---------- trạng thái trang ----------
+  const HP = new URLSearchParams((location.hash.split("?")[1]) || "");
+  const TABS = [["ton", "Tồn kho"], ["phieu", "Phiếu kho"], ["kiem", "Kiểm kho"], ...(CAN_CFG ? [["kho", "Cấu hình kho"]] : [])];
+  let tab = (location.hash.slice(1).split("?")[0]) || "ton"; if (!TABS.some(([k]) => k === tab)) tab = "ton";
+  const S = { wh: store.get("stk_wh", "all"), st: HP.get("st") || "all", q: "", page: 0, per: +store.get("per_stk", "50") || 50, detail: null, sortCover: false };
+  let WH = [], R = [], COUNTS = [], MOVES = [], POSWH = [], KNOWN = new Map(), loading = true, err = "", loadedAt = null;
+  let form = null, formMsg = "", arm = null, kiem = null, cfgEdit = null, cfgMsg = "";
+
+  const whName = (id) => (WH.find((w) => w.id === id) || { name: id }).name;
+  const activeWH = () => WH.filter((w) => w.active);
+  const asOf = (id) => { let m = null; COUNTS.forEach((c) => { if (c.wh_id === id && (!m || c.as_of > m)) m = c.as_of; }); return m; };
+
+  // ---------- tải dữ liệu ----------
+  async function fetchAll(mk) { let out = []; for (let i = 0; ; i += 1000) { const r = await mk().range(i, i + 999); if (r.error) return r; out = out.concat(r.data || []); if (!r.data || r.data.length < 1000) return { data: out }; } }
+  async function loadAll() {
+    loading = true; err = ""; paint();
+    const [w, r, c, mv, pw] = await Promise.all([
+      sb.from("warehouses").select("*").order("sort").order("name"),
+      sb.rpc("stock_report_all"),
+      fetchAll(() => sb.from("stock_counts").select("wh_id,as_of,qty,created_by_name,created_at").order("as_of", { ascending: false }).order("id")),
+      sb.from("stock_moves").select("*").order("created_at", { ascending: false }).limit(300),
+      sb.rpc("stock_pos_warehouses"),
+    ]);
+    loading = false;
+    const e = [w, r, c, mv].find((x) => x.error);
+    if (e) { err = /stock_|warehouses|function|relation/i.test(e.error.message) ? "Chưa có bảng tồn kho trên database. Admin chạy file SQL 20261029000000_inventory.sql trên Supabase." : e.error.message; paint(); return; }
+    WH = w.data || []; COUNTS = c.data || []; MOVES = mv.data || []; POSWH = pw.error ? [] : (pw.data || []);
+    R = (r.data || []).map((x) => ({ wh: x.wh_id, pk: x.product_key, code: x.code, name: x.name, as_of: x.as_of, base: +x.base, nhap: +x.nhap, chuyen: +x.chuyen, dc: +x.dieu_chinh, ban: +x.ban, hoan: +x.hoan,
+      on: x.on_hand == null ? null : +x.on_hand, s30: +x.sold_30d, last: x.last_sale, cost: x.unit_cost == null ? null : +x.unit_cost }));
+    if (S.wh !== "all" && !WH.some((x) => x.id === S.wh)) S.wh = "all";
+    R.forEach((x) => { if (x.code && !KNOWN.has(x.pk)) KNOWN.set(x.pk, { code: x.code, name: x.name || "" }); });
+    fillDatalist();
+    loadedAt = new Date(); paint();
+  }
+  // Mã sản phẩm đã có trong đơn: gợi ý khi gõ và kiểm tra mã trong file kiểm kho.
+  let knownLoaded = false;
+  async function loadKnown() {
+    if (knownLoaded) return; knownLoaded = true;
+    const { data } = await sb.rpc("stock_known_products_all");
+    (data || []).forEach((x) => { const k = pk(x.code); if (k && !KNOWN.has(k)) KNOWN.set(k, { code: x.code, name: x.name || "" }); });
+    fillDatalist();
+  }
+  function fillDatalist() { $("#dlProd").innerHTML = [...KNOWN.values()].slice(0, 3000).map((p) => `<option value="${esc(p.code)}">${esc(p.name)}</option>`).join(""); }
+
+  // ---------- tính trạng thái ----------
+  function products(wh) {
+    const m = new Map();
+    R.filter((r) => wh === "all" || r.wh === wh).forEach((r) => {
+      let a = m.get(r.pk);
+      if (!a) m.set(r.pk, a = { pk: r.pk, code: r.code, name: r.name, on: null, s30: 0, cost: r.cost, last: null, whs: [] });
+      if (r.on != null) a.on = (a.on || 0) + r.on;
+      a.s30 += r.s30; if (r.last && (!a.last || r.last > a.last)) a.last = r.last;
+      if (a.cost == null) a.cost = r.cost; if (!a.name && r.name) a.name = r.name; a.whs.push(r);
+    });
+    return [...m.values()].map((a) => {
+      a.avg = a.s30 / 30; a.cover = a.avg > 0 ? (a.on || 0) / a.avg : Infinity;
+      a.st = a.on == null ? "chua" : a.on <= 0 ? "het" : a.cover < 7 ? "sap" : a.s30 === 0 ? "lau" : "on";
+      a.value = a.on > 0 && a.cost != null ? a.on * a.cost : 0;
+      return a;
+    });
+  }
+  const coverTxt = (a) => a.on == null ? "–" : a.cover === Infinity ? '<span class="muted">không bán</span>' : a.on <= 0 ? "0 ngày" : a.cover < 1 ? "< 1 ngày" : N(Math.floor(a.cover)) + " ngày";
+  const onTxt = (v) => v == null ? '<span class="muted">–</span>' : v < 0 ? `<b class="neg" title="Tồn âm: kiểm tra lại số kiểm kho hoặc phiếu nhập">${Q(v)}</b>` : `<b>${Q(v)}</b>`;
+  const stPill = (st) => `<span class="pill ${ST[st][1]}">${ST[st][0]}</span>`;
+
+  // ---------- vẽ ----------
+  function paint() {
+    $("#tabs").innerHTML = TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" class="${tab === k ? "on" : ""}" aria-selected="${tab === k}">${l}</button>`).join("");
+    $("#fresh").innerHTML = loading ? '<span class="muted">Đang tải…</span>' : loadedAt ? `<span class="muted">Cập nhật ${pad(loadedAt.getHours())}:${pad(loadedAt.getMinutes())}</span><button type="button" class="ibtn sm" id="reload" aria-label="Tải lại" title="Tải lại">${Shell.icon("refresh")}</button>` : "";
+    document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("on", /tonkho\.html/.test(a.getAttribute("href") || "")));
+    if (err) { $("#view").innerHTML = `<div class="card">${Shell.empty("alert", "Chưa tải được tồn kho", esc(err), '<button class="btn ghost sm" type="button" id="reload2">Thử lại</button>')}</div>`; return; }
+    if (loading && !WH.length) return;
+    const keepFocus = document.activeElement && document.activeElement.id, selStart = document.activeElement && document.activeElement.selectionStart;
+    $("#view").innerHTML = ({ ton: vTon, phieu: vPhieu, kiem: vKiem, kho: vKho })[tab]();
+    if (keepFocus) { const e = document.getElementById(keepFocus); if (e) { e.focus(); try { if (selStart != null) e.setSelectionRange(selStart, selStart); } catch (x) {} } }
+  }
+
+  // ===== Tồn kho =====
+  function vTon() {
+    if (S.detail) return vDetail(S.detail);
+    const whs = activeWH(), noCount = whs.filter((w) => !asOf(w.id));
+    const all = products(S.wh), counted = all.filter((a) => a.st !== "chua");
+    const cnt = (st) => all.filter((a) => a.st === st).length;
+    const value = counted.reduce((t, a) => t + a.value, 0), missCost = counted.filter((a) => a.on > 0 && a.cost == null).length;
+    const segWh = `<div class="seg" role="group" aria-label="Chọn kho">${[["all", "Tất cả kho"], ...whs.map((w) => [w.id, w.name])].map(([k, l]) => `<button type="button" data-wh="${esc(k)}" class="${S.wh === k ? "on" : ""}" aria-pressed="${S.wh === k}">${esc(l)}</button>`).join("")}</div>`;
+    // Ô chỉ số: bấm để lọc theo trạng thái.
+    const tile = (k, label, v, sub, cls, icn, t) => `<button type="button" class="kpi stk m-${k}${S.st === k ? " on" : ""}" data-st="${k}" aria-pressed="${S.st === k}"><div class="l">${ico(icn, cls)} ${label} ${t ? tip(t) : ""}</div><div class="v">${v}</div><div class="n">${sub}</div></button>`;
+    const tiles = `<div class="kpis kpis5 stkk">
+      ${SEE_COST ? tile("all", "Giá trị tồn", M(value), missCost ? `${N(missCost)} mã chưa có giá vốn` : `${N(counted.filter((a) => a.on > 0).length)} mã còn hàng`, "i-green", "coins", DEF.value) : tile("all", "Mã còn hàng", N(counted.filter((a) => a.on > 0).length), `trên ${N(counted.length)} mã đang theo dõi`, "i-green", "box")}
+      ${tile("sap", "Sắp hết", N(cnt("sap")), "đủ bán dưới 7 ngày", "i-amber", "alert")}
+      ${tile("het", "Hết hàng", N(cnt("het")), "tồn bằng 0 hoặc âm", "i-red", "x")}
+      ${tile("lau", "Tồn lâu", N(cnt("lau")), "30 ngày không bán được", "i-blue", "inbox")}
+      ${tile("on", "Ổn", N(cnt("on")), "đủ bán từ 7 ngày", "i-cyan", "check")}
+    </div>`;
+    const unmapped = POSWH.filter((p) => !p.wh_id);
+    const warns = [
+      ...noCount.map((w) => `<div class="msg warn"><b>${esc(w.name)}</b> chưa kiểm kho nên chưa tính được tồn. ${CAN_WRITE ? `<button type="button" class="lnk" data-go="kiem" data-gowh="${esc(w.id)}">Nhập số kiểm kho</button>` : "Báo kho nhập số kiểm kho."}</div>`),
+      ...(unmapped.length ? [`<div class="msg warn">${N(unmapped.reduce((t, p) => t + +p.orders, 0))} đơn trong 60 ngày xuất từ kho POS chưa gán vào kho nào (${unmapped.slice(0, 3).map((p) => "“" + esc(p.pos_name) + "”").join(", ")}${unmapped.length > 3 ? "…" : ""}), nên chưa trừ tồn. ${CAN_CFG ? '<button type="button" class="lnk" data-go="kho">Gán kho</button>' : "Báo quản lý gán kho."}</div>`] : []),
+    ].join("");
+    if (S.wh !== "all" && !asOf(S.wh)) {
+      return `${segWh}<div style="height:14px"></div><div class="card">${Shell.empty("inbox", "Kho này chưa kiểm kho", "Nhập số đếm thực tế của kho, web sẽ tính tồn từ thời điểm đó.", CAN_WRITE ? `<button class="btn sm" type="button" data-go="kiem" data-gowh="${esc(S.wh)}">Nhập số kiểm kho</button>` : "")}</div>`;
+    }
+    let rows = all.filter((a) => S.st === "all" || a.st === S.st);
+    const q = pk(S.q); if (q) rows = rows.filter((a) => pk(a.code).includes(q) || pk(a.name).includes(q));
+    rows.sort((a, b) => S.sortCover ? (a.cover - b.cover) : (ST[a.st][2] - ST[b.st][2]) || (a.cover - b.cover) || (b.s30 - a.s30));
+    const n = Math.max(1, Math.ceil(rows.length / S.per)); if (S.page > n - 1) S.page = n - 1;
+    const pg = rows.slice(S.page * S.per, (S.page + 1) * S.per);
+    const whCell = (a) => S.wh === "all" && a.whs.length > 1 ? `<div class="sub2">${a.whs.filter((r) => r.on != null).map((r) => esc(whName(r.wh)) + " " + Q(r.on)).join(" · ")}</div>` : "";
+    const body = pg.map((a) => `<tr data-pk="${esc(a.pk)}" tabindex="0" class="${a.st === "het" ? "lossrow" : ""}" title="Bấm để xem chi tiết">
+        <td class="l"><b>${esc(a.name || a.code)}</b><div class="sub2"><span class="mono">${esc(a.code)}</span><span class="monly"> · ${stPill(a.st)}</span></div></td>
+        <td>${onTxt(a.on)}${whCell(a)}</td><td>${a.s30 ? Q(Math.round(a.avg * 10) / 10) : '<span class="muted">0</span>'}</td><td>${coverTxt(a)}</td>
+        ${SEE_COST ? `<td>${a.cost == null ? (a.on > 0 ? '<span class="muted" title="Chưa có giá vốn">–</span>' : "–") : M(a.value)}</td>` : ""}
+        <td class="l">${stPill(a.st)}</td></tr>`).join("");
+    const head = `<tr><th class="l">Sản phẩm</th><th>Tồn hiện tại ${tip(DEF.on)}</th><th>Bán TB / ngày ${tip(DEF.avg)}</th><th><button type="button" class="thbtn" data-sortcover aria-pressed="${S.sortCover}" title="Sắp xếp theo số ngày đủ bán">Đủ bán${S.sortCover ? " ↑" : ""}</button> ${tip(DEF.cover)}</th>${SEE_COST ? `<th>Giá trị tồn ${tip(DEF.value)}</th>` : ""}<th class="l">Trạng thái ${tip(DEF.st)}</th></tr>`;
+    const stName = S.st === "all" ? "" : " · đang lọc: " + ST[S.st][0];
+    return `${segWh}<div style="height:14px"></div>${tiles}${warns}
+      <div class="card c-blue"><div class="cardhead"><div><h2>Tồn theo sản phẩm${S.wh === "all" ? "" : " · " + esc(whName(S.wh))}</h2></div>
+        <input type="search" id="stq" placeholder="Tìm mã hoặc tên sản phẩm" value="${esc(S.q)}" aria-label="Tìm sản phẩm" style="max-width:260px"></div>
+        <p class="hint keep" style="margin:0 0 10px">${N(rows.length)} sản phẩm${stName}${S.st !== "all" ? ' · <button type="button" class="lnk" data-st="all">Bỏ lọc</button>' : ""} · bấm một dòng để xem chi tiết theo kho.</p>
+        ${rows.length ? `<div class="tw"><table class="stktab"><thead>${head}</thead><tbody>${body}</tbody></table></div>${pager(rows.length)}` : Shell.empty("inbox", S.q || S.st !== "all" ? "Không có sản phẩm khớp" : "Chưa có số tồn", S.q || S.st !== "all" ? "Thử bỏ lọc hoặc đổi từ khoá." : "Nhập số kiểm kho để bắt đầu theo dõi tồn.", "")}
+      </div>`;
+  }
+  function pager(total) {
+    const n = Math.max(1, Math.ceil(total / S.per)), p = S.page, a = total ? p * S.per + 1 : 0, b = Math.min(total, (p + 1) * S.per);
+    const btn = (to, label, aria, dis, cur) => `<button type="button" data-pgto="${to}" ${dis ? "disabled" : ""} aria-label="${aria}" title="${aria}" ${cur ? 'aria-current="page" class="on"' : ""}>${label}</button>`;
+    const nums = []; for (let i = Math.max(0, p - 2); i <= Math.min(n - 1, p + 2); i++) nums.push(i);
+    return `<nav class="pager" aria-label="Phân trang"><span class="pg-info">Hiển thị <b>${N(a)}–${N(b)}</b> / ${N(total)}</span>
+      <label class="pg-per">Mỗi trang <select id="stper" aria-label="Số dòng mỗi trang">${[25, 50, 100, 200, 500, 1000].map((v) => `<option value="${v}" ${v === S.per ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+      ${n > 1 ? `<div class="pg-nav">${btn(0, "«", "Trang đầu", p === 0)}${btn(p - 1, "‹", "Trang trước", p === 0)}${nums.map((x) => btn(x, N(x + 1), "Trang " + (x + 1), false, x === p)).join("")}${btn(p + 1, "›", "Trang sau", p >= n - 1)}${btn(n - 1, "»", "Trang cuối", p >= n - 1)}</div>` : ""}</nav>`;
+  }
+  // Chi tiết một sản phẩm: từng kho, các khoản cộng / trừ từ ngày kiểm kho, phiếu gần đây.
+  function vDetail(key) {
+    const a = products("all").find((x) => x.pk === key);
+    const back = `<nav class="crumbs" aria-label="Đường dẫn"><button type="button" class="lnk" data-back>Tồn kho</button><span aria-hidden="true">›</span><span>${esc(a ? a.name || a.code : key)}</span></nav>`;
+    if (!a) return back + `<div class="card">${Shell.empty("inbox", "Không thấy sản phẩm", "Sản phẩm này không còn trong bảng tồn.", '<button class="btn ghost sm" type="button" data-back>Quay lại</button>')}</div>`;
+    const lines = a.whs.map((r) => {
+      const st = r.on == null ? "chua" : r.on <= 0 ? "het" : (r.s30 ? r.on / (r.s30 / 30) : Infinity) < 7 ? "sap" : r.s30 === 0 ? "lau" : "on";
+      const sg = (v) => v ? (v > 0 ? "+" : "−") + Q(Math.abs(v)) : '<span class="z">–</span>';
+      return `<tr><td class="l"><b>${esc(whName(r.wh))}</b><div class="sub2">${r.as_of ? "kiểm kho đầu ngày " + fmtD(r.as_of) : "chưa kiểm kho"}</div></td>
+        <td>${r.as_of ? Q(r.base) : "–"}</td><td>${sg(r.nhap)}</td><td>${sg(r.chuyen + r.dc)}</td><td>${sg(-r.ban + r.hoan)}</td><td>${onTxt(r.on)}</td><td class="l">${stPill(st)}</td></tr>`;
+    }).join("");
+    const mv = MOVES.filter((m) => m.product_key === key).slice(0, 30);
+    const acts = CAN_WRITE ? `<div class="formrow" style="margin:0">${[["nhap", "+ Nhập kho"], ["chuyen", "Chuyển kho"], ["dieu_chinh", "Điều chỉnh"]].map(([k, l]) => `<button type="button" class="btn ${k === "nhap" ? "" : "ghost "}sm" data-newform="${k}" data-code="${esc(a.code)}">${l}</button>`).join("")}</div>` : "";
+    return `${back}
+      <div class="statstrip ist" style="margin-bottom:16px">
+        <div>${ico("box", "i-green")}<div><span class="l">Tồn hiện tại ${tip(DEF.on)}</span><b>${a.on == null ? "–" : Q(a.on)}</b><span class="muted">${esc(a.code)}</span></div></div>
+        <div>${ico("chart", "i-blue")}<div><span class="l">Bán 30 ngày</span><b>${Q(a.s30)}</b><span class="muted">TB ${Q(Math.round(a.avg * 10) / 10)} / ngày</span></div></div>
+        <div>${ico("alert", a.st === "het" ? "i-red" : a.st === "sap" ? "i-amber" : "i-cyan")}<div><span class="l">Đủ bán ${tip(DEF.cover)}</span><b>${coverTxt(a)}</b><span class="muted">${ST[a.st][0]}</span></div></div>
+        <div>${ico("receipt", "i-purple")}<div><span class="l">Bán gần nhất</span><b>${fmtD(a.last)}</b><span class="muted">${SEE_COST && a.cost != null ? "giá vốn " + M(a.cost) : ""}</span></div></div>
+      </div>
+      <div class="card c-cyan"><div class="cardhead"><div><h2>Theo từng kho</h2></div>${acts}</div>
+        <div class="tw"><table><thead><tr><th class="l">Kho</th><th>Kiểm kho</th><th>Nhập</th><th>Chuyển / điều chỉnh</th><th>Gửi đi / hoàn về</th><th>Tồn</th><th class="l">Trạng thái</th></tr></thead><tbody>${lines}</tbody></table></div></div>
+      <div class="card"><div class="cardhead"><div><h2>Phiếu kho gần đây</h2></div></div>
+        ${mv.length ? `<div class="tw"><table><thead><tr><th class="l">Ngày</th><th class="l">Loại</th><th class="l">Kho</th><th>Số lượng</th><th class="l">Người tạo</th></tr></thead><tbody>${mv.map((m) => `<tr><td class="l">${fmtD(m.day)}</td><td class="l">${KIND[m.kind]}</td><td class="l">${esc(whName(m.wh_id))}</td><td>${m.qty > 0 ? "+" : "−"}${Q(Math.abs(m.qty))}</td><td class="l muted">${esc(m.created_by_name || "")}${m.note ? " · " + esc(m.note) : ""}</td></tr>`).join("")}</tbody></table></div>` : '<p class="muted">Chưa có phiếu nào cho sản phẩm này.</p>'}</div>`;
+  }
+
+  // ===== Phiếu kho =====
+  const KIND = { nhap: "Nhập kho", chuyen_di: "Chuyển đi", chuyen_den: "Chuyển đến", dieu_chinh: "Điều chỉnh" };
+  const onHand = (wh, key) => { const r = R.find((x) => x.wh === wh && x.pk === key); return r ? r.on : null; };
+  function newForm(kind, code) {
+    const whs = activeWH(), first = (S.wh !== "all" && whs.some((w) => w.id === S.wh) ? S.wh : (whs[0] || {}).id) || "";
+    const p = code ? KNOWN.get(pk(code)) : null;
+    form = { kind, day: today, wh: first, to: (whs.find((w) => w.id !== first) || {}).id || "", note: "", lines: [{ code: p ? p.code : (code || ""), name: p ? p.name : "", qty: "" }] };
+    formMsg = ""; loadKnown();
+  }
+  function readForm() {
+    if (!form) return;
+    const v = (id) => { const e = document.getElementById(id); return e ? e.value : undefined; };
+    if (v("fDay") !== undefined) form.day = v("fDay");
+    if (v("fWh") !== undefined) form.wh = v("fWh");
+    if (v("fTo") !== undefined) form.to = v("fTo");
+    if (v("fNote") !== undefined) form.note = v("fNote");
+    document.querySelectorAll(".mline").forEach((row, i) => {
+      const l = form.lines[i]; if (!l) return;
+      l.code = row.querySelector(".mCode").value.trim(); l.qty = row.querySelector(".mQty").value;
+      const p = KNOWN.get(pk(l.code)); l.name = p ? p.name : (R.find((x) => x.pk === pk(l.code)) || {}).name || "";
+    });
+  }
+  function lineHint(l) {
+    if (!l.code) return "";
+    const key = pk(l.code), name = l.name || (KNOWN.get(key) || {}).name;
+    const cur = form.kind === "chuyen" || form.kind === "dieu_chinh" ? onHand(form.wh, key) : null;
+    let t = name ? esc(name) : '<span class="warnt">Mã chưa thấy trong đơn gần đây – kiểm tra lại</span>';
+    if (cur != null) t += ` · tồn ${esc(whName(form.wh))}: <b>${Q(cur)}</b>`;
+    if (form.kind === "dieu_chinh" && cur != null && l.qty !== "" && isFinite(+l.qty)) { const d = +l.qty - cur; t += ` · chênh lệch <b class="${d < 0 ? "neg" : d > 0 ? "pos" : ""}">${d > 0 ? "+" : d < 0 ? "−" : ""}${Q(Math.abs(d))}</b>`; }
+    return t;
+  }
+  function vForm() {
+    const f = form, whs = activeWH();
+    const whSel = (id, val, label) => `<label>${label}<select id="${id}">${whs.map((w) => `<option value="${esc(w.id)}" ${w.id === val ? "selected" : ""}>${esc(w.name)}</option>`).join("")}</select></label>`;
+    const title = { nhap: "Nhập kho", chuyen: "Chuyển kho", dieu_chinh: "Điều chỉnh tồn" }[f.kind];
+    const qLabel = f.kind === "dieu_chinh" ? "Số thực tế trong kho" : "Số lượng";
+    const help = { nhap: "Hàng mới về kho. Mỗi dòng một sản phẩm.", chuyen: "Hàng rời kho đi và vào kho đến cùng ngày. Không chuyển quá số đang tồn.", dieu_chinh: "Đếm lại một vài sản phẩm: nhập số thực tế, web tự tính chênh lệch so với tồn trên web và ghi phiếu điều chỉnh." }[f.kind];
+    return `<form id="mForm" class="editor stkform" novalidate>
+      <div class="cardhead" style="margin-bottom:6px"><div><h3 style="margin:0">${title}</h3><p class="hint keep" style="margin:2px 0 0">${help}</p></div></div>
+      <div class="frow">
+        <label>Ngày<input type="date" id="fDay" value="${esc(f.day)}" max="${addDay(today, 1)}" required></label>
+        ${f.kind === "chuyen" ? whSel("fWh", f.wh, "Từ kho") + whSel("fTo", f.to, "Đến kho") : whSel("fWh", f.wh, "Kho")}
+        <label class="grow">Ghi chú<input type="text" id="fNote" value="${esc(f.note)}" placeholder="VD: lô hàng tàu 25/10, số phiếu…"></label>
+      </div>
+      <div class="mlines">${f.lines.map((l, i) => `<div class="mline">
+        <label>Mã sản phẩm<input type="text" class="mCode" list="dlProd" value="${esc(l.code)}" placeholder="Gõ mã hoặc chọn" aria-label="Mã sản phẩm dòng ${i + 1}" autocomplete="off"></label>
+        <label>${qLabel}<input type="number" class="mQty" step="any" min="0" inputmode="decimal" value="${esc(l.qty)}" aria-label="${qLabel} dòng ${i + 1}"></label>
+        <button type="button" class="icon-btn" data-delline="${i}" aria-label="Bỏ dòng ${i + 1}" title="Bỏ dòng" ${f.lines.length < 2 ? "disabled" : ""}>${Shell.icon("x")}</button>
+        <div class="mhint" id="mh${i}">${lineHint(l)}</div></div>`).join("")}</div>
+      <div class="formrow"><button type="button" class="btn ghost sm" id="mAdd">+ Thêm dòng</button></div>
+      <div class="msg" id="mMsg" role="status">${formMsg}</div>
+      <div class="formrow"><button type="submit" class="btn">Lưu phiếu</button><button type="button" class="btn ghost" id="mCancel">Huỷ</button></div>
+    </form>`;
+  }
+  function vPhieu() {
+    const acts = CAN_WRITE ? `<div class="formrow" style="margin:0">${[["nhap", "+ Nhập kho"], ["chuyen", "Chuyển kho"], ["dieu_chinh", "Điều chỉnh tồn"]].map(([k, l]) => `<button type="button" class="btn ${k === "nhap" ? "" : "ghost "}sm" data-newform="${k}">${l}</button>`).join("")}</div>` : "";
+    // Gộp cặp chuyển kho thành một dòng.
+    const seen = new Set(), rows = [];
+    MOVES.forEach((m) => {
+      if (m.transfer_id) { const k = m.transfer_id + "|" + m.product_key; if (seen.has(k)) return; seen.add(k);
+        const pair = MOVES.filter((x) => x.transfer_id === m.transfer_id && x.product_key === m.product_key);
+        const from = pair.find((x) => x.kind === "chuyen_di"), to = pair.find((x) => x.kind === "chuyen_den");
+        rows.push({ id: "t:" + m.transfer_id, day: m.day, kind: "Chuyển kho", wh: `${esc(whName(from ? from.wh_id : ""))} → ${esc(whName(to ? to.wh_id : ""))}`, code: m.code, name: m.name, qty: Q(Math.abs(m.qty)), who: m.created_by_name, note: m.note, at: m.created_at });
+      } else rows.push({ id: "m:" + m.id, day: m.day, kind: KIND[m.kind], wh: esc(whName(m.wh_id)), code: m.code, name: m.name, qty: (m.qty > 0 ? "+" : "−") + Q(Math.abs(m.qty)), who: m.created_by_name, note: m.note, at: m.created_at });
+    });
+    const delBtn = (r) => CAN_WRITE ? `<button type="button" class="lnk ${arm === r.id ? "danger" : ""}" data-delmove="${esc(r.id)}">${arm === r.id ? "Bấm lần nữa để xoá" + (r.id[0] === "t" ? " (cả hai kho)" : "") : "Xoá"}</button>` : "";
+    return `<div class="card c-purple"><div class="cardhead"><div><h2>Phiếu kho</h2><p class="hint keep">Nhập hàng về, chuyển giữa các kho, điều chỉnh sau khi đếm lại. Phiếu có ngày trước ngày kiểm kho gần nhất của kho đó sẽ không tính vào tồn.</p></div>${acts}</div>
+      ${form ? vForm() : ""}
+      ${rows.length ? `<div class="tw" style="margin-top:14px"><table><thead><tr><th class="l">Ngày</th><th class="l">Loại</th><th class="l">Kho</th><th class="l">Sản phẩm</th><th>Số lượng</th><th class="l">Người tạo · ghi chú</th>${CAN_WRITE ? "<th></th>" : ""}</tr></thead><tbody>
+        ${rows.map((r) => `<tr><td class="l">${fmtD(r.day)}</td><td class="l">${r.kind}</td><td class="l">${r.wh}</td><td class="l"><b>${esc(r.name || r.code)}</b><div class="sub2 mono">${esc(r.code)}</div></td><td>${r.qty}</td><td class="l muted" style="white-space:normal">${esc(r.who || "")}${r.note ? " · " + esc(r.note) : ""}</td>${CAN_WRITE ? `<td class="actions">${delBtn(r)}</td>` : ""}</tr>`).join("")}
+      </tbody></table></div><p class="hint keep" style="margin-top:8px">Hiện 300 phiếu gần nhất.</p>` : (form ? "" : Shell.empty("receipt", "Chưa có phiếu kho", "Phiếu nhập, chuyển kho, điều chỉnh sẽ hiện ở đây.", ""))}</div>`;
+  }
+  async function saveForm() {
+    readForm();
+    const f = form, lines = f.lines.filter((l) => l.code || l.qty !== "");
+    const bad = (t) => { formMsg = `<span class="neg">${t}</span>`; const m = $("#mMsg"); if (m) m.innerHTML = formMsg; };
+    if (!f.day) return bad("Chọn ngày.");
+    if (!f.wh) return bad("Chọn kho.");
+    if (f.kind === "chuyen" && f.wh === f.to) return bad("Kho đi và kho đến phải khác nhau.");
+    if (!lines.length) return bad("Thêm ít nhất một sản phẩm.");
+    for (const [i, l] of lines.entries()) {
+      if (!l.code) return bad(`Dòng ${i + 1}: chưa có mã sản phẩm.`);
+      if (l.qty === "" || !isFinite(+l.qty) || +l.qty < 0 || (f.kind !== "dieu_chinh" && +l.qty === 0)) return bad(`Dòng ${i + 1} (${esc(l.code)}): ${f.kind === "dieu_chinh" ? "nhập số thực tế từ 0 trở lên" : "số lượng phải lớn hơn 0"}.`);
+      if (f.kind === "chuyen") { const cur = onHand(f.wh, pk(l.code)); if (cur != null && +l.qty > cur) return bad(`Dòng ${i + 1} (${esc(l.code)}): ${esc(whName(f.wh))} chỉ còn ${Q(cur)}, không chuyển ${Q(+l.qty)} được. Kiểm tra lại số, hoặc điều chỉnh tồn trước.`); }
+      if (f.kind === "dieu_chinh" && onHand(f.wh, pk(l.code)) == null && !asOf(f.wh)) return bad(`${esc(whName(f.wh))} chưa kiểm kho: nhập số kiểm kho trước rồi mới điều chỉnh.`);
+    }
+    const dup = lines.map((l) => pk(l.code)).find((k, i, a) => a.indexOf(k) !== i);
+    if (dup) return bad(`Mã ${esc(dup)} bị nhập hai lần: gộp vào một dòng.`);
+    const mk = (l, kind, wh, qty) => ({ day: f.day, wh_id: wh, kind, product_key: pk(l.code), code: l.code.trim(), name: l.name || null, qty, note: f.note || null, created_by_name: WHO });
+    let res;
+    if (f.kind === "nhap") res = await sb.from("stock_moves").insert(lines.map((l) => mk(l, "nhap", f.wh, +l.qty)));
+    else if (f.kind === "chuyen") res = await sb.rpc("stock_transfer", { p_day: f.day, p_from: f.wh, p_to: f.to, p_items: lines.map((l) => ({ code: l.code.trim(), name: l.name || null, qty: +l.qty })), p_note: f.note || null, p_by: WHO });
+    else {
+      const rows = lines.map((l) => mk(l, "dieu_chinh", f.wh, +l.qty - (onHand(f.wh, pk(l.code)) || 0))).filter((r) => r.qty !== 0);
+      if (!rows.length) return bad("Số thực tế khớp với tồn trên web, không cần điều chỉnh.");
+      res = await sb.from("stock_moves").insert(rows);
+    }
+    if (res.error) return bad("Chưa lưu được: " + esc(res.error.message));
+    const kindTxt = { nhap: "phiếu nhập", chuyen: "phiếu chuyển kho", dieu_chinh: "phiếu điều chỉnh" }[f.kind];
+    form = null; Shell.toast(`Đã lưu ${kindTxt} (${lines.length} sản phẩm).`); await loadAll();
+  }
+
+  // ===== Kiểm kho =====
+  function countBatches() {
+    const m = new Map();
+    COUNTS.forEach((c) => { const k = c.wh_id + "|" + c.as_of; let a = m.get(k); if (!a) m.set(k, a = { wh: c.wh_id, as_of: c.as_of, n: 0, qty: 0, who: c.created_by_name, at: c.created_at }); a.n++; a.qty += +c.qty; });
+    return [...m.values()].sort((a, b) => b.as_of.localeCompare(a.as_of) || a.wh.localeCompare(b.wh));
+  }
+  function vKiem() {
+    const whs = activeWH(), k = kiem || (kiem = { wh: S.gowh || (S.wh !== "all" ? S.wh : (whs[0] || {}).id) || "", day: today, end: true, rows: null, file: "", msg: "" });
+    const asof = k.end ? addDay(k.day, 1) : k.day;
+    const batches = countBatches(), exists = batches.find((b) => b.wh === k.wh && b.as_of === asof);
+    const prev = k.rows;
+    const preview = prev ? (() => {
+      const ok = prev.items, unknown = ok.filter((x) => !KNOWN.has(pk(x.code)));
+      return `<div class="kprev">
+        <div class="statstrip" style="margin:12px 0"><div><span class="l">Số mã</span><b>${N(ok.length)}</b><span class="muted">${esc(k.file)}</span></div><div><span class="l">Tổng số lượng</span><b>${Q(ok.reduce((t, x) => t + x.qty, 0))}</b><span class="muted">${esc(whName(k.wh))}</span></div>
+          <div><span class="l">Tính từ</span><b>đầu ngày ${fmtD(asof)}</b><span class="muted">${k.end ? "đếm cuối ngày " + fmtD(k.day) : "đếm đầu ngày"}</span></div><div><span class="l">Bỏ qua</span><b>${N(prev.skipped.length)}</b><span class="muted">dòng không có mã</span></div></div>
+        ${prev.blank ? `<div class="msg muted">${N(prev.blank)} dòng để trống số đếm: coi như 0 (không có trong kho).</div>` : ""}
+        ${prev.merged ? `<div class="msg muted">${N(prev.merged)} mã xuất hiện nhiều dòng: đã cộng dồn.</div>` : ""}
+        ${unknown.length ? `<div class="msg warn">${N(unknown.length)} mã chưa thấy trong đơn 45 ngày qua: ${unknown.slice(0, 8).map((x) => "<b>" + esc(x.code) + "</b>").join(", ")}${unknown.length > 8 ? "…" : ""}. Kiểm tra lại có đúng mã sản phẩm trên POS không (vẫn lưu được).</div>` : ""}
+        ${exists ? `<div class="msg warn">${esc(whName(k.wh))} đã có số kiểm kho tính từ ${fmtD(asof)} (${N(exists.n)} mã). Lưu sẽ <b>thay thế</b> số cũ.</div>` : ""}
+        <div class="tw" style="max-height:320px;overflow:auto"><table><thead><tr><th class="l">Mã</th><th class="l">Tên</th><th>Số đếm</th><th>Tồn trên web hiện tại</th></tr></thead><tbody>
+          ${ok.slice(0, 300).map((x) => { const cur = onHand(k.wh, pk(x.code)); return `<tr><td class="l mono">${esc(x.code)}</td><td class="l">${esc(x.name || (KNOWN.get(pk(x.code)) || {}).name || "")}</td><td><b>${Q(x.qty)}</b></td><td>${cur == null ? "–" : Q(cur)}</td></tr>`; }).join("")}
+        </tbody></table></div>${ok.length > 300 ? `<p class="hint keep">Hiện 300 / ${N(ok.length)} dòng.</p>` : ""}
+        <div class="formrow"><button type="button" class="btn" id="kSave">Lưu số kiểm kho</button><button type="button" class="btn ghost" id="kClear">Chọn file khác</button></div></div>`;
+    })() : "";
+    const hist = batches.length ? `<div class="tw"><table><thead><tr><th class="l">Kho</th><th class="l">Tính từ</th><th>Số mã</th><th>Tổng số lượng</th><th class="l">Người nhập</th>${CAN_WRITE ? "<th></th>" : ""}</tr></thead><tbody>
+      ${batches.map((b) => { const cur = asOf(b.wh) === b.as_of, id = "c:" + b.wh + "|" + b.as_of; return `<tr><td class="l"><b>${esc(whName(b.wh))}</b></td><td class="l">đầu ngày ${fmtD(b.as_of)} ${cur ? '<span class="pill p-good">Đang dùng</span>' : '<span class="pill p-mute">Cũ</span>'}</td><td>${N(b.n)}</td><td>${Q(b.qty)}</td><td class="l muted">${esc(b.who || "")}</td>
+        ${CAN_WRITE ? `<td class="actions"><button type="button" class="lnk" data-dlcount="${esc(b.wh + "|" + b.as_of)}">Tải file</button><button type="button" class="lnk ${arm === id ? "danger" : ""}" data-delcount="${esc(b.wh + "|" + b.as_of)}">${arm === id ? "Bấm lần nữa để xoá" : "Xoá"}</button></td>` : ""}</tr>`; }).join("")}
+      </tbody></table></div>` : Shell.empty("inbox", "Chưa có lần kiểm kho nào", "Số kiểm kho đầu tiên là mốc để web bắt đầu tính tồn.", "");
+    const formHtml = CAN_WRITE ? `<div class="editor stkform">
+      <ol class="steps"><li>Chọn kho và ngày đếm. <b>Tải file mẫu</b>: có sẵn mã, tên sản phẩm của kho đó.</li><li>Điền cột <b>Số đếm thực tế</b> (dòng để trống = 0; thêm dòng nếu có mã khác).</li><li>Tải file lên, xem lại rồi bấm <b>Lưu số kiểm kho</b>.</li></ol>
+      <div class="frow">
+        <label>Kho<select id="kWh">${whs.map((w) => `<option value="${esc(w.id)}" ${w.id === k.wh ? "selected" : ""}>${esc(w.name)}</option>`).join("")}</select></label>
+        <label>Ngày đếm<input type="date" id="kDay" value="${esc(k.day)}" max="${today}"></label>
+        <fieldset class="radios"><legend>Số đếm là tồn ${tip("Đếm sau khi đã gửi hết hàng trong ngày: chọn “Cuối ngày”, đơn gửi đi từ hôm sau mới trừ. Đếm buổi sáng trước khi gửi hàng: chọn “Đầu ngày”, đơn gửi trong ngày đó cũng trừ.")}</legend>
+          <label><input type="radio" name="kEnd" value="1" ${k.end ? "checked" : ""}> Cuối ngày</label><label><input type="radio" name="kEnd" value="0" ${k.end ? "" : "checked"}> Đầu ngày</label></fieldset>
+      </div>
+      <div class="formrow"><button type="button" class="btn ghost sm" id="kTpl">Tải file mẫu của ${esc(whName(k.wh))}</button>
+        <label class="btn sm filebtn">Chọn file kiểm kho (.xlsx, .csv)<input type="file" id="kFile" accept=".xlsx,.xls,.csv" hidden></label></div>
+      ${k.msg ? `<div class="msg ${k.msgCls || "neg"}" role="status">${k.msg}</div>` : ""}
+      ${preview}</div>` : '<p class="muted">Tài khoản này chỉ xem. Kho, kế toán, quản lý nhập số kiểm kho.</p>';
+    return `<div class="card c-amber"><div class="cardhead"><div><h2>Nhập số kiểm kho</h2><p class="hint keep">Số đếm thực tế là mốc mới của kho: tồn được tính lại từ thời điểm này (số cũ, phiếu cũ trước mốc không còn tính).</p></div></div>${formHtml}</div>
+      <div class="card"><div class="cardhead"><div><h2>Các lần kiểm kho</h2></div></div>${hist}</div>`;
+  }
+  function readKiem() { if (!kiem) return; const w = $("#kWh"), d = $("#kDay"), e = document.querySelector('input[name="kEnd"]:checked'); if (w) kiem.wh = w.value; if (d) kiem.day = d.value || today; if (e) kiem.end = e.value === "1"; }
+  const findCol = (keys, tests) => { for (const t of tests) { const k = keys.find((x) => t(x.toLowerCase())); if (k) return k; } return null; };
+  function parseCount(file) {
+    readKiem();
+    if (typeof XLSX === "undefined") { kiem.msg = "Không tải được thư viện đọc Excel. Thử lưu file thành .csv rồi tải lại."; paint(); return; }
+    const rd = new FileReader();
+    rd.onload = (e) => {
+      try {
+        const isCsv = /\.csv$/i.test(file.name);
+        const wb = isCsv ? XLSX.read(new TextDecoder("utf-8").decode(e.target.result).replace(/^﻿/, ""), { type: "string" }) : XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+        const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+        const keys = data.length ? Object.keys(data[0]) : [];
+        const kc = findCol(keys, [(x) => x.includes("mã"), (x) => /code|sku/.test(x)]);
+        const kn = findCol(keys, [(x) => x.includes("tên"), (x) => x.includes("name")]);
+        const kq = findCol(keys, [(x) => x.includes("đếm") || x.includes("thực tế"), (x) => x.includes("số lượng") || /^sl$|qty|quantity/.test(x), (x) => x.includes("tồn") && !x.includes("web")]);
+        if (!kc || !kq) { kiem.rows = null; kiem.msg = `File cần có cột <b>Mã sản phẩm</b> và cột <b>Số đếm thực tế</b> (hoặc Số lượng). Cột đang có: ${keys.map(esc).join(", ") || "không có"}. Dùng “Tải file mẫu” cho đúng mẫu.`; paint(); return; }
+        const m = new Map(), skipped = []; let blank = 0, merged = 0, badQ = [];
+        data.forEach((r, i) => {
+          const code = String(r[kc]).trim(); if (!code) { if (String(r[kq]).trim()) skipped.push(i + 2); return; }
+          const raw = String(r[kq]).trim().replace(/\s/g, "");
+          if (raw === "") { blank++; return; }
+          const qn = +raw.replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
+          if (!isFinite(qn) || qn < 0) { badQ.push(`dòng ${i + 2} (${code}): “${r[kq]}”`); return; }
+          const key = pk(code), o = m.get(key);
+          if (o) { o.qty += qn; merged++; } else m.set(key, { code, name: kn ? String(r[kn]).trim() : "", qty: qn });
+        });
+        if (badQ.length) { kiem.rows = null; kiem.msg = `Số đếm không hợp lệ ở ${badQ.length} dòng: ${badQ.slice(0, 5).map(esc).join("; ")}${badQ.length > 5 ? "…" : ""}. Sửa trong file rồi tải lại.`; paint(); return; }
+        if (!m.size) { kiem.rows = null; kiem.msg = "File không có dòng nào có số đếm."; paint(); return; }
+        kiem.rows = { items: [...m.values()], skipped, blank, merged }; kiem.file = file.name; kiem.msg = ""; paint();
+      } catch (x) { kiem.rows = null; kiem.msg = "Không đọc được file: " + esc(x.message) + ". Kiểm tra file là .xlsx hoặc .csv."; paint(); }
+    };
+    rd.readAsArrayBuffer(file);
+  }
+  function downloadTpl(wh) {
+    if (typeof XLSX === "undefined") { Shell.toast("Không tải được thư viện Excel. Tải lại trang rồi thử lại.", { err: 1 }); return; }
+    const mine = R.filter((r) => r.wh === wh).sort((a, b) => b.s30 - a.s30);
+    const list = mine.length ? mine.map((r) => ({ "Mã sản phẩm": r.code, "Tên sản phẩm": r.name || "", "Tồn trên web": r.on == null ? "" : r.on, "Số đếm thực tế": "" }))
+      : [...KNOWN.values()].map((p) => ({ "Mã sản phẩm": p.code, "Tên sản phẩm": p.name, "Tồn trên web": "", "Số đếm thực tế": "" }));
+    if (!list.length) list.push({ "Mã sản phẩm": "", "Tên sản phẩm": "", "Tồn trên web": "", "Số đếm thực tế": "" });
+    const ws = XLSX.utils.json_to_sheet(list); ws["!cols"] = [{ wch: 18 }, { wch: 40 }, { wch: 14 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Kiem kho");
+    XLSX.writeFile(wb, `kiem-kho-${wh}-${today}.xlsx`);
+  }
+  async function saveCount() {
+    readKiem(); const k = kiem, asof = k.end ? addDay(k.day, 1) : k.day;
+    const btn = $("#kSave"); if (btn) { btn.disabled = true; btn.textContent = "Đang lưu…"; }
+    const { data, error } = await sb.rpc("stock_count_save", { p_wh: k.wh, p_as_of: asof, p_rows: k.rows.items, p_by: WHO });
+    if (error) { k.msg = "Chưa lưu được: " + esc(error.message); paint(); return; }
+    kiem = { wh: k.wh, day: k.day, end: k.end, rows: null, file: "", msg: `Đã lưu ${N(data)} mã cho ${esc(whName(k.wh))}. Tồn tính từ đầu ngày ${fmtD(asof)}.`, msgCls: "pos" };
+    Shell.toast("Đã lưu số kiểm kho."); await loadAll();
+  }
+
+  // ===== Cấu hình kho =====
+  function vKho() {
+    const used = (id) => POSWH.filter((p) => p.wh_id === id).reduce((t, p) => t + +p.orders, 0);
+    const e = cfgEdit;
+    const formHtml = e ? `<form id="cfgForm" class="editor stkform" novalidate><h3 style="margin:0 0 8px">${e.id ? "Sửa kho" : "Thêm kho"}</h3>
+      <div class="frow"><label>Tên kho<input type="text" id="cName" value="${esc(e.name || "")}" required placeholder="VD: Kho Lazada"></label>
+        <label class="grow">Tên kho trên POS ${tip("Đơn xuất từ các kho này trên POS sẽ trừ vào kho này. Nhiều tên thì cách nhau dấu phẩy. Có thể gán nhanh ở bảng “Kho trên POS” bên dưới.")}<input type="text" id="cPos" value="${esc((e.pos_names || []).join(", "))}" placeholder="VD: Kho Hà Nội, Kho HN 2"></label></div>
+      <div class="frow"><label class="grow">Ghi chú<input type="text" id="cNote" value="${esc(e.note || "")}"></label>
+        ${e.id ? `<label class="chk"><input type="checkbox" id="cActive" ${e.active !== false ? "checked" : ""}> Đang dùng</label>` : ""}</div>
+      <div class="msg" role="status">${cfgMsg}</div>
+      <div class="formrow"><button type="submit" class="btn">Lưu</button><button type="button" class="btn ghost" id="cCancel">Huỷ</button></div></form>` : "";
+    const opt = (sel) => `<option value="">Chưa gán</option>` + WH.filter((w) => w.active).map((w) => `<option value="${esc(w.id)}" ${w.id === sel ? "selected" : ""}>${esc(w.name)}</option>`).join("");
+    return `<div class="card c-orange"><div class="cardhead"><div><h2>Danh sách kho</h2><p class="hint keep">Thêm kho mới khi phát sinh. Kho ngừng dùng không bị xoá số cũ, chỉ ẩn khỏi bảng tồn.</p></div>${e ? "" : '<button type="button" class="btn sm" id="cAdd">+ Thêm kho</button>'}</div>
+      ${formHtml}
+      <div class="tw" style="margin-top:12px"><table><thead><tr><th class="l">Kho</th><th class="l">Tên kho trên POS</th><th>Đơn 60 ngày</th><th class="l">Kiểm kho gần nhất</th><th class="l">Trạng thái</th><th></th></tr></thead><tbody>
+        ${WH.map((w) => `<tr><td class="l"><b>${esc(w.name)}</b>${w.note ? `<div class="sub2">${esc(w.note)}</div>` : ""}</td><td class="l">${(w.pos_names || []).length ? w.pos_names.map((x) => `<span class="chip">${esc(x)}</span>`).join(" ") : '<span class="pill p-warn">Chưa gán</span>'}</td>
+          <td>${N(used(w.id))}</td><td class="l">${asOf(w.id) ? "đầu ngày " + fmtD(asOf(w.id)) : '<span class="muted">chưa có</span>'}</td><td class="l">${w.active ? '<span class="pill p-good">Đang dùng</span>' : '<span class="pill p-mute">Ngừng dùng</span>'}</td>
+          <td class="actions"><button type="button" class="lnk" data-editwh="${esc(w.id)}">Sửa</button></td></tr>`).join("")}
+      </tbody></table></div></div>
+      <div class="card"><div class="cardhead"><div><h2>Kho trên POS</h2><p class="hint keep">Kho mà đơn trên POS ghi nhận trong 60 ngày qua. Gán mỗi kho POS vào một kho ở đây để đơn trừ đúng tồn.</p></div></div>
+        ${POSWH.length ? `<div class="tw"><table><thead><tr><th class="l">Kho trên POS</th><th>Số đơn 60 ngày</th><th class="l">Trừ vào kho</th></tr></thead><tbody>
+          ${POSWH.map((p) => `<tr><td class="l"><b>${esc(p.pos_name)}</b></td><td>${N(p.orders)}</td><td class="l"><select data-mappos="${esc(p.pos_name)}" aria-label="Gán ${esc(p.pos_name)} vào kho">${opt(p.wh_id)}</select></td></tr>`).join("")}
+        </tbody></table></div>` : Shell.empty("plug", "Chưa thấy kho nào trong đơn POS", "Đồng bộ đơn từ POS rồi tải lại trang.", "")}</div>`;
+  }
+  const slug = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").toLowerCase().replace(/^kho\s+/, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "kho";
+  async function saveCfg() {
+    const name = $("#cName").value.trim(), pos = $("#cPos").value.split(",").map((x) => x.trim()).filter(Boolean), note = $("#cNote").value.trim();
+    const bad = (t) => { cfgMsg = `<span class="neg">${t}</span>`; document.querySelector("#cfgForm .msg").innerHTML = cfgMsg; };
+    if (!name) return bad("Nhập tên kho.");
+    if (WH.some((w) => w.id !== cfgEdit.id && w.name.toLowerCase() === name.toLowerCase())) return bad("Đã có kho tên này.");
+    const clash = pos.find((x) => WH.some((w) => w.id !== cfgEdit.id && (w.pos_names || []).some((y) => y.toLowerCase() === x.toLowerCase())));
+    if (clash) return bad(`“${esc(clash)}” đang gán cho kho khác. Bỏ ở kho kia trước, hoặc gán ở bảng Kho trên POS.`);
+    let res;
+    if (cfgEdit.id) res = await sb.from("warehouses").update({ name, pos_names: pos, note: note || null, active: $("#cActive").checked }).eq("id", cfgEdit.id).select("id");
+    else { let id = slug(name), i = 2; while (WH.some((w) => w.id === id)) id = slug(name) + "_" + i++; res = await sb.from("warehouses").insert({ id, name, pos_names: pos, note: note || null, sort: WH.length + 1 }).select("id"); }
+    if (res.error) return bad("Chưa lưu được: " + esc(res.error.message));
+    if (!res.data || !res.data.length) return bad("Tài khoản này không có quyền sửa kho.");
+    cfgEdit = null; cfgMsg = ""; Shell.toast("Đã lưu " + name + "."); await loadAll();
+  }
+  async function mapPos(posName, whId) {
+    // Bỏ tên này khỏi kho cũ, thêm vào kho mới.
+    for (const w of WH) {
+      const has = (w.pos_names || []).some((x) => x.toLowerCase() === posName.toLowerCase());
+      if (w.id === whId && !has) { const r = await sb.from("warehouses").update({ pos_names: [...(w.pos_names || []), posName] }).eq("id", w.id); if (r.error) return Shell.toast("Chưa gán được: " + r.error.message, { err: 1 }); }
+      if (w.id !== whId && has) { const r = await sb.from("warehouses").update({ pos_names: w.pos_names.filter((x) => x.toLowerCase() !== posName.toLowerCase()) }).eq("id", w.id); if (r.error) return Shell.toast("Chưa gán được: " + r.error.message, { err: 1 }); }
+    }
+    Shell.toast(whId ? `Đã gán “${posName}” vào ${whName(whId)}.` : `Đã bỏ gán “${posName}”.`); await loadAll();
+  }
+
+  // ---------- sự kiện ----------
+  function setTab(t) { tab = t; S.detail = null; arm = null; try { history.replaceState(null, "", "#" + t); } catch (e) {} paint(); window.scrollTo(0, 0); }
+  document.addEventListener("click", async (e) => {
+    const t = e.target.closest("[data-tab]"); if (t) return setTab(t.dataset.tab);
+    if (e.target.closest("#reload,#reload2")) return loadAll();
+    const w = e.target.closest("[data-wh]"); if (w) { S.wh = w.dataset.wh; store.set("stk_wh", S.wh); S.page = 0; return paint(); }
+    const st = e.target.closest("[data-st]"); if (st && !e.target.closest(".tip")) { S.st = S.st === st.dataset.st && st.dataset.st !== "all" ? "all" : st.dataset.st; S.page = 0; return paint(); }
+    if (e.target.closest("[data-sortcover]")) { S.sortCover = !S.sortCover; return paint(); }
+    const pg = e.target.closest("[data-pgto]"); if (pg) { S.page = +pg.dataset.pgto; paint(); const tb = document.querySelector(".stktab"); if (tb) tb.scrollIntoView({ block: "nearest" }); return; }
+    const row = e.target.closest("tr[data-pk]"); if (row && !e.target.closest(".tip")) { S.detail = row.dataset.pk; paint(); window.scrollTo(0, 0); return; }
+    if (e.target.closest("[data-back]")) { S.detail = null; return paint(); }
+    const go = e.target.closest("[data-go]"); if (go) { if (go.dataset.gowh) { S.gowh = go.dataset.gowh; kiem = null; } return setTab(go.dataset.go); }
+    const nf2 = e.target.closest("[data-newform]"); if (nf2) { newForm(nf2.dataset.newform, nf2.dataset.code); if (tab !== "phieu") { tab = "phieu"; S.detail = null; try { history.replaceState(null, "", "#phieu"); } catch (x) {} } paint(); const c = document.querySelector(".mCode"); if (c) (c.value ? document.querySelector(".mQty") : c).focus(); return; }
+    if (e.target.closest("#mAdd")) { readForm(); form.lines.push({ code: "", name: "", qty: "" }); paint(); const c = document.querySelectorAll(".mCode"); c[c.length - 1].focus(); return; }
+    const dl = e.target.closest("[data-delline]"); if (dl) { readForm(); form.lines.splice(+dl.dataset.delline, 1); return paint(); }
+    if (e.target.closest("#mCancel")) { form = null; return paint(); }
+    const dm = e.target.closest("[data-delmove]"); if (dm) {
+      const id = dm.dataset.delmove; if (arm !== id) { arm = id; return paint(); }
+      arm = null; const [kind, v] = [id.slice(0, 1), id.slice(2)];
+      const r = kind === "t" ? await sb.from("stock_moves").delete().eq("transfer_id", v).select("id") : await sb.from("stock_moves").delete().eq("id", +v).select("id");
+      if (r.error || !r.data.length) Shell.toast("Chưa xoá được: " + (r.error ? r.error.message : "không có quyền"), { err: 1 }); else Shell.toast("Đã xoá phiếu.");
+      return loadAll();
+    }
+    if (e.target.closest("#kTpl")) { readKiem(); await loadKnown(); return downloadTpl(kiem.wh); }
+    if (e.target.closest("#kSave")) return saveCount();
+    if (e.target.closest("#kClear")) { kiem.rows = null; kiem.file = ""; paint(); const f = $("#kFile"); if (f) f.click(); return; }
+    const dc = e.target.closest("[data-dlcount]"); if (dc) {
+      const [wh, as] = dc.dataset.dlcount.split("|");
+      const { data, error } = await fetchAll(() => sb.from("stock_counts").select("code,name,qty").eq("wh_id", wh).eq("as_of", as).order("code"));
+      if (error) return Shell.toast("Chưa tải được: " + error.message, { err: 1 });
+      const ws = XLSX.utils.json_to_sheet(data.map((x) => ({ "Mã sản phẩm": x.code, "Tên sản phẩm": x.name || "", "Số đếm thực tế": +x.qty })));
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Kiem kho"); XLSX.writeFile(wb, `kiem-kho-${wh}-${as}.xlsx`); return;
+    }
+    const dcn = e.target.closest("[data-delcount]"); if (dcn) {
+      const id = "c:" + dcn.dataset.delcount; if (arm !== id) { arm = id; return paint(); }
+      arm = null; const [wh, as] = dcn.dataset.delcount.split("|");
+      const r = await sb.from("stock_counts").delete().eq("wh_id", wh).eq("as_of", as).select("id");
+      if (r.error || !r.data.length) Shell.toast("Chưa xoá được: " + (r.error ? r.error.message : "không có quyền"), { err: 1 }); else Shell.toast(`Đã xoá lần kiểm kho ${whName(wh)} ${fmtD(as)}. Tồn tính lại theo lần kiểm kho trước đó (nếu có).`);
+      return loadAll();
+    }
+    if (e.target.closest("#cAdd")) { cfgEdit = { name: "", pos_names: [], note: "" }; cfgMsg = ""; paint(); $("#cName").focus(); return; }
+    const ew = e.target.closest("[data-editwh]"); if (ew) { cfgEdit = Object.assign({}, WH.find((x) => x.id === ew.dataset.editwh)); cfgMsg = ""; paint(); $("#cName").focus(); return; }
+    if (e.target.closest("#cCancel")) { cfgEdit = null; return paint(); }
+    if (arm && !e.target.closest("[data-delmove],[data-delcount]")) { arm = null; paint(); }
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches && e.target.matches("tr[data-pk]")) e.target.click(); });
+  document.addEventListener("input", (e) => {
+    if (e.target.id === "stq") { S.q = e.target.value; S.page = 0; paint(); return; }
+    if (form && e.target.closest(".mline")) { readForm(); document.querySelectorAll(".mline").forEach((r, i) => { const h = document.getElementById("mh" + i); if (h) h.innerHTML = lineHint(form.lines[i]); }); }
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.id === "stper") { S.per = +e.target.value; S.page = 0; store.set("per_stk", String(S.per)); return paint(); }
+    if (form && (e.target.id === "fWh" || e.target.id === "fTo")) { readForm(); return paint(); }
+    if (e.target.id === "kWh" || e.target.id === "kDay" || e.target.name === "kEnd") { readKiem(); if (e.target.id === "kWh") kiem.rows = null; return paint(); }
+    if (e.target.id === "kFile" && e.target.files[0]) { loadKnown().then(() => parseCount(e.target.files[0])); return; }
+    const mp = e.target.closest("[data-mappos]"); if (mp) return mapPos(mp.dataset.mappos, mp.value);
+  });
+  document.addEventListener("submit", (e) => { e.preventDefault(); if (e.target.id === "mForm") saveForm(); if (e.target.id === "cfgForm") saveCfg(); });
+  window.addEventListener("hashchange", () => { const t = location.hash.slice(1).split("?")[0]; if (TABS.some(([k]) => k === t) && t !== tab) setTab(t); });
+
+  paint();
+  await loadAll();
+  if (tab === "kiem" || tab === "phieu") loadKnown();
+})();
+</script>
+</body>
+</html>

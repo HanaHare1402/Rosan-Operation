@@ -37,12 +37,13 @@
     x: '<path d="M6 6l12 12M18 6 6 18"/>',
     target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8"/>',
     pen: '<path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-4-4L4 16z"/><path d="m14 6 4 4"/>',
+    warehouse: '<path d="M3 9.5 12 4l9 5.5V20H3z"/><path d="M7 20v-7h10v7"/><path d="M7 16.5h10"/>',
     tag: '<path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9z"/><circle cx="8" cy="8" r="1.4"/>',
   };
   const icon = (n, extra) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra || ""}>${P[n] || ""}</svg>`;
 
   const REPORT = [
-    ["tongquan", "Tổng quan", "home"], ["team", "Team", "users"], ["nhansu", "Nhân sự", "user"], ["sanpham", "Sản phẩm", "box"],
+    ["tongquan", "Tổng quan", "home"], ["team", "Team", "users"], ["nhansu", "Nhân sự", "user"], ["sanpham", "Sản phẩm", "box"], ["tonkho", "Tồn kho", "warehouse"],
     ["donhang", "Đơn hàng", "receipt"], ["kqkd", "Kết quả kinh doanh", "chart"], ["kpi", "KPI", "target"], ["chiphi", "Chi phí ads", "pen"], ["canhbao", "Cảnh báo", "bell", "alertCnt"], ["caidat", "Cài đặt", "settings"],
   ];
   const ADMIN = [
@@ -59,6 +60,8 @@
     const views = (window.Auth && Auth.VIEWS[me.role]) || [];
     const adminTabs = ADMIN.filter(([k]) => (Auth.ADMIN_TABS[k] || []).includes(me.role));
     const link = (k, label, ic, cnt, isAdmin) => {
+      // Tồn kho là trang riêng (tonkho.html).
+      if (k === "tonkho") return `<a href="tonkho.html" title="${esc(label)}"${page === "tonkho" ? ' class="on" aria-current="page"' : ""}>${icon(ic)}<span class="lbl">${esc(label)}</span></a>`;
       const here = isAdmin ? page === "admin" : page === "index";
       const href = (here ? "" : isAdmin ? "admin.html" : "index.html") + "#" + k;
       const data = here ? (isAdmin ? ` data-tab="${k}"` : ` data-v="${k}"`) : "";
