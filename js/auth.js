@@ -59,8 +59,9 @@
     const { data, error } = await sb.from("profiles").select("id, email, full_name, role, scope, project_ids, team_id, staff_id").eq("id", session.user.id).maybeSingle();
     if (error) throw error;
     // must_change_pw: mật khẩu do quản trị viên cấp, chưa đổi sang mật khẩu riêng.
-    const must = !!(session.user.user_metadata && session.user.user_metadata.must_change_pw);
-    return Object.assign(data || { id: session.user.id, email: session.user.email, full_name: "", role: null, scope: "self", project_ids: [], team_id: null, staff_id: null }, { must_change_pw: must, login_email: session.user.email });
+    const md = session.user.user_metadata || {}, must = !!md.must_change_pw;
+    // policy_version: phiên bản Quy định sử dụng & bảo vệ dữ liệu người này đã đồng ý.
+    return Object.assign(data || { id: session.user.id, email: session.user.email, full_name: "", role: null, scope: "self", project_ids: [], team_id: null, staff_id: null }, { must_change_pw: must, login_email: session.user.email, policy_version: md.policy_version || null });
   }
 
   // Trang cần đăng nhập: chỉ chuyển về login.html khi thật sự chưa đăng nhập.
