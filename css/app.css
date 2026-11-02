@@ -1157,3 +1157,4 @@ body.policy-page{background:var(--bg)}
 .policy-body td:first-child{font-weight:600;width:30%}
 .policy-foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;font-size:13px}
 @media (max-width:600px){.policy-body{padding:4px 16px 18px}.policy-head h1{font-size:21px}.policy-body td:first-child{width:auto}}
+.authfoot a{display:inline-block;margin-top:4px}
