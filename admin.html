@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261029c">
+<link rel="stylesheet" href="css/app.css?v=20261102a">
 </head>
 <body>
 <div class="app">
@@ -176,8 +176,8 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261029c"></script>
-<script src="js/shell.js?v=20261029c"></script>
+<script src="js/auth.js?v=20261102a"></script>
+<script src="js/shell.js?v=20261102a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (async function () {
@@ -193,7 +193,7 @@
   document.documentElement.classList.remove("auth-pending");
   Shell.render(me, "admin");
   const isAdmin = me.role === "admin", isQL = me.role === "quan_ly", isKT = me.role === "ke_toan";
-  if (!isAdmin && !isQL && !isKT) { $("#denied").hidden = false; $("#denied").innerHTML = Shell.empty("lock", "Không có quyền", "Trang Quản trị dành cho admin, quản lý và kế toán.", '<a class="btn ghost sm" href="index.html">Về bảng điều hành</a>'); return; }
+  if (!isAdmin && !isQL && !isKT) { $("#denied").hidden = false; $("#denied").innerHTML = Shell.empty("lock", "Không có quyền", "Trang Quản trị dành cho admin, quản lý và kế toán.", '<a class="btn ghost sm" href="./">Về bảng điều hành</a>'); return; }
   document.querySelectorAll("[data-admin]").forEach((e) => (e.hidden = !isAdmin));
 
   // ---------- danh mục dùng chung ----------

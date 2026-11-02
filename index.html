@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261029c">
+<link rel="stylesheet" href="css/app.css?v=20261102a">
 </head>
 <body>
 
@@ -31,19 +31,19 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261029c"></script>
-<script src="js/settings-db.js?v=20261029c"></script>
-<script src="js/shell.js?v=20261029c"></script>
+<script src="js/auth.js?v=20261102a"></script>
+<script src="js/settings-db.js?v=20261102a"></script>
+<script src="js/shell.js?v=20261102a"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
 const ME=await Auth.requireAuth();
-if(!ME.role){location.replace('login.html');return}
+if(!ME.role){location.replace('login');return}
 // Tồn kho là trang riêng (tonkho.html), không phải một màn của trang này.
 const ALLOWED=(Auth.VIEWS[ME.role]||[]).filter(v=>v!=='tonkho');
 const SEE_STOCK=(Auth.VIEWS[ME.role]||[]).includes('tonkho');
 // Vai trò kho: mở thẳng trang Tồn kho khi vào bảng điều hành không kèm màn cụ thể.
-if(ME.role==='kho'&&!(location.hash||'').slice(1)){location.replace('tonkho.html');return}
+if(ME.role==='kho'&&!(location.hash||'').slice(1)){location.replace('tonkho');return}
 const sbc=Auth.sb;
 const $=s=>document.querySelector(s);
 Shell.render(ME,'index');
@@ -122,11 +122,8 @@ F.ch=F.ch==='all'?'all':(cleanList(F.ch,x=>x==='__none'||byId(CAT.channels,x))||
 F.mkt=cleanList(F.mkt,x=>byId(CAT.markets,x));
 const fList=k=>!F[k]||F[k]==='all'?[]:F[k].split(',');
 const chLabel=id=>id==='__none'?'Chưa xác định kênh':chName(id);
-function hashFor(v){
-  const q=new URLSearchParams();if(F.proj)q.set('p',F.proj);if(F.mkt)q.set('m',F.mkt);if(F.ch!=='all')q.set('c',F.ch);
-  if(F.range!=='month')q.set('r',F.range);if(F.range==='custom'){q.set('f',F.from);q.set('t',F.to)}if(!F.cmp)q.set('cmp','0');
-  const s=q.toString();return '#'+v+(s?'?'+s:'');
-}
+// Đường link chỉ ghi tên màn (#tongquan) cho gọn; bộ lọc được nhớ trên máy. Link cũ có bộ lọc vẫn mở đúng rồi tự gọn lại.
+function hashFor(v){return '#'+v}
 function scopeLabel(){
   if(ME.scope==='team')return 'Team '+esc(teamName(ME.team_id).replace(/^Team /,''));
   if(ME.scope==='self')return 'Số của '+esc(staffName(ME.staff_id));
@@ -384,7 +381,7 @@ function empty(){
   const why=ME.scope==='self'&&!ME.staff_id?'Tài khoản này chưa được liên kết với nhân sự nào. Nhờ admin liên kết ở Quản trị → Tài khoản.'
     :ME.scope==='all'?'Thử chọn khoảng ngày dài hơn, hoặc kiểm tra Quản trị → Kết nối POS đã có shop, API key và đã đồng bộ chưa.'
     :'Thử chọn khoảng ngày dài hơn. Nếu vẫn trống, có thể marketer chưa được khai báo vào team (Quản trị → Chưa khai báo).';
-  const acts=(F.range==='today'||F.range==='yesterday'?'<button class="btn ghost sm" data-range="month">Xem cả tháng này</button>':'')+(ME.role==='admin'?'<a class="btn ghost sm" href="admin.html#pos">Kết nối POS</a><a class="btn ghost sm" href="admin.html#chuakhaibao">Chưa khai báo</a>':'');
+  const acts=(F.range==='today'||F.range==='yesterday'?'<button class="btn ghost sm" data-range="month">Xem cả tháng này</button>':'')+(ME.role==='admin'?'<a class="btn ghost sm" href="admin#pos">Kết nối POS</a><a class="btn ghost sm" href="admin#chuakhaibao">Chưa khai báo</a>':'');
   return `<div class="card">${Shell.empty('inbox','Chưa có đơn trong khoảng này',why,acts)}</div>`;
 }
 // Khung chờ khi đang tải lần đầu.
@@ -427,7 +424,7 @@ let curTeam=store.get('team','');
 V.team=()=>{
   const ids=[...new Set(ROWS.map(r=>r.team).filter(Boolean))];
   const inScope=CAT.teams.filter(t=>t.active!==false&&(ids.includes(t.id)||(F.proj?t.project_id===F.proj:ME.scope==='all'||(ME.scope==='project'&&(ME.project_ids||[]).includes(t.project_id))||(ME.scope==='team'&&t.id===ME.team_id))));
-  if(!inScope.length)return ROWS.length?`<div class="card">${Shell.empty('users','Chưa có team trong phạm vi này','Admin hoặc quản lý thêm team ở Quản trị → Danh mục.',ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin.html#danhmuc">Mở Danh mục</a>':'')}</div>`:empty();
+  if(!inScope.length)return ROWS.length?`<div class="card">${Shell.empty('users','Chưa có team trong phạm vi này','Admin hoặc quản lý thêm team ở Quản trị → Danh mục.',ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin#danhmuc">Mở Danh mục</a>':'')}</div>`:empty();
   if(!inScope.some(t=>t.id===curTeam))curTeam=(inScope.find(t=>ids.includes(t.id))||inScope[0]).id;
   const t=byId(CAT.teams,curTeam),list=ROWS.filter(r=>r.team===curTeam),plist=PREV.filter(r=>r.team===curTeam);
   const sel=inScope.length>1?`<div class="tools"><span class="flabel">Team</span><div class="chips">${inScope.map(x=>`<button class="chip ${x.id===curTeam?'on':''}" data-team="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div></div>`:'';
@@ -448,7 +445,7 @@ let curStaff=store.get('staff','');
 V.nhansu=()=>{
   if(!ROWS.length)return empty();
   const ids=[...new Set(ROWS.map(r=>r.staff).filter(Boolean))];
-  if(!ids.length)return `<div class="card">${Shell.empty('user','Chưa gán được đơn cho nhân sự nào','Các đơn trong khoảng này có marketer chưa được khai báo. Khai báo ở Quản trị → Chưa khai báo.',ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin.html#chuakhaibao">Khai báo marketer</a>':'')}</div>`;
+  if(!ids.length)return `<div class="card">${Shell.empty('user','Chưa gán được đơn cho nhân sự nào','Các đơn trong khoảng này có marketer chưa được khai báo. Khai báo ở Quản trị → Chưa khai báo.',ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin#chuakhaibao">Khai báo marketer</a>':'')}</div>`;
   if(!ids.includes(curStaff))curStaff=ME.staff_id&&ids.includes(ME.staff_id)?ME.staff_id:ids[0];
   const list=ROWS.filter(r=>r.staff===curStaff),plist=PREV.filter(r=>r.staff===curStaff),s=byId(CAT.staff,curStaff)||{};
   const groups=new Map();ids.forEach(id=>{const st=byId(CAT.staff,id)||{};const k=st.team_id||'';if(!groups.has(k))groups.set(k,[]);groups.get(k).push(id)});
@@ -694,7 +691,7 @@ function kCards(a,p){
 function kWarn(a){
   const out=[],[f,t]=rangeDates();
   if(a.sent>0&&!a.usd)out.push(['warn','Chưa có chi phí quảng cáo','Kỳ này chưa ai nhập chi phí ads, nên lợi nhuận gộp đang chưa trừ quảng cáo.',ALLOWED.includes('chiphi')?'<button class="btn ghost sm" data-go="chiphi:">Nhập chi phí ads</button>':'']);
-  if(a.miss&&SEE_COST)out.push(['warn','Đơn chưa có giá vốn',`${N(a.miss)} đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0.`,Auth.ADMIN_TABS.giavon.includes(ME.role)?'<a class="btn ghost sm" href="admin.html#giavon">Mở Giá vốn</a>':'']);
+  if(a.miss&&SEE_COST)out.push(['warn','Đơn chưa có giá vốn',`${N(a.miss)} đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0.`,Auth.ADMIN_TABS.giavon.includes(ME.role)?'<a class="btn ghost sm" href="admin#giavon">Mở Giá vốn</a>':'']);
   if(monthStart(f).getTime()!==monthStart(addD(t,-1)).getTime())out.push(['info','Kỳ dài hơn 1 tháng',`Phí và tỷ giá dùng thông số tháng ${fmtM(K.month)}. Xem từng tháng để khớp bảng lương.`,'']);
   return out.length?`<div class="warnrow">${out.map(x=>`<span class="pill ${x[0]==='info'?'p-info':'p-warn'}">${esc(x[1])} ${tipT(x[2])}</span>${x[3]||''}`).join('')}</div>`:'';
 }
@@ -794,7 +791,7 @@ V.kpi=()=>{
   const people=kSum(K.rows,r=>r.who).map(a=>kCalc(a,s)),prevMap=new Map(kSum(K.prev,r=>r.who).map(a=>[a.k,kCalc(a,s)]));
   if(!people.length){
     const canGrp=['admin','quan_ly','ke_toan'].includes(ME.role);
-    return head+`<div class="card">${kMode==='rd'?Shell.empty('tag','Chưa có số R&D trong kỳ này','Gán người R&D phụ trách cho từng sản phẩm ở Quản trị → Nhóm sản phẩm, rồi quay lại đây.',canGrp?'<a class="btn ghost sm" href="admin.html#nhomsp">Gán R&D cho sản phẩm</a>':'')
+    return head+`<div class="card">${kMode==='rd'?Shell.empty('tag','Chưa có số R&D trong kỳ này','Gán người R&D phụ trách cho từng sản phẩm ở Quản trị → Nhóm sản phẩm, rồi quay lại đây.',canGrp?'<a class="btn ghost sm" href="admin#nhomsp">Gán R&D cho sản phẩm</a>':'')
       :Shell.empty('inbox','Chưa có đơn trong khoảng này','Thử chọn khoảng ngày dài hơn.',F.range!=='month'?'<button class="btn ghost sm" data-range="month">Xem cả tháng này</button>':'')}</div>`;
   }
   const solo=people.length===1&&ME.scope==='self';
@@ -1056,7 +1053,7 @@ V.kqkd=()=>{
   const secOf=lab=>{const m=lab.match(/^(I|II|III|IV|V)\./);return m?{I:'s1',II:'s2',III:'s3',IV:'s4',V:'s5'}[m[1]]:''};
   const body=L.map(([lab,f,cls,kind,co])=>`<tr class="${cls==='sec'?'sec '+secOf(lab):cls==='h'?'h':''}${kind==='res'?' res':''}"><td class="${cls==='ind'?'ind':''}">${lab}</td>${cols.map((c,i)=>`<td>${i&&byProd&&co?'<span class="muted">–</span>':val(f(c[1],c),kind)}</td>${i===0?`<td>${pctDT(f(T,c),kind)}</td>`:''}`).join('')}</tr>`).join('');
   const oldSql=KP.old?`<span class="pill p-bad">Chưa tách cước theo trạng thái đơn ${tipT('Dòng 1a, 1b chưa tách được cước theo đơn thành công / hoàn: cần chạy file SQL 20261027000000_pl_detail.sql trên Supabase.')}</span>`:'';
-  const missing=T.miss?`<span class="pill p-warn">${N(T.miss)} đơn chưa có giá vốn ${tipT('Đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0. Sửa ở Quản trị → Giá vốn.')}</span>${Auth.ADMIN_TABS.giavon.includes(ME.role)?'<a class="btn ghost sm" href="admin.html#giavon">Mở Giá vốn</a>':''}`:'';
+  const missing=T.miss?`<span class="pill p-warn">${N(T.miss)} đơn chưa có giá vốn ${tipT('Đơn đã giao có sản phẩm chưa khớp giá nhập, phần đó đang tính giá vốn bằng 0. Sửa ở Quản trị → Giá vốn.')}</span>${Auth.ADMIN_TABS.giavon.includes(ME.role)?'<a class="btn ghost sm" href="admin#giavon">Mở Giá vốn</a>':''}`:'';
   const noAds=T.sent&&!T.usd?`<span class="pill p-warn">Chưa có chi phí quảng cáo ${tipT('Kỳ này chưa ai nhập chi phí ads (màn Chi phí ads), nên dòng 6 đang bằng 0.')}</span>`:'';
   const o=KP.other||{};
   const otherCard=`<form class="card" id="plForm" novalidate><div class="cardhead"><div><h2>Chi phí ngoài đơn hàng · tháng ${fmtM(KP.month)}</h2><p class="hint">Số cả tháng (đồng). Báo cáo lấy theo số ngày của khoảng đang xem${ms<1?` (${P(ms,0)} tháng)`:''} và chia cho từng ${multiProj?'dự án':'team'} theo doanh thu.${CAN_KSET?'':' Chỉ admin và kế toán sửa được.'}</p></div></div>
@@ -1286,19 +1283,19 @@ function loadStock(){if(!SEE_STOCK)return;sbc.rpc('stock_report_all').then(({dat
   (data||[]).forEach(r=>{if(r.on_hand==null)return;const k=String(r.product_key);const a=m.get(k)||{on:0,s30:0,name:r.name||r.code};a.on+=+r.on_hand-(+r.cho_gui||0);a.s30+=+r.sold_30d;m.set(k,a)});
   m.forEach(a=>{const avg=a.s30/30;a.st=a.on<=0?'het':avg>0&&a.on/avg<7?'sap':a.s30===0?'lau':'on';a.days=avg>0?Math.floor(a.on/avg):null});STK=m;render()})}
 function stockTag(code){const a=STK&&STK.get(String(code||'').trim().toLowerCase());if(!a||(a.st!=='het'&&a.st!=='sap'))return '';
-  return ` · <a class="pill ${a.st==='het'?'p-bad':'p-warn'}" href="tonkho.html#ton?st=${a.st}" title="${a.st==='het'?(a.on<0?'Có thể bán: âm '+N(-a.on)+' (đã nhận đơn vượt số hàng)':'Có thể bán: hết hàng'):'Có thể bán: còn '+N(a.on)+', đủ bán khoảng '+N(a.days)+' ngày'}">${a.st==='het'?'Hết hàng':'Sắp hết'}</a>`}
+  return ` · <a class="pill ${a.st==='het'?'p-bad':'p-warn'}" href="tonkho#ton?st=${a.st}" title="${a.st==='het'?(a.on<0?'Có thể bán: âm '+N(-a.on)+' (đã nhận đơn vượt số hàng)':'Có thể bán: hết hàng'):'Có thể bán: còn '+N(a.on)+', đủ bán khoảng '+N(a.days)+' ngày'}">${a.st==='het'?'Hết hàng':'Sắp hết'}</a>`}
 function alerts(){
   const out=[];
-  if(STK){const c=st=>[...STK.values()].filter(a=>a.st===st);const lnk=st=>`<a href="tonkho.html#ton?st=${st}">Xem tồn kho</a>`,nm=l=>l.slice(0,4).map(a=>a.name).join(', ')+(l.length>4?'…':'');
+  if(STK){const c=st=>[...STK.values()].filter(a=>a.st===st);const lnk=st=>`<a href="tonkho#ton?st=${st}">Xem tồn kho</a>`,nm=l=>l.slice(0,4).map(a=>a.name).join(', ')+(l.length>4?'…':'');
     const h=c('het'),s=c('sap');
     if(h.length)out.push(['bad','Hết hàng',`${h.length} sản phẩm đã hết trong kho: ${nm(h)}`,lnk('het')]);
     if(s.length)out.push(['warn','Sắp hết hàng',`${s.length} sản phẩm chỉ đủ bán dưới 7 ngày: ${nm(s)}`,lnk('sap')]);}
   if(SEE_COST){const miss=new Set();(PRODS?PRODS.rows:[]).forEach(r=>{if(r.unit==null&&r.g!=='cancel')miss.add(r.code)});
-    if(miss.size)out.push(['warn','Sản phẩm chưa có giá vốn',`${miss.size} sản phẩm đang bán chưa có dữ liệu nhập hàng: ${[...miss].slice(0,5).join(', ')}${miss.size>5?'…':''}`,Auth.ADMIN_TABS.giavon.includes(ME.role)?'<a href="admin.html#giavon">Tải giá vốn</a>':'Báo kế toán'])}
-  SHOPS.filter(s=>s.active!==false&&s.last_sync_status==='error').forEach(s=>out.push(['bad','Shop đồng bộ lỗi',`${s.name}: ${s.last_sync_error||''}`,ME.role==='admin'?'<a href="admin.html#pos">Xem</a>':'Báo admin']));
+    if(miss.size)out.push(['warn','Sản phẩm chưa có giá vốn',`${miss.size} sản phẩm đang bán chưa có dữ liệu nhập hàng: ${[...miss].slice(0,5).join(', ')}${miss.size>5?'…':''}`,Auth.ADMIN_TABS.giavon.includes(ME.role)?'<a href="admin#giavon">Tải giá vốn</a>':'Báo kế toán'])}
+  SHOPS.filter(s=>s.active!==false&&s.last_sync_status==='error').forEach(s=>out.push(['bad','Shop đồng bộ lỗi',`${s.name}: ${s.last_sync_error||''}`,ME.role==='admin'?'<a href="admin#pos">Xem</a>':'Báo admin']));
   if(UNMAPPED){const mk=UNMAPPED.filter(u=>u.kind==='marketer'),src=UNMAPPED.filter(u=>u.kind==='source');
-    if(mk.length)out.push(['warn','Marketer chưa khai báo',`${mk.length} tên marketer (${N(mk.reduce((s,u)=>s+ +u.orders,0))} đơn) chưa thuộc team nào: ${mk.slice(0,4).map(u=>u.value).join(', ')}${mk.length>4?'…':''}`,'<a href="admin.html#chuakhaibao">Khai báo</a>']);
-    if(src.length)out.push(['warn','Nguồn đơn chưa thuộc kênh',`${src.slice(0,4).map(u=>u.value).join(', ')}${src.length>4?'…':''}`,'<a href="admin.html#chuakhaibao">Gán kênh</a>'])}
+    if(mk.length)out.push(['warn','Marketer chưa khai báo',`${mk.length} tên marketer (${N(mk.reduce((s,u)=>s+ +u.orders,0))} đơn) chưa thuộc team nào: ${mk.slice(0,4).map(u=>u.value).join(', ')}${mk.length>4?'…':''}`,'<a href="admin#chuakhaibao">Khai báo</a>']);
+    if(src.length)out.push(['warn','Nguồn đơn chưa thuộc kênh',`${src.slice(0,4).map(u=>u.value).join(', ')}${src.length>4?'…':''}`,'<a href="admin#chuakhaibao">Gán kênh</a>'])}
   agg(ROWS.filter(r=>r.staff),r=>r.staff).forEach(a=>{const rr=retRate(a);if(a.ok+a.ret>=20&&rr>.35)out.push(['bad','Tỷ lệ hoàn cao',`${staffName(a.k)}: hoàn ${P(rr)} trên ${N(a.ok+a.ret)} đơn đã xong`,ALLOWED.includes('nhansu')?`<button class="lnk" data-go="nhansu:${esc(a.k)}">Xem nhân sự</button>`:'Kiểm tra']);else if(a.ok+a.ret>=20&&rr>.28)out.push(['warn','Tỷ lệ hoàn đang tăng',`${staffName(a.k)}: hoàn ${P(rr)}`,ALLOWED.includes('nhansu')?`<button class="lnk" data-go="nhansu:${esc(a.k)}">Xem nhân sự</button>`:'Theo dõi'])});
   if(F.range==='month'){const t=new Date(),dim=new Date(t.getFullYear(),t.getMonth()+1,0).getDate(),pace=t.getDate()/dim;
     agg(ROWS.filter(r=>r.team),r=>r.team).forEach(a=>{const tm=byId(CAT.teams,a.k);if(tm&&+tm.target_vnd&&a.rev/tm.target_vnd<pace-.15)out.push(['warn','Chậm target',`${tm.name}: đạt ${P(a.rev/tm.target_vnd)} target, đã qua ${P(pace,0)} tháng`,ALLOWED.includes('team')?`<button class="lnk" data-go="team:${esc(a.k)}">Xem team</button>`:''])})}
@@ -1324,7 +1321,7 @@ V.caidat=()=>{
   <div class="profile"><span class="pav big" aria-hidden="true">${esc((nm.trim()[0]||'?').toUpperCase())}</span>
     <div class="pinfo"><div class="pn">${esc(ME.full_name||'Chưa đặt tên')}</div><div class="sub2">${esc(ME.email||'')}</div>
       <div class="pchips"><span class="pill p-info">Vai trò: ${esc(Auth.ROLES[ME.role]||'–')}</span><span class="pill p-mute">Phạm vi: ${esc(Auth.SCOPES[ME.scope||'self'])}${scopeTxt?' · '+esc(scopeTxt):''}</span>${ME.staff_id?`<span class="pill p-good">Nhân sự: ${esc(staffName(ME.staff_id))}</span>`:''}</div></div>
-    <div class="pact">${ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin.html">Mở Quản trị</a>':''}<button class="btn ghost sm" type="button" onclick="document.getElementById('pwBtn').click()">Đổi mật khẩu</button><button class="btn ghost sm" type="button" onclick="Auth.signOut()">Đăng xuất</button></div></div>
+    <div class="pact">${ME.role==='admin'||ME.role==='quan_ly'?'<a class="btn ghost sm" href="admin">Mở Quản trị</a>':''}<button class="btn ghost sm" type="button" onclick="document.getElementById('pwBtn').click()">Đổi mật khẩu</button><button class="btn ghost sm" type="button" onclick="Auth.signOut()">Đăng xuất</button></div></div>
   ${ME.role==='admin'||ME.role==='quan_ly'?'<p class="hint keep" style="margin:12px 0 0">Dự án, team, thị trường, kênh, nhân sự, shop POS được quản lý ở trang Quản trị.</p>':''}</div>
   <div class="card"><div class="cardhead"><div><h2>Đơn vị FFM</h2><p class="hint">Phí dịch vụ và cước dùng cho ô đối soát file ở màn KQKD.</p></div>${dbState==='ok'?'<span class="pill p-good">Đã lưu chung</span>':dbState==='loading'?'<span class="pill p-mute">Đang tải…</span>':'<span class="pill p-warn">Chưa lưu được</span>'}</div>
   <div class="tw"><table><thead><tr><th class="l">Đơn vị</th><th class="l">Kho trên POS</th><th>Phí dịch vụ (% COD)</th><th>Cước / đơn gửi (₱)</th><th class="l">Ghi chú</th><th></th></tr></thead><tbody>

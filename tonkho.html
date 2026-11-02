@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261029c">
+<link rel="stylesheet" href="css/app.css?v=20261102a">
 </head>
 <body>
 <div class="app">
@@ -24,19 +24,19 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261029c"></script>
-<script src="js/shell.js?v=20261029c"></script>
+<script src="js/auth.js?v=20261102a"></script>
+<script src="js/shell.js?v=20261102a"></script>
 <script>
 (async function () {
   const ME = await Auth.requireAuth();
-  if (!ME.role) { location.replace("login.html"); return; }
+  if (!ME.role) { location.replace("login"); return; }
   const sb = Auth.sb;
   document.documentElement.classList.remove("auth-pending");
   Shell.render(ME, "tonkho");
   const $ = (s) => document.querySelector(s);
   if (!(Auth.VIEWS[ME.role] || []).includes("tonkho")) {
     $("#tabs").hidden = true;
-    $("#view").innerHTML = `<div class="card">${Shell.empty("lock", "Không có quyền", "Màn Tồn kho dành cho quản lý, kế toán, kho, trưởng team và marketing.", '<a class="btn ghost sm" href="index.html">Về bảng điều hành</a>')}</div>`;
+    $("#view").innerHTML = `<div class="card">${Shell.empty("lock", "Không có quyền", "Màn Tồn kho dành cho quản lý, kế toán, kho, trưởng team và marketing.", '<a class="btn ghost sm" href="./">Về bảng điều hành</a>')}</div>`;
     return;
   }
 
@@ -76,6 +76,7 @@
   const HP = new URLSearchParams((location.hash.split("?")[1]) || "");
   const TABS = [["ton", "Tồn kho"], ["phieu", "Phiếu kho"], ["kiem", "Kiểm kho"], ["combo", "Combo"], ...(CAN_CFG ? [["kho", "Cấu hình kho"]] : [])];
   let tab = (location.hash.slice(1).split("?")[0]) || "ton"; if (!TABS.some(([k]) => k === tab)) tab = "ton";
+  try { history.replaceState(null, "", "#" + tab); } catch (e) {}
   const S = { wh: store.get("stk_wh", "all"), st: HP.get("st") || "all", q: "", page: 0, per: +store.get("per_stk", "50") || 50, detail: null, sortCover: false };
   let WH = [], R = [], COUNTS = [], MOVES = [], POSWH = [], KNOWN = new Map(), loading = true, err = "", loadedAt = null;
   let form = null, formMsg = "", arm = null, kiem = null, cfgEdit = null, cfgMsg = "";
@@ -146,7 +147,7 @@
   function paint() {
     $("#tabs").innerHTML = TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" class="${tab === k ? "on" : ""}" aria-selected="${tab === k}">${l}</button>`).join("");
     $("#fresh").innerHTML = loading ? '<span class="muted">Đang tải…</span>' : loadedAt ? `<span class="muted">Cập nhật ${pad(loadedAt.getHours())}:${pad(loadedAt.getMinutes())}</span><button type="button" class="ibtn sm" id="reload" aria-label="Tải lại" title="Tải lại">${Shell.icon("refresh")}</button>` : "";
-    document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("on", /tonkho\.html/.test(a.getAttribute("href") || "")));
+    document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("on", /^tonkho/.test(a.getAttribute("href") || "")));
     if (err) { $("#view").innerHTML = `<div class="card">${Shell.empty("alert", "Chưa tải được tồn kho", esc(err), '<button class="btn ghost sm" type="button" id="reload2">Thử lại</button>')}</div>`; return; }
     if (loading && !WH.length) return;
     const keepFocus = document.activeElement && document.activeElement.id, selStart = document.activeElement && document.activeElement.selectionStart;
@@ -640,7 +641,11 @@
     const mp = e.target.closest("[data-mappos]"); if (mp) return mapPos(mp.dataset.mappos, mp.value);
   });
   document.addEventListener("submit", (e) => { e.preventDefault(); if (e.target.id === "mForm") saveForm(); if (e.target.id === "cfgForm") saveCfg(); if (e.target.id === "kitForm") saveKit(); });
-  window.addEventListener("hashchange", () => { const t = location.hash.slice(1).split("?")[0]; if (TABS.some(([k]) => k === t) && t !== tab) setTab(t); });
+  window.addEventListener("hashchange", () => {
+    const [t, qs] = location.hash.slice(1).split("?"), st = new URLSearchParams(qs || "").get("st");
+    if (st && ST[st]) { S.st = st; S.page = 0; S.detail = null; }
+    if (TABS.some(([k]) => k === t) && t !== tab) setTab(t); else { try { history.replaceState(null, "", "#" + tab); } catch (e) {} paint(); }
+  });
 
   paint();
   await loadAll();

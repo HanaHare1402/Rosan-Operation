@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261029c">
+<link rel="stylesheet" href="css/app.css?v=20261102a">
 </head>
 <body>
 <div class="authwrap auth2 auth3">
@@ -63,7 +63,7 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261029c"></script>
+<script src="js/auth.js?v=20261102a"></script>
 <script>
 (async function () {
   const $ = (s) => document.querySelector(s);
@@ -71,8 +71,12 @@
   const say = (el, text, cls) => { el.className = "msg " + (cls || ""); el.textContent = text; };
   if (!Auth.configured || !Auth.sb) { show("unconfigured"); return; }
   const sb = Auth.sb;
-  const next = new URLSearchParams(location.search).get("next") || "index.html";
-  const safeNext = /^[\w.-]+\.html(#[\w-]*)?$/.test(next) ? next : "index.html";
+  // Trang định vào trước khi bị chuyển sang đăng nhập (nhớ trong phiên); link cũ dạng ?next=… vẫn đọc được.
+  let next = ""; try { next = sessionStorage.getItem("rosan-next") || ""; } catch (e) {}
+  next = new URLSearchParams(location.search).get("next") || next;
+  next = next.replace(/\.html/, "").replace(/^index/, "./").split("?")[0];
+  const safeNext = /^(\.\/|admin|tonkho)?(#[\w-]*)?$/.test(next) && next ? next : "./";
+  if (location.search) try { history.replaceState(null, "", location.pathname); } catch (e) {}
 
   async function routeIn() {
     let p = null;
@@ -80,6 +84,7 @@
     catch (e) { show("loginBox"); say($("#loginMsg"), "Đăng nhập được nhưng không đọc được hồ sơ tài khoản: " + e.message + ". Kiểm tra đã chạy file migration trên Supabase chưa.", "neg"); return; }
     if (!p) { show("loginBox"); ($("#email").value ? $("#password") : $("#email")).focus(); return; }
     if (!p.role) { $("#pendingEmail").textContent = p.email; show("pendingBox"); return; }
+    try { sessionStorage.removeItem("rosan-next"); } catch (e) {}
     location.replace(safeNext);
   }
 
