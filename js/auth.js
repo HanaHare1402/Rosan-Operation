@@ -66,8 +66,9 @@
   // Trang cần đăng nhập: chỉ chuyển về login.html khi thật sự chưa đăng nhập.
   // Lỗi mạng lúc mở trang thì báo và cho tải lại, không bắt đăng nhập lại.
   async function requireAuth() {
-    if (!configured) { location.replace("login.html"); return new Promise(() => {}); }
-    const toLogin = () => { location.replace("login.html?next=" + encodeURIComponent(location.pathname.split("/").pop() + location.hash)); return new Promise(() => {}); };
+    if (!configured) { location.replace("login"); return new Promise(() => {}); }
+    // Trang định vào được nhớ trong phiên (không ghi lên đường link) để đăng nhập xong quay lại đúng chỗ.
+    const toLogin = () => { try { sessionStorage.setItem("rosan-next", (location.pathname.split("/").pop() || "./").replace(/\.html$/, "") + location.hash.split("?")[0]); } catch (e) {} location.replace("login"); return new Promise(() => {}); };
     // Thư viện Supabase đã tự thử lại khi máy chủ chưa trả lời, nên ở đây chỉ gọi một lần.
     let profile = null, err = null;
     try { profile = await loadProfile(); } catch (e) { err = e; }
@@ -78,7 +79,7 @@
       return new Promise(() => {});
     }
     if (!profile) return toLogin();
-    sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") location.replace("login.html"); });
+    sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") location.replace("login"); });
     return profile;
   }
 
@@ -114,7 +115,7 @@
     return "Chưa đổi được mật khẩu: " + m;
   }
 
-  async function signOut() { if (sb) await sb.auth.signOut(); location.replace("login.html"); }
+  async function signOut() { if (sb) await sb.auth.signOut(); location.replace("login"); }
 
   window.Auth = { sb, configured, ROLES, VIEWS, ADMIN_TABS, SCOPES, DEFAULT_SCOPE, loadCatalog, loadProfile, requireAuth, callFn, changePassword, signOut };
 })();

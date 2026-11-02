@@ -61,9 +61,9 @@
     const adminTabs = ADMIN.filter(([k]) => (Auth.ADMIN_TABS[k] || []).includes(me.role));
     const link = (k, label, ic, cnt, isAdmin) => {
       // Tồn kho là trang riêng (tonkho.html).
-      if (k === "tonkho") return `<a href="tonkho.html" title="${esc(label)}"${page === "tonkho" ? ' class="on" aria-current="page"' : ""}>${icon(ic)}<span class="lbl">${esc(label)}</span></a>`;
+      if (k === "tonkho") return `<a href="tonkho" title="${esc(label)}"${page === "tonkho" ? ' class="on" aria-current="page"' : ""}>${icon(ic)}<span class="lbl">${esc(label)}</span></a>`;
       const here = isAdmin ? page === "admin" : page === "index";
-      const href = (here ? "" : isAdmin ? "admin.html" : "index.html") + "#" + k;
+      const href = (here ? "" : isAdmin ? "admin" : "./") + "#" + k;
       const data = here ? (isAdmin ? ` data-tab="${k}"` : ` data-v="${k}"`) : "";
       return `<a href="${href}"${data} title="${esc(label)}">${icon(ic)}<span class="lbl">${esc(label)}</span>${cnt ? `<span class="cnt" id="${cnt}"></span>` : ""}</a>`;
     };
