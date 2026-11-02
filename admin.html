@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261102a">
+<link rel="stylesheet" href="css/app.css?v=20261102b">
 </head>
 <body>
 <div class="app">
@@ -176,8 +176,8 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261102a"></script>
-<script src="js/shell.js?v=20261102a"></script>
+<script src="js/auth.js?v=20261102b"></script>
+<script src="js/shell.js?v=20261102b"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (async function () {
@@ -512,7 +512,7 @@
     $("#users").innerHTML = users.map((u) => `<tr data-id="${u.id}" class="${uEdit === u.id ? "editing" : ""}">
       <td class="l">${esc(u.email)}${u.id === me.id ? ' <span class="pill p-mute">bạn</span>' : ""}</td><td class="l">${esc(u.full_name)}</td>
       <td class="l">${u.role ? esc(Auth.ROLES[u.role]) : '<span class="pill p-warn">Chưa cấp</span>'}</td><td class="l" style="white-space:normal">${u.role ? scopeText(u) : ""}</td>
-      <td class="l">${u.banned ? '<span class="pill p-bad">Đã khoá</span>' : u.role ? '<span class="pill p-good">Hoạt động</span>' : '<span class="pill p-warn">Chờ cấp quyền</span>'}</td>
+      <td class="l">${u.banned ? '<span class="pill p-bad">Đã khoá</span>' : u.role ? '<span class="pill p-good">Hoạt động</span>' : '<span class="pill p-warn">Chờ cấp quyền</span>'}<div class="sub2">${u.policy_accepted_at ? "Đồng ý quy định " + when(u.policy_accepted_at) : "Chưa đồng ý quy định"}</div></td>
       <td class="l muted">${when(u.last_sign_in_at)}</td>
       <td class="actions"><button class="lnk" data-act="edit">Sửa quyền</button>
         <details class="more" ${uArmed === u.id ? "open" : ""}><summary aria-label="Thao tác khác">⋯</summary><div class="menu"><button data-act="pw">Đặt mật khẩu</button>${u.id === me.id ? "" : `<button data-act="${u.banned ? "unban" : "ban"}">${u.banned ? "Mở khoá" : "Khoá tài khoản"}</button><button class="danger" data-act="del">${uArmed === u.id ? "Bấm lần nữa để xoá" : "Xoá tài khoản"}</button>`}</div></details></td></tr>`).join("") || '<tr><td colspan="7" class="l muted">Chưa có tài khoản.</td></tr>';

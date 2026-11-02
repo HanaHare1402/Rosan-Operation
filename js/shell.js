@@ -80,7 +80,8 @@
         <button class="icon-btn" id="pwBtn" type="button" title="Đổi mật khẩu" aria-label="Đổi mật khẩu">${icon("lock")}</button>
         <button class="icon-btn" id="themeBtn" type="button"></button>
         <button class="icon-btn" id="logout" type="button" title="Đăng xuất" aria-label="Đăng xuất">${icon("logout")}</button>
-      </div>`;
+      </div>
+      <a class="policy-link" href="policy" target="_blank" rel="noopener">${icon("shield")}<span class="lbl">Quy định sử dụng &amp; bảo mật</span></a>`;
     // Nút menu trên điện thoại + lớp phủ.
     if (!app.querySelector(".scrim")) app.insertAdjacentHTML("beforeend", '<div class="scrim"></div>');
     const main = app.querySelector("main");
@@ -92,8 +93,9 @@
     aside.querySelector("#logout").onclick = () => Auth.signOut();
     ME = me;
     aside.querySelector("#pwBtn").onclick = () => pwDialog(false);
-    // Mật khẩu do quản trị viên cấp: bắt đổi sang mật khẩu riêng trước khi dùng tiếp.
-    if (me.must_change_pw) pwDialog(true);
+    // Lần đầu (hoặc khi quy định đổi phiên bản): đồng ý Quy định sử dụng & bảo vệ dữ liệu; sau đó mới tới đổi mật khẩu được cấp.
+    if (me.policy_version !== POLICY_VERSION) policyDialog();
+    else if (me.must_change_pw) pwDialog(true);
     const tb = aside.querySelector("#themeBtn");
     const LABEL = { auto: "Giao diện: theo máy", light: "Giao diện: sáng", dark: "Giao diện: tối" };
     const paint = () => { const t = getTheme(); tb.innerHTML = icon(t === "dark" ? "moon" : t === "light" ? "sun" : "auto"); tb.title = LABEL[t] + " (bấm để đổi)"; tb.setAttribute("aria-label", LABEL[t]); };
@@ -114,6 +116,49 @@
       setH(); if (window.ResizeObserver) new ResizeObserver(setH).observe(sh); window.addEventListener("resize", setH);
     }
     return aside;
+  }
+
+  // ---------- quy định sử dụng & bảo vệ dữ liệu ----------
+  // Đổi nội dung policy.html thì tăng phiên bản: mọi người được hỏi đồng ý lại.
+  const POLICY_VERSION = "2026-11-02";
+  function policyDialog() {
+    if (!ME || document.querySelector("dialog.poldlg")) return;
+    const d = document.createElement("dialog");
+    d.className = "pwdlg poldlg";
+    d.setAttribute("aria-labelledby", "polT");
+    d.innerHTML = `<form id="polForm" novalidate>
+      <div class="pwhead"><span class="pwico" aria-hidden="true">${icon("shield")}</span><div><h2 id="polT">Quy định sử dụng hệ thống</h2>
+        <p class="hint keep">Trước khi dùng hệ thống Vận hành - Rosan, vui lòng đọc và xác nhận các điểm chính dưới đây.</p></div></div>
+      <ul class="polsum">
+        <li><b>Dữ liệu của bạn:</b> hệ thống lưu email, họ tên, vai trò, thời điểm đăng nhập và tên người thực hiện mỗi lần nhập / sửa dữ liệu, để phân quyền, quản lý công việc, tính KPI và bảo đảm an toàn.</li>
+        <li><b>Bí mật kinh doanh:</b> doanh thu, chi phí, giá vốn, lợi nhuận, KPI, tồn kho là tài sản của công ty, chỉ dùng cho công việc được giao.</li>
+        <li><b>Dữ liệu khách hàng:</b> tên, số điện thoại, địa chỉ khách chỉ dùng để xử lý đơn; không sao chép, chụp màn hình hay gửi ra ngoài.</li>
+        <li><b>Tài khoản:</b> không chia sẻ cho người khác; mọi thao tác từ tài khoản được coi là của bạn.</li>
+        <li><b>File xuất ra:</b> chỉ lưu trên máy làm việc, không gửi qua kênh cá nhân, xoá khi không dùng.</li>
+        <li><b>Vi phạm</b> bị xử lý theo nội quy lao động và pháp luật.</li>
+      </ul>
+      <a class="lnk polfull" href="policy" target="_blank" rel="noopener">Đọc toàn văn quy định (mở trang mới)</a>
+      <label class="polchk"><input type="checkbox" id="polOk"> <span>Tôi đã đọc, hiểu và đồng ý với <b>Quy định sử dụng hệ thống và bảo vệ dữ liệu</b> của công ty, bao gồm việc công ty xử lý dữ liệu cá nhân của tôi cho các mục đích nêu trên.</span></label>
+      <div class="msg" id="polMsg" role="status" aria-live="polite"></div>
+      <div class="pwfoot"><button class="lnk" type="button" data-polout>Không đồng ý, đăng xuất</button><button class="btn" type="submit" id="polSave" disabled>Đồng ý và tiếp tục</button></div>
+    </form>`;
+    document.body.appendChild(d);
+    const ok = d.querySelector("#polOk"), btn = d.querySelector("#polSave"), msg = d.querySelector("#polMsg");
+    ok.addEventListener("change", () => { btn.disabled = !ok.checked; msg.textContent = ""; msg.className = "msg"; });
+    d.addEventListener("cancel", (e) => e.preventDefault());
+    d.querySelector("[data-polout]").onclick = () => Auth.signOut();
+    d.querySelector("#polForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!ok.checked) { msg.className = "msg neg"; msg.textContent = "Đánh dấu ô xác nhận để tiếp tục."; return; }
+      btn.disabled = true; btn.textContent = "Đang lưu…";
+      const { error } = await Auth.sb.auth.updateUser({ data: { policy_version: POLICY_VERSION, policy_accepted_at: new Date().toISOString() } });
+      if (error) { btn.disabled = false; btn.textContent = "Đồng ý và tiếp tục"; msg.className = "msg neg"; msg.textContent = "Chưa lưu được xác nhận: " + error.message + ". Kiểm tra mạng rồi bấm lại."; return; }
+      ME.policy_version = POLICY_VERSION; d.close(); d.remove();
+      toast("Cảm ơn bạn đã xác nhận quy định sử dụng.");
+      if (ME.must_change_pw) pwDialog(true);
+    });
+    d.showModal();
+    ok.focus();
   }
 
   // ---------- đổi mật khẩu ----------

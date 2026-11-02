@@ -61,6 +61,8 @@ Deno.serve(async (req) => {
             staff_id: pm.get(u.id)?.staff_id ?? null,
             banned: !!u.banned_until && new Date(u.banned_until) > new Date(),
             last_sign_in_at: u.last_sign_in_at,
+            policy_version: u.user_metadata?.policy_version ?? null,
+            policy_accepted_at: u.user_metadata?.policy_accepted_at ?? null,
             created_at: u.created_at,
           })).sort((a, b) => String(a.email).localeCompare(String(b.email))),
         });

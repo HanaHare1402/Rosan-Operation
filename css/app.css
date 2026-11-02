@@ -1121,3 +1121,39 @@ table.stktab .pcell{min-width:200px}
 .form.kset label input{margin-top:auto}
 /* mọi form: tiêu đề dài xuống dòng thì ô nhập vẫn bám đáy, cả hàng thẳng nhau */
 .form>label>:is(input,select,textarea):last-child{margin-top:auto}
+/* ---------- quy định sử dụng & bảo vệ dữ liệu ---------- */
+.policy-link{display:flex;align-items:center;gap:8px;margin:8px 6px 0;padding:6px 8px;border-radius:8px;font-size:11.5px;color:var(--side-muted,var(--muted));text-decoration:none}
+.policy-link svg{width:14px;height:14px;flex:none}
+.policy-link:hover{color:var(--side-ink,var(--ink));background:color-mix(in srgb,currentColor 8%,transparent)}
+.policy-link:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.authfoot a{color:inherit;text-decoration:underline}
+dialog.poldlg{width:min(560px,calc(100vw - 32px))}
+.polsum{margin:0;padding:12px 14px 12px 30px;background:var(--sunk);border-radius:10px;font-size:13px;line-height:1.55;color:var(--ink-2);display:flex;flex-direction:column;gap:6px}
+.polsum b{color:var(--ink)}
+.polfull{align-self:flex-start;font-size:13px}
+.polchk{display:flex!important;flex-direction:row!important;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line-2);border-radius:10px;font-size:13px!important;font-weight:500!important;color:var(--ink)!important;line-height:1.5;cursor:pointer}
+.polchk input{width:18px;height:18px;margin:2px 0 0;flex:none;accent-color:var(--accent)}
+.polchk:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+body.policy-page{background:var(--bg)}
+.policy{max-width:860px;margin:0 auto;padding:32px 16px 48px;color:var(--ink)}
+.policy-head{margin-bottom:20px}
+.policy-brand{display:inline-flex;align-items:center;gap:10px;font-weight:700;color:var(--ink);text-decoration:none;margin-bottom:18px}
+.policy-head h1{font-size:26px;line-height:1.25;margin:0 0 6px;letter-spacing:-.02em}
+.policy-sum{padding:18px 22px}
+.policy-sum h2{font-size:16px;margin:0 0 8px}
+.policy-sum ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;line-height:1.6;font-size:14px}
+.policy-toc{display:flex;flex-direction:column;gap:4px;margin:20px 0;padding:16px 20px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel);font-size:13.5px}
+.policy-toc b{margin-top:6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.policy-toc b:first-child{margin-top:0}
+.policy-toc a{color:var(--accent-ink);text-decoration:none;padding:2px 0}
+.policy-toc a:hover{text-decoration:underline}
+.policy-body{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:8px 28px 24px;line-height:1.7;font-size:14.5px;box-shadow:var(--shadow-1)}
+.policy-body h2.part{font-size:18px;margin:24px 0 6px;padding-top:12px;border-top:1px solid var(--line)}
+.policy-body h2.part:first-child{border-top:0}
+.policy-body h3{font-size:15.5px;margin:22px 0 6px;scroll-margin-top:16px}
+.policy-body ul{padding-left:22px;margin:6px 0}
+.policy-body table{width:100%;margin:8px 0;font-size:13.5px}
+.policy-body td,.policy-body th{text-align:left;vertical-align:top;white-space:normal;padding:8px 10px}
+.policy-body td:first-child{font-weight:600;width:30%}
+.policy-foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;font-size:13px}
+@media (max-width:600px){.policy-body{padding:4px 16px 18px}.policy-head h1{font-size:21px}.policy-body td:first-child{width:auto}}
