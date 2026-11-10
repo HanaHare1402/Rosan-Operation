@@ -628,7 +628,7 @@ let kShowHow=false,kMode=store.get('kmode','ads')==='rd'?'rd':'ads',kWho='',kSet
 const K={key:'',rows:[],prev:[],set:null,month:'',loading:false,err:''};
 const monthStart=d=>new Date(d.getFullYear(),d.getMonth(),1);
 const fmtM=iso=>iso?iso.slice(5,7)+'/'+iso.slice(0,4):'';
-const kRow=r=>({who:r.who||'~',pk:r.product_key,name:r.product,grp:r.grp,n:+r.orders,sent:+r.sent,ret:+r.ret,ok:+r.ok,cogs:+r.cogs,miss:+r.cogs_missing,sr:+r.ship_rate,usd:+r.ad_usd,okN:+r.ok_n||0,retN:+r.ret_n||0});
+const kRow=r=>({who:r.who||'~',pk:r.product_key,name:r.product,grp:r.grp,n:+r.orders,sent:+r.sent,ret:+r.ret,ok:+r.ok,cogs:+r.cogs,miss:+r.cogs_missing,sr:+r.ship_rate,usd:+r.ad_usd,okN:+r.ok_n||0,retN:+r.ret_n||0,fee:+r.platform_fee||0});
 // Supabase trả tối đa 1.000 dòng mỗi lần: đọc từng trang cho đủ (nhiều marketer nhập chi phí hằng ngày sẽ vượt ngưỡng này).
 async function fetchAll(mk){let out=[];for(let i=0;;i+=1000){const r=await mk().range(i,i+999);if(r.error)return r;out=out.concat(r.data||[]);if(!r.data||r.data.length<1000)return {data:out}}}
 async function getKSet(m){
@@ -649,21 +649,22 @@ async function loadKpi(key){
 // Cộng dồn theo khoá, rồi tính từng khoản chi phí và LNG.
 function kSum(list,keyFn){
   const m=new Map();
-  list.forEach(r=>{const k=keyFn(r);let a=m.get(k);if(!a){a={k,name:r.name,grp:r.grp,n:0,sent:0,ret:0,ok:0,cogs:0,miss:0,sr:0,usd:0,okN:0,retN:0};m.set(k,a)}
-    ['n','sent','ret','ok','cogs','miss','sr','usd','okN','retN'].forEach(f=>a[f]+=r[f]||0)});
+  list.forEach(r=>{const k=keyFn(r);let a=m.get(k);if(!a){a={k,name:r.name,grp:r.grp,n:0,sent:0,ret:0,ok:0,cogs:0,miss:0,sr:0,usd:0,okN:0,retN:0,fee:0};m.set(k,a)}
+    ['n','sent','ret','ok','cogs','miss','sr','usd','okN','retN','fee'].forEach(f=>a[f]+=r[f]||0)});
   return [...m.values()];
 }
 function kCalc(a,s){
   a=a||{n:0,sent:0,ret:0,ok:0,cogs:0,miss:0,sr:0,usd:0};
   const proc=a.sent-a.ret-a.ok,ship=a.sr*s.ship_local,dvvc=a.ok*s.dvvc_pct/100,gip=a.ok*s.gip_pct/100,ffm=a.sent*s.ffm_pct/100,
-    ads=a.usd*s.usd_vnd,test=a.sent*s.test_pct/100,pack=a.sent*s.pack_pct/100,cost=a.cogs+ship+dvvc+gip+ffm+ads+test+pack;
-  return Object.assign({},a,{proc,ship,dvvc,gip,ffm,ads,test,pack,cost,lng:a.ok-cost,rr:a.ret+a.ok>0?a.ret/(a.ret+a.ok):NaN});
+    ads=a.usd*s.usd_vnd,test=a.sent*s.test_pct/100,pack=a.sent*s.pack_pct/100,plat=a.fee||0,cost=a.cogs+ship+dvvc+gip+ffm+plat+ads+test+pack;
+  return Object.assign({},a,{proc,ship,dvvc,gip,ffm,plat,ads,test,pack,cost,lng:a.ok-cost,rr:a.ret+a.ok>0?a.ret/(a.ret+a.ok):NaN});
 }
 Object.assign(DEF,{
-  k_sent:'Tổng COD các đơn tạo trong kỳ (theo ngày tạo đơn), không tính đơn huỷ / đã xoá, quy ra VNĐ.',
+  k_sent:'Tổng COD các đơn tạo trong kỳ (theo ngày tạo đơn), không tính đơn huỷ / đã xoá, quy ra VNĐ. Đơn sàn (Shopee, TikTok) tính COD + phí sàn.',
+  k_plat:'Phí sàn Shopee / TikTok của các đơn đã giao (POS trả về cùng đơn). Doanh số đơn sàn đã cộng phí này nên trừ lại ở đây.',
   k_ok:'COD các đơn khách đã nhận hàng. Đây là gốc để tính lợi nhuận gộp.',
   k_rr:'Hoàn ÷ (đã giao + hoàn), tính theo tiền COD. Đơn đang xử lý chưa tính vì chưa có kết quả.',
-  k_lng:'Doanh số thành công trừ giá vốn, cước, phí vận chuyển, phí GIP, fulfill, quảng cáo, test, bao bì. Dùng để tính lương.',
+  k_lng:'Doanh số thành công trừ giá vốn, cước, phí vận chuyển, phí GIP, fulfill, phí sàn, quảng cáo, test, bao bì. Dùng để tính lương.',
   k_cost:'Tổng các khoản trừ: giá vốn, cước, phí vận chuyển, GIP, fulfill, quảng cáo, test, bao bì.',
   k_ads:'Chi phí quảng cáo nhập ở màn Chi phí ads (USD × tỷ giá của tháng).',
   k_cogs:'Giá vốn các đơn đã giao: giá nhập gần nhất tính đến ngày tạo đơn.',
@@ -734,7 +735,7 @@ function kCols(first,prevMap){
   if(kView==='short')return head.concat([{k:'cost',label:'Tổng chi phí',tip:'k_cost',fmt:r=>`<div class="num2"><b>${M(r.cost)}</b><span class="muted">ads ${M(r.ads)}</span></div>`,val:r=>r.cost},lng,
     {k:'pl',label:'% LNG',fmt:r=>`<span class="${r.lng<0?'neg':''}">${pctOf(r.lng,r.sent)}</span>`,val:r=>r.sent?r.lng/r.sent:NaN}]);
   // Bao bì mặc định 0%: ẩn cột khi cả bảng đều bằng 0 để bảng vừa màn hình.
-  return head.concat([...(SEE_COST?[num('cogs','Giá vốn')]:[]),num('ship','Cước VC'),num('dvvc','Phí DVVC'),num('gip','Phí GIP'),num('ffm','Fulfill'),num('ads','Quảng cáo'),num('test','Test')],
+  return head.concat([...(SEE_COST?[num('cogs','Giá vốn')]:[]),num('ship','Cước VC'),num('dvvc','Phí DVVC'),num('gip','Phí GIP'),num('ffm','Fulfill'),...(K.rows.some(r=>r.fee)?[num('plat','Phí sàn')]:[]),num('ads','Quảng cáo'),num('test','Test')],
     s.pack_pct?[num('pack','Bao bì')]:[],[lngPct]);
 }
 // Dòng tổng cho mọi cột, kèm % trên doanh số gửi đi như dòng "Tỷ lệ" của file gốc.
@@ -744,7 +745,7 @@ function kFoot(T){
   return f;
 }
 const kViewSeg=()=>`<div class="seg" role="group" aria-label="Cách hiện chi phí">${[['full','Đủ từng khoản'],['short','Gọn']].map(([k,l])=>`<button type="button" data-kview="${k}" class="${kView===k?'on':''}" aria-pressed="${kView===k}">${l}</button>`).join('')}</div>`;
-const KX=[['Số đơn','n'],['Doanh số gửi đi','sent'],['Hoàn','ret'],['Đang xử lý','proc'],['Doanh số thành công','ok'],['Giá vốn','cogs'],['Cước vận chuyển','ship'],['Phí DV vận chuyển','dvvc'],['Phí DV GIP','gip'],['Phí fulfill','ffm'],['Chi phí quảng cáo (USD)','usd'],['Chi phí quảng cáo (VNĐ)','ads'],['Chi phí test','test'],['Chi phí bao bì','pack'],['Lợi nhuận gộp','lng']].map(([label,k])=>({label,val:r=>Math.round(r[k]*100)/100}))
+const KX=[['Số đơn','n'],['Doanh số gửi đi','sent'],['Hoàn','ret'],['Đang xử lý','proc'],['Doanh số thành công','ok'],['Giá vốn','cogs'],['Cước vận chuyển','ship'],['Phí DV vận chuyển','dvvc'],['Phí DV GIP','gip'],['Phí fulfill','ffm'],['Phí sàn','plat'],['Chi phí quảng cáo (USD)','usd'],['Chi phí quảng cáo (VNĐ)','ads'],['Chi phí test','test'],['Chi phí bao bì','pack'],['Lợi nhuận gộp','lng']].map(([label,k])=>({label,val:r=>Math.round(r[k]*100)/100}))
   .filter(c=>SEE_COST||c.label!=='Giá vốn').concat([{label:'% LNG / gửi đi',val:r=>r.sent?Math.round(r.lng/r.sent*10000)/100:''}]);
 function kPL(a,s){
   // Cột "Cách tính" (tỷ lệ phí, cước, tỷ giá) chỉ admin và kế toán thấy.
@@ -772,6 +773,7 @@ function kPL(a,s){
     ${line('− Phí dịch vụ vận chuyển',a.dvvc,`${PF(s.dvvc_pct)}% doanh số thành công`,'','cost')}
     ${line('− Phí dịch vụ GIP',a.gip,`${PF(s.gip_pct)}% doanh số thành công`,'','cost')}
     ${line('− Phí fulfill',a.ffm,`${PF(s.ffm_pct)}% doanh số gửi đi`,'','cost')}
+    ${a.plat?line('− Phí sàn (Shopee, TikTok)',a.plat,'Phí sàn của đơn sàn đã giao','','cost'):''}
     ${line('− Chi phí quảng cáo',a.ads,`${U(a.usd)} USD × ${N(s.usd_vnd)}`,'','cost')}
     ${line('− Chi phí test',a.test,`${PF(s.test_pct)}% doanh số gửi đi`,'','cost')}
     ${line('− Chi phí bao bì',a.pack,`${PF(s.pack_pct)}% doanh số gửi đi`,'','cost')}
@@ -997,7 +999,7 @@ function monthShare(){const [f,t]=rangeDates(),dim=new Date(f.getFullYear(),f.ge
 function plCalc(a,s,share){
   const c=kCalc(a,s),o=KP.other||{},x=k=>(+o[k]||0)*share;
   const shipOk=c.n?c.ship*(a.okN||0)/c.n:0,shipRet=c.n?c.ship*(a.retN||0)/c.n:0,shipProc=c.ship-shipOk-shipRet;
-  const direct=c.ship+c.cogs+c.dvvc+c.gip+c.ffm+c.ads,gp3=c.ok-direct;
+  const direct=c.ship+c.cogs+c.dvvc+c.gip+c.ffm+c.plat+c.ads,gp3=c.ok-direct;
   const vn=x('qldn_vn')+x('nguyen_lieu')+x('luong_vn'),kho=x('kho_phil'),net=gp3-c.test-c.pack-vn-kho,profit=net+x('thu_nhap_khac')-x('chi_phi_khac');
   return Object.assign(c,{shipOk,shipRet,shipProc,direct,gp3,vn,qldn:x('qldn_vn'),nl:x('nguyen_lieu'),luong:x('luong_vn'),kho,tnk:x('thu_nhap_khac'),cpk:x('chi_phi_khac'),net,profit});
 }
@@ -1041,10 +1043,10 @@ V.kqkd=()=>{
   const L=[
     ['Doanh số gửi đi (0)',a=>a.sent,'h'],['Số đơn',a=>a.n,'ind','n'],
     ['I. Doanh thu (đơn đã giao)',a=>a.ok,'sec'],['Hoàn',a=>a.ret,'ind'],['Đang xử lý (chưa có kết quả)',a=>a.proc,'ind'],
-    ['II. Chi phí trực tiếp = 1 + 2 + 3 + 4 + 5 + 6',a=>a.direct,'sec','cost'],
+    ['II. Chi phí trực tiếp = 1 + 2 + 3 + 4 + 5 + 6 (+ phí sàn)',a=>a.direct,'sec','cost'],
     ['1. Chi phí vận chuyển',a=>a.ship,'h','cost'],['a. Đơn thành công',a=>a.shipOk,'ind'],['b. Đơn hoàn',a=>a.shipRet,'ind'],['c. Đơn đang xử lý',a=>a.shipProc,'ind'],
     ['2. Giá vốn hàng đã giao',a=>a.cogs,'h','cost'],...(byProd?[['a. Số lượng hàng đã bán (đã giao)',(a,c)=>qOf(c)||0,'ind','n'],['b. Giá vốn 1 sản phẩm',(a,c)=>{const q=qOf(c);return q?a.cogs/q:0},'ind','unit']]:[]),
-    ['3. Phí dịch vụ vận chuyển',a=>a.dvvc,'h','cost'],['4. Phí dịch vụ GIP',a=>a.gip,'h','cost'],['5. Phí fulfill',a=>a.ffm,'h','cost'],['6. Chi phí marketing (quảng cáo)',a=>a.ads,'h','cost'],
+    ['3. Phí dịch vụ vận chuyển',a=>a.dvvc,'h','cost'],['4. Phí dịch vụ GIP',a=>a.gip,'h','cost'],['5. Phí fulfill',a=>a.ffm,'h','cost'],['Phí sàn (Shopee, TikTok)',a=>a.plat,'ind','cost'],['6. Chi phí marketing (quảng cáo)',a=>a.ads,'h','cost'],
     ['III. Lợi nhuận gộp = I − II',a=>a.gp3,'sec','res'],['Biên lợi nhuận / doanh thu = III ÷ I',a=>a.ok?a.gp3/a.ok:NaN,'ind','pct'],['Biên lợi nhuận / doanh số = III ÷ (0)',a=>a.sent?a.gp3/a.sent:NaN,'ind','pct'],
     ['7. Chi phí test',a=>a.test,'h','cost'],['8. Chi phí bao bì',a=>a.pack,'h','cost'],
     ['9. Chi phí Việt Nam',a=>a.vn,'h','cost','co'],['a. Quản lý doanh nghiệp',a=>a.qldn,'ind',null,'co'],['b. Nguyên liệu',a=>a.nl,'ind',null,'co'],['c. Lương',a=>a.luong,'ind',null,'co'],
@@ -1068,7 +1070,7 @@ V.kqkd=()=>{
   const mg=(v,b)=>b?`biên ${P(v/b)} trên doanh thu`:'chưa có doanh thu';
   const tile=(m,l,v,sub,neg)=>`<div class="kpi m-${m}"><div class="l">${l}</div><div class="v${neg?' neg':''}">${M(v)}</div><div class="n">${sub}</div></div>`;
   const tiles=`<div class="kpis kpis4">${tile('k_sent','Doanh số gửi đi',T.sent,`${N(T.n)} đơn`)}${tile('k_ok','Doanh thu (đã giao)',T.ok,T.sent?`${P(T.ok/T.sent)} doanh số gửi đi`:'')}${tile('gp','Lợi nhuận gộp (III)',T.gp3,mg(T.gp3,T.ok),T.gp3<0)}${tile('k_net','Lợi nhuận (V)',T.profit,mg(T.profit,T.ok),T.profit<0)}</div>`;
-  const CI=[['Giá vốn',T.cogs],['Quảng cáo',T.ads],['Vận chuyển',T.ship],['Phí DV vận chuyển',T.dvvc],['Phí GIP',T.gip],['Fulfill',T.ffm],['Test',T.test],['Bao bì',T.pack],['Chi phí Việt Nam',T.vn],['Kho Philippines',T.kho],['Chi phí khác',T.cpk]].filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+  const CI=[['Giá vốn',T.cogs],['Quảng cáo',T.ads],['Vận chuyển',T.ship],['Phí DV vận chuyển',T.dvvc],['Phí GIP',T.gip],['Fulfill',T.ffm],['Phí sàn',T.plat],['Test',T.test],['Bao bì',T.pack],['Chi phí Việt Nam',T.vn],['Kho Philippines',T.kho],['Chi phí khác',T.cpk]].filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
   const cmax=Math.max(1,...CI.map(x=>x[1])),csum=CI.reduce((t,x)=>t+x[1],0);
   const costCard=CI.length?`<div class="card c-amber"><div class="cardhead"><div><h2>Cơ cấu chi phí ${tipT('Từng khoản chi trong khoảng đang xem, xếp từ lớn đến nhỏ. % là so với doanh số gửi đi; thanh dài nhất là khoản chi lớn nhất.')}</h2></div><div class="muted">Tổng chi ${M(csum)}${T.sent?` · ${P(csum/T.sent)} doanh số gửi đi`:''}</div></div>
     <div class="costbars">${CI.map(([l,v],i)=>`<div class="cb${i===0?' top':''}"><span class="cl">${l}</span><span class="ct"><i style="width:${(v/cmax*100).toFixed(1)}%"></i></span><span class="cv">${M(v)}</span><span class="cp">${T.sent?P(v/T.sent):'–'}</span></div>`).join('')}</div></div>`:'';
