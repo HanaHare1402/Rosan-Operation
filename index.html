@@ -173,8 +173,11 @@ async function loadData(){
   const chs=fList('ch'),mks=fList('mkt');
   const base={p_project:F.proj||null,p_market:mks.length===1?mks[0]:null,p_channel:chs.length===1&&chs[0]!=='__none'?chs[0]:null};
   const [from,to]=rangeDates(),[pf,pt]=prevDates();
-  const [cur,prev]=await Promise.all([sbc.rpc('dash_orders',{...base,p_from:dayISO(from),p_to:dayISO(to)}),
-    F.cmp?sbc.rpc('dash_orders',{...base,p_from:dayISO(pf),p_to:dayISO(pt)}):Promise.resolve({data:[]})]);
+  // Máy chủ trả tối đa 1.000 dòng mỗi lần: đọc từng trang cho đủ (sắp theo đủ các cột gộp để trang sau không trùng / sót).
+  const DO=['day','project_id','team_id','staff_id','marketer','channel_id','market_id','shop_id','st_group'];
+  const dash=a=>fetchAll(()=>DO.reduce((q,c)=>q.order(c,{nullsFirst:true}),sbc.rpc('dash_orders',a)));
+  const [cur,prev]=await Promise.all([dash({...base,p_from:dayISO(from),p_to:dayISO(to)}),
+    F.cmp?dash({...base,p_from:dayISO(pf),p_to:dayISO(pt)}):Promise.resolve({data:[]})]);
   if(seq!==loadSeq)return;
   loading=false;
   const keep=r=>(!chs.length||chs.includes(r.ch||'__none'))&&(!mks.length||mks.includes(r.mkt));
@@ -186,7 +189,7 @@ async function loadData(){
 }
 async function loadProducts(){
   const [from,to]=rangeDates();
-  const {data,error}=await sbc.rpc('dash_products',{p_from:dayISO(from),p_to:dayISO(to),p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch});
+  const {data,error}=await fetchAll(()=>['code','team_id','staff_id','st_group'].reduce((q,c)=>q.order(c,{nullsFirst:true}),sbc.rpc('dash_products',{p_from:dayISO(from),p_to:dayISO(to),p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch})));
   PRODS=error?{err:error.message,rows:[]}:{rows:data.map(r=>({code:r.code,name:r.name,team:r.team_id,staff:r.staff_id,g:r.st_group,n:+r.orders,qty:+r.qty,rev:+r.revenue_vnd,cogs:+r.cogs_vnd||0,unit:r.unit_cost_vnd==null?null:+r.unit_cost_vnd}))};
   if(['sanpham','nhansu','canhbao','tongquan','team','kqkd'].includes(view))render();
 }
