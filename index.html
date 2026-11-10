@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261102c">
+<link rel="stylesheet" href="css/app.css?v=20261110a">
 </head>
 <body>
 
@@ -31,9 +31,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261102c"></script>
-<script src="js/settings-db.js?v=20261102c"></script>
-<script src="js/shell.js?v=20261102c"></script>
+<script src="js/auth.js?v=20261110a"></script>
+<script src="js/settings-db.js?v=20261110a"></script>
+<script src="js/shell.js?v=20261110a"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -859,6 +859,9 @@ function adsInfo(src,rows,teams){
   return {cost,rev,cap:caps.length===1?caps[0]:0};
 }
 function ensureTD(){const key=JSON.stringify([F.proj,F.mkt,F.ch,F.range,F.from,F.to]);if(key!==TD.key){TD.key=key;TD.loading=true;TD.rows=[];loadTD(key)}}
+// Màn hẹp (điện thoại): bảng theo dõi dùng bố cục gọn; xoay ngang / đổi cỡ thì vẽ lại.
+const MQ_MOB=window.matchMedia?matchMedia('(max-width:640px)'):null,isMob=()=>!!(MQ_MOB&&MQ_MOB.matches);
+if(MQ_MOB&&MQ_MOB.addEventListener)MQ_MOB.addEventListener('change',()=>render());
 const WD=['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
 // Bảng theo dõi: mặc định gọn (chỉ dòng tổng); "Theo nhóm SP" mở thêm dòng từng nhóm sản phẩm.
 let dlyGrp=store.get('dlyGrp','0')==='1';
@@ -906,21 +909,23 @@ function dailyBody(rows,rate,o){
     return over?`<span class="ov" title="Vượt trần ${PF(cap)}%">${P(v)} ▲</span>`:P(v)};
   // Tiền trong bảng cùng một đơn vị: đồng (ghi ở đầu cột chỉ số).
   const Tr=v=>v?N(v):'<span class="z">–</span>';
+  // Điện thoại: nhãn ngắn để cột "Chỉ số" (ghim bên trái) hẹp lại, chừa chỗ cho số từng ngày.
+  const mob=isMob(),GN=g=>mob?(g?'Nhóm '+g:'Chưa xếp'):GNAME(g);
   const lines=[
-    ['Tổng chi phí ads (1)',a=>Tr(a.usd*rate),'h',undefined,'cost'],...G.map(g=>[GNAME(g),a=>Tr(a.usd*rate),'ind',g,'cost']),
-    ['Doanh số tổng (2)',a=>Tr(a.rev),'h',undefined,'rev'],...G.map(g=>[GNAME(g),a=>Tr(a.rev),'ind',g,'rev']),
-    ['Số đơn (3)',a=>a.n?N(a.n):'<span class="z">–</span>','h',undefined,'ord'],
-    ['% chi phí = (1) ÷ (2)',(a,t)=>pct(a,t?'tot':1),'h',undefined,'pct'],...G.map(g=>[GNAME(g),a=>pct(a),'ind',g,'pct']),
-    ['Chi phí / đơn = (1) ÷ (3)',a=>a.n?N(a.usd*rate/a.n):'<span class="z">–</span>','h',undefined,'cpo']].filter(l=>dlyGrp||l[2]==='h');
+    [mob?'Chi phí ads':'Tổng chi phí ads (1)',a=>Tr(a.usd*rate),'h',undefined,'cost'],...G.map(g=>[GN(g),a=>Tr(a.usd*rate),'ind',g,'cost']),
+    [mob?'Doanh số':'Doanh số tổng (2)',a=>Tr(a.rev),'h',undefined,'rev'],...G.map(g=>[GN(g),a=>Tr(a.rev),'ind',g,'rev']),
+    [mob?'Số đơn':'Số đơn (3)',a=>a.n?N(a.n):'<span class="z">–</span>','h',undefined,'ord'],
+    [mob?'% chi phí':'% chi phí = (1) ÷ (2)',(a,t)=>pct(a,t?'tot':1),'h',undefined,'pct'],...G.map(g=>[GN(g),a=>pct(a),'ind',g,'pct']),
+    [mob?'Chi phí / đơn':'Chi phí / đơn = (1) ÷ (3)',a=>a.n?N(a.usd*rate/a.n):'<span class="z">–</span>','h',undefined,'cpo']].filter(l=>dlyGrp||l[2]==='h');
   // Giá trị từng ngày cho cột "Xu hướng" (chỉ dòng tổng, chỉ tới hôm nay).
   const SV={cost:a=>a.usd*rate,rev:a=>a.rev,ord:a=>a.n,pct:a=>a.rev?a.usd*rate/a.rev*100:NaN,cpo:a=>a.n?a.usd*rate/a.n:NaN};
   const SF={cost:N,rev:N,ord:N,pct:x=>PF(x)+'%',cpo:N};
   const past=ds.filter(d=>isoD(d)<=today);
-  const showTr=ds.length>2;
+  const showTr=ds.length>2&&!mob;
   const spark=sec=>dSpark(past.map(d=>[d,SV[sec](get(isoD(d)))]),SF[sec],sec==='pct'?cap:0);
   const we=d=>d.getDay()===0||d.getDay()===6;
   const wk=d=>d.getDay()===1&&+d!==+ds[0]?' wk':'';
-  const head=`<tr><th class="l">Chỉ số<div class="sub2">tiền: đồng</div></th><th class="tot">Tổng<div class="sub2">${esc(rangeLabel())}</div></th>${showTr?'<th class="trend">Xu hướng<div class="sub2">theo ngày</div></th>':''}${ds.map(d=>`<th class="${we(d)?'we':''}${wk(d)}${isoD(d)===today?' today':''}">${isoD(d)===today?'Hôm nay':WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
+  const head=`<tr><th class="l">Chỉ số<div class="sub2">${mob?'đồng':'tiền: đồng'}</div></th><th class="tot">Tổng<div class="sub2">${mob?fmtD(ds[0])+'–'+fmtD(ds[ds.length-1]):esc(rangeLabel())}</div></th>${showTr?'<th class="trend">Xu hướng<div class="sub2">theo ngày</div></th>':''}${ds.map(d=>`<th class="${we(d)?'we':''}${wk(d)}${isoD(d)===today?' today':''}">${isoD(d)===today?'Hôm nay':WD[d.getDay()]}<div class="sub2">${fmtD(d)}</div></th>`).join('')}</tr>`;
   const gdot=g=>g===undefined?'':`<span class="gdot g${g||0}" aria-hidden="true"></span>`;
   const body=lines.map(([lab,f,cls,g,sec],i)=>`<tr class="${cls==='h'?'h':''} s-${sec}${cls==='h'&&i?' first':''}"><td class="${cls==='ind'?'ind':''}">${gdot(g)}${lab}</td><td class="tot">${f(get('*',g),1)}</td>${showTr?`<td class="trend">${cls==='h'?spark(sec):''}</td>`:''}${ds.map(d=>{const k=isoD(d);return `<td class="${we(d)?'we':''}${wk(d)}${k===today?' today':''}${k>today?' fut':''}">${k>today?'<span class="z">–</span>':f(get(k,g))}</td>`}).join('')}</tr>`).join('');
   const T=get('*'),T2=get('*',2),dim=new Date(ds[0].getFullYear(),ds[0].getMonth()+1,0).getDate();
@@ -940,7 +945,7 @@ function dailyBody(rows,rate,o){
   return `<div class="card blk c-cyan dly"><div class="cardhead"><div><h2>${title} ${dtip}</h2></div>${segG}</div>
     ${(F.ch!=='all')?`<div class="warnrow">${DAILY_OLD?`<span class="pill p-warn">Chưa lọc theo kênh ${tipT('Bảng đang hiện số của mọi kênh. Admin chạy file SQL 20261027010000_daily_filters.sql trên Supabase để bảng lọc theo kênh / thị trường.')}</span>`:`<span class="pill p-info">Chi phí ads: ${esc(fList('ch').map(x=>x==='__none'?'chưa chọn kênh':adChName(x)).join(', '))} ${tipT('Chỉ tính chi phí marketer chọn kênh này khi nhập. Khoản nhập trước khi có ô Kênh (chưa chọn kênh) chỉ được tính khi xem Mọi kênh. Nếu chi phí vẫn ra của mọi kênh, admin cần chạy file SQL 20261027020000_ad_channel.sql.')}</span>`}</div>`:''}
     ${contest}${strip}
-    ${rows.length?(()=>{const showTr=ds.length>2,mw=230+140+(showTr?132:0)+ds.length*112,cg=`<colgroup><col style="width:230px"><col style="width:140px">${showTr?'<col style="width:132px">':''}${ds.map(()=>'<col style="width:112px">').join('')}</colgroup>`;
+    ${rows.length?(()=>{const W1=mob?96:230,W2=mob?112:140,Wd=mob?92:112,mw=W1+W2+(showTr?132:0)+ds.length*Wd,cg=`<colgroup><col style="width:${W1}px"><col style="width:${W2}px">${showTr?'<col style="width:132px">':''}${ds.map(()=>`<col style="width:${Wd}px">`).join('')}</colgroup>`;
       return `<div class="fh"><table class="daily" style="width:100%;min-width:${mw}px">${cg}<thead>${head}</thead></table></div><div class="tw fhb"><table class="daily" style="width:100%;min-width:${mw}px">${cg}<tbody>${body}</tbody></table></div>`})():Shell.empty('inbox','Chưa có số trong khoảng này','Chưa có đơn hoặc chi phí ads nào.')}</div>`;
 }
 
