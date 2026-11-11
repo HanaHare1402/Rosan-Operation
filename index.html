@@ -216,7 +216,7 @@ const dkey=d=>isoD(d);
 // ---------- giải thích chỉ số ----------
 const DEF={
   adsp:'Chi phí quảng cáo (USD × tỷ giá tháng, nhập ở màn Chi phí ads) ÷ doanh số đơn tạo trong kỳ, bỏ đơn huỷ. Không lọc theo kênh.',
-  rev:'Tổng tiền các đơn đặt trong khoảng ngày (sau giảm giá, quy ra VNĐ), không tính đơn huỷ / đã xoá.',
+  rev:'Tổng COD (tiền thu hộ) các đơn đặt trong khoảng ngày, quy ra VNĐ, không tính đơn huỷ / đã xoá. Đơn sàn Shopee / TikTok tính COD + phí sàn; đơn không có COD lấy giá trị đơn. Cách tính giống KPI và Kết quả kinh doanh.',
   ord:'Số đơn đặt trong khoảng ngày, không tính đơn huỷ / đã xoá.',
   ret:'Đơn hoàn ÷ (đơn đã giao + đơn hoàn). Đơn đang giao chưa tính vì chưa biết kết quả.',
   gp:'Tiền các đơn đã giao trừ giá vốn (giá nhập gần nhất tính đến ngày đặt). Chưa trừ chi phí ads, vận chuyển.',
