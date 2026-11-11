@@ -985,14 +985,19 @@ function staffDailyCard(staffId){
 const KP={key:'',rows:[],set:KDEF,month:'',other:{},loading:false,err:''};
 const PL_ITEMS=[['qldn_vn','a. Chi phí quản lý doanh nghiệp Việt Nam'],['nguyen_lieu','b. Chi phí nguyên liệu'],['luong_vn','c. Chi phí lương Việt Nam'],['kho_phil','Chi phí vận hành kho Philippines'],['thu_nhap_khac','Thu nhập khác'],['chi_phi_khac','Chi phí khác']];
 function ensureKP(){
-  const key=JSON.stringify([F.proj,F.range,F.from,F.to]);if(key===KP.key)return;
+  const key=JSON.stringify([F.proj,F.mkt,F.ch,F.range,F.from,F.to]);if(key===KP.key)return;
   KP.key=key;KP.loading=true;KP.rows=[];
   const [from,to]=rangeDates(),m=isoD(monthStart(from));
-  Promise.all([fetchAll(()=>sbc.rpc('kpi_report',{p_from:dayISO(from),p_to:dayISO(to),p_mode:'ads',p_project:F.proj||null}).order('who').order('product_key')),getKSet(m),
+  // Lọc kênh / thị trường: lấy thêm doanh thu của mọi kênh để chia chi phí chung theo tỷ lệ (kênh đang xem chỉ gánh phần của mình).
+  const flt=F.ch!=='all'||!!F.mkt,base={p_from:dayISO(from),p_to:dayISO(to),p_mode:'ads',p_project:F.proj||null};
+  const call=a=>fetchAll(()=>sbc.rpc('kpi_report',a).order('who').order('product_key'));
+  const main=flt?call({...base,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch}).then(r=>{KP.noFlt=!!(r.error&&/function|schema cache|p_channel/i.test(r.error.message));return KP.noFlt?call(base):r}):(KP.noFlt=false,call(base));
+  Promise.all([main,getKSet(m),
     SEE_COST?sbc.from('pl_other').select('item,amount_vnd').eq('month',m):Promise.resolve({data:[]})]).then(([r,st,o])=>{
     if(key!==KP.key)return;
     KP.loading=false;KP.set=st;KP.month=m;KP.other={};(o.data||[]).forEach(x=>KP.other[x.item]=+x.amount_vnd||0);
     if(r.error){KP.err=r.error.message;KP.rows=[]}else{KP.err='';KP.rows=r.data.map(kRow);KP.old=r.data.length>0&&!('ok_n' in r.data[0])}
+    KP.allOk=null;if(flt&&!KP.noFlt)call(base).then(a=>{if(key!==KP.key||a.error)return;KP.allOk=a.data.reduce((t,x)=>t+(+x.ok||0),0);if(view==='kqkd')render()});
     if(['tongquan','team','nhansu','sanpham','kqkd'].includes(view))render();
   });
 }
@@ -1008,7 +1013,7 @@ function plCalc(a,s,share){
 }
 // Theo sản phẩm: chi phí chung chia theo doanh thu đã giao của sản phẩm trên tổng doanh thu đang xem.
 function kpProducts(rows){
-  const totOk=KP.rows.reduce((t,r)=>t+r.ok,0)||1,ms=monthShare();
+  const totOk=KP.allOk||KP.rows.reduce((t,r)=>t+r.ok,0)||1,ms=monthShare();
   return new Map(kSum(rows,r=>r.pk).map(a=>[a.k,plCalc(a,KP.set,ms*a.ok/totOk)]));
 }
 Object.assign(DEF,{
@@ -1033,10 +1038,10 @@ V.kqkd=()=>{
   const teamOf=k=>(byId(CAT.staff,k)||{}).team_id||'';
   const multiProj=!F.proj&&new Set(KP.rows.map(r=>projOf(r.who))).size>1;
   const keyFn=multiProj?(r=>projOf(r.who)):(r=>teamOf(r.who)),nameFn=multiProj?(k=>projName(k||null)):(k=>teamName(k||null));
-  const s=KP.set,ms=monthShare(),T0=kSum(KP.rows,()=>'*')[0],totOk=T0.ok||1,byProd=kqMode==='prod';
+  const s=KP.set,ms=monthShare(),T0=kSum(KP.rows,()=>'*')[0],totOk=KP.allOk||T0.ok||1,byProd=kqMode==='prod';
   if(byProd&&!PRODS)loadProducts();
   // Theo sản phẩm (giống form gốc): mỗi sản phẩm một cột, chi phí chung (dòng 9, 10, thu / chi khác) chỉ tính ở cột Tổng.
-  const T=plCalc(T0,s,ms),groups=byProd?kSum(KP.rows,r=>r.pk).sort((a,b)=>b.sent-a.sent).map(a=>[a.name||a.k,plCalc(a,s,0),a.k])
+  const T=plCalc(T0,s,ms*(KP.allOk?Math.min(1,T0.ok/KP.allOk):1)),groups=byProd?kSum(KP.rows,r=>r.pk).sort((a,b)=>b.sent-a.sent).map(a=>[a.name||a.k,plCalc(a,s,0),a.k])
     :kSum(KP.rows,keyFn).sort((a,b)=>b.ok-a.ok).map(a=>[nameFn(a.k),plCalc(a,s,ms*a.ok/totOk)]);
   const cols=[['Tổng',T]].concat(groups.length>1||byProd?groups:[]);
   // Số lượng hàng đã giao và giá vốn 1 sản phẩm theo từng sản phẩm (từ dòng hàng trong đơn).
@@ -1079,7 +1084,9 @@ V.kqkd=()=>{
     <div class="costbars">${CI.map(([l,v],i)=>`<div class="cb${i===0?' top':''}"><span class="cl">${l}</span><span class="ct"><i style="width:${(v/cmax*100).toFixed(1)}%"></i></span><span class="cv">${M(v)}</span><span class="cp">${T.sent?P(v/T.sent):'–'}</span></div>`).join('')}</div></div>`:'';
   const modeSeg=`<div class="seg" role="group" aria-label="Cột của báo cáo">${[['team',multiProj?'Theo dự án':'Theo team'],['prod','Theo sản phẩm']].map(([k,l])=>`<button type="button" data-kqmode="${k}" class="${kqMode===k?'on':''}" aria-pressed="${kqMode===k}">${l}</button>`).join('')}</div>`;
   return `${tiles}${costCard}<div class="card pl c-green"><div class="cardhead"><div><h2>Báo cáo kết quả kinh doanh · ${esc(rangeLabel())}</h2></div><div class="page-actions">${modeSeg}${exportBtn('tPL')}</div></div>
-    ${oldSql||missing||noAds?`<div class="warnrow">${oldSql}${missing}${noAds}</div>`:''}
+    ${(()=>{const fl=F.ch!=='all'||F.mkt;const nf=fl&&KP.noFlt?`<span class="pill p-warn">Chưa lọc theo kênh / thị trường ${tipT('Báo cáo đang hiện số của mọi kênh. Admin chạy file SQL 20261111000000_kqkd_filters.sql trên Supabase để lọc được.')}</span>`:'';
+      const sh=fl&&!KP.noFlt&&KP.allOk?`<span class="pill p-info">Chi phí chung chia theo doanh thu: ${P(T0.ok/KP.allOk)} ${tipT('Chi phí Việt Nam, kho Philippines, thu / chi khác của cả công ty được chia theo tỷ lệ doanh thu đã giao của phần đang lọc trên toàn công ty.')}</span>`:'';
+      return oldSql||missing||noAds||nf||sh?`<div class="warnrow">${nf}${oldSql}${missing}${noAds}${sh}</div>`:''})()}
     ${(()=>{const mw=240+130+84+(cols.length-1)*124,cg=`<colgroup><col style="width:240px"><col style="width:130px"><col style="width:84px">${cols.slice(1).map(()=>'<col style="width:124px">').join('')}</colgroup>`;
       // Hàng tiêu đề là bảng riêng, cố định dưới bộ lọc (sticky thật, không giật); kéo ngang thân bảng thì tiêu đề kéo theo.
       return `<div class="fh"><table id="tPLh" class="pltab" style="min-width:${mw}px">${cg}<thead><tr><th class="l">Chỉ tiêu (đồng)</th>${cols.map((c,i)=>`<th title="${esc(c[0])}"><span class="pn">${esc(c[0])}</span></th>${i===0?'<th>Tỷ lệ</th>':''}`).join('')}</tr></thead></table></div>
