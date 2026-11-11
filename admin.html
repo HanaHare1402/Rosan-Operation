@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261111a">
+<link rel="stylesheet" href="css/app.css?v=20261111c">
 </head>
 <body>
 <div class="app">
@@ -168,6 +168,15 @@
       </div>
     </section>
 
+    <!-- ---------- phản hồi người dùng ---------- -->
+    <section id="tab-phanhoi" hidden>
+      <div class="card c-purple">
+        <div class="cardhead"><div><h2>Góp ý / báo lỗi từ người dùng</h2><p class="hint keep">Người dùng gửi ở nút “Góp ý / Báo lỗi” cuối thanh bên. Đổi trạng thái và ghi trả lời: người gửi xem được ở mục “Đã gửi”.</p></div><button class="btn ghost sm" id="fbReload" type="button">Tải lại</button></div>
+        <div class="stchips" id="fbFilter" role="group" aria-label="Lọc theo trạng thái"></div>
+        <div id="fbList"><p class="muted">Đang tải…</p></div>
+      </div>
+    </section>
+
     <section id="tab-nhatky" hidden>
       <div class="card"><div class="cardhead"><div><h2>50 lần đồng bộ gần nhất</h2><p class="hint">Đơn được kéo khi có người mở bảng điều hành (tối đa 30 giây một lần) và theo lịch tự động 2 tiếng/lần. “partial”: chưa kéo hết, lần sau làm tiếp. “busy”: lượt khác đang kéo shop đó.</p></div><button class="btn ghost" id="reloadRuns">Tải lại</button></div>
       <div class="tw"><table><thead><tr><th class="l">Bắt đầu</th><th class="l">Shop</th><th class="l">Người / lịch</th><th>Trang</th><th>Đơn</th><th class="l">Kết quả</th><th class="l">Lỗi</th></tr></thead><tbody id="runs"></tbody></table></div></div>
@@ -177,8 +186,8 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261111a"></script>
-<script src="js/shell.js?v=20261111a"></script>
+<script src="js/auth.js?v=20261111c"></script>
+<script src="js/shell.js?v=20261111c"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (async function () {
@@ -217,6 +226,7 @@
     giavon: ["Giá vốn", "Dữ liệu nhập hàng, giá vốn theo giá nhập gần nhất", ["admin", "quan_ly", "ke_toan"]],
     nhomsp: ["Nhóm sản phẩm", "Phân nhóm khó / dễ đẩy và người R&D theo tháng", ["admin", "quan_ly", "ke_toan"]],
     nhatky: ["Nhật ký đồng bộ", "Lịch sử kéo đơn từ POS", ["admin"]],
+    phanhoi: ["Phản hồi", "Góp ý và báo lỗi người dùng gửi về", ["admin"]],
   };
   const allowedTab = (t) => TABS[t] && TABS[t][2].includes(me.role);
   document.querySelectorAll("nav a[data-tab]").forEach((a) => (a.hidden = !allowedTab(a.dataset.tab)));
@@ -226,9 +236,50 @@
     document.querySelectorAll("nav a[data-tab]").forEach((a) => a.classList.toggle("on", a.dataset.tab === t));
     $("#title").textContent = TABS[t][0]; if (!$("#subtitle").querySelector(".neg")) $("#subtitle").textContent = TABS[t][1];
     history.replaceState(null, "", "#" + t);
-    ({ danhmuc: renderCat, chuakhaibao: loadUnmapped, taikhoan: loadUsers, pos: loadShops, giavon: loadCosts, nhomsp: loadGroups, nhatky: loadRuns })[t]();
+    ({ danhmuc: renderCat, chuakhaibao: loadUnmapped, taikhoan: loadUsers, pos: loadShops, giavon: loadCosts, nhomsp: loadGroups, nhatky: loadRuns, phanhoi: loadFeedback })[t]();
   }
   document.querySelectorAll("nav a[data-tab]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); go(a.dataset.tab); }));
+
+  // ---------- phản hồi người dùng ----------
+  let FB = [], fbSt = "open";
+  const FB_FILTERS = [["open", "Chưa xong"], ["moi", "Mới"], ["dang_xu_ly", "Đang xử lý"], ["da_xong", "Đã xong"], ["khong_xu_ly", "Không xử lý"], ["all", "Tất cả"]];
+  async function loadFeedback() {
+    const { data, error } = await sb.from("feedback").select("*").order("created_at", { ascending: false }).limit(500);
+    if (error) { $("#fbList").innerHTML = Shell.empty("alert", "Chưa có phần phản hồi", /feedback|relation|schema cache/i.test(error.message) ? "Chạy file SQL 20261111020000_feedback.sql trên Supabase." : esc(error.message), ""); return; }
+    FB = data || []; Shell.badge("fbCnt", FB.filter((f) => f.status === "moi").length); renderFeedback();
+  }
+  function renderFeedback() {
+    const inF = (f) => fbSt === "all" || (fbSt === "open" ? ["moi", "dang_xu_ly"].includes(f.status) : f.status === fbSt);
+    $("#fbFilter").innerHTML = FB_FILTERS.map(([k, l]) => `<button type="button" class="stchip${fbSt === k ? " on" : ""}" data-fbst="${k}" aria-pressed="${fbSt === k}">${l}<span>${nf.format(FB.filter((f) => k === "all" || (k === "open" ? ["moi", "dang_xu_ly"].includes(f.status) : f.status === k)).length)}</span></button>`).join("");
+    const list = FB.filter(inF);
+    if (!list.length) { $("#fbList").innerHTML = Shell.empty("chat", fbSt === "open" ? "Không còn phản hồi nào chưa xử lý" : "Không có phản hồi", "", ""); return; }
+    const C = Shell.FB_CAT, S = Shell.FB_ST;
+    $("#fbList").innerHTML = `<ul class="fblist admin">${list.map((f) => `<li data-fb="${f.id}" class="${f.status === "moi" ? "isnew" : ""}">
+      <div class="fbhead"><span class="pill ${f.category === "loi" ? "p-bad" : f.category === "gop_y" ? "p-info" : "p-mute"}">${C[f.category]}</span>
+        <b>${esc(f.user_name || f.user_email || "")}</b><span class="muted">${esc(f.user_email || "")}${f.user_role ? " · " + esc(Auth.ROLES[f.user_role] || f.user_role) : ""} · ${when(f.created_at)}${f.page ? " · trang " + esc(f.page) : ""}</span></div>
+      <p class="fbtext">${esc(f.message)}</p>
+      <div class="fbimgs" data-paths="${esc(JSON.stringify(f.images || []))}">${(f.images || []).length ? '<span class="muted">Đang tải ảnh…</span>' : ""}</div>
+      <div class="fbadmin"><label>Trạng thái<select data-fbstatus>${Object.entries(S).map(([k, v]) => `<option value="${k}" ${f.status === k ? "selected" : ""}>${v[0]}</option>`).join("")}</select></label>
+        <label class="grow">Trả lời người gửi / ghi chú<textarea rows="2" data-fbnote placeholder="VD: Đã sửa, tải lại trang (F5) để dùng bản mới.">${esc(f.admin_note || "")}</textarea></label>
+        <button type="button" class="btn sm" data-fbsave>Lưu</button><span class="fmsg" data-fbmsg></span></div>
+      ${f.handled_by ? `<div class="sub2">Xử lý bởi ${esc(f.handled_by)} · cập nhật ${when(f.updated_at)}</div>` : ""}</li>`).join("")}</ul>`;
+    $("#fbList").querySelectorAll(".fbimgs").forEach(async (el) => {
+      const urls = await Shell.signedImages(JSON.parse(el.dataset.paths));
+      el.innerHTML = urls.map((u, i) => `<a href="${u}" target="_blank" rel="noopener" title="Mở ảnh ${i + 1} cỡ lớn"><img src="${u}" alt="Ảnh đính kèm ${i + 1}"></a>`).join("");
+    });
+  }
+  $("#fbFilter").addEventListener("click", (e) => { const b = e.target.closest("[data-fbst]"); if (b) { fbSt = b.dataset.fbst; renderFeedback(); } });
+  $("#fbReload").onclick = loadFeedback;
+  $("#fbList").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-fbsave]"); if (!b) return;
+    const li = b.closest("[data-fb]"), id = li.dataset.fb, status = li.querySelector("[data-fbstatus]").value, note = li.querySelector("[data-fbnote]").value.trim();
+    b.disabled = true;
+    const { data, error } = await sb.from("feedback").update({ status, admin_note: note || null, handled_by: me.full_name || me.email, updated_at: new Date().toISOString() }).eq("id", id).select("*");
+    b.disabled = false;
+    if (error || !data.length) { say(li.querySelector("[data-fbmsg]"), "Chưa lưu được: " + esc(error ? error.message : "không có quyền"), "neg"); return; }
+    const i = FB.findIndex((f) => f.id === id); FB[i] = data[0];
+    Shell.badge("fbCnt", FB.filter((f) => f.status === "moi").length); Shell.toast("Đã lưu phản hồi."); renderFeedback();
+  });
 
   // ---------- danh mục: bảng + form dùng chung cho 5 loại ----------
   const tags = (v) => String(v || "").split(",").map((x) => x.trim()).filter(Boolean);
