@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261110a">
+<link rel="stylesheet" href="css/app.css?v=20261111a">
 </head>
 <body>
 <div class="app">
@@ -36,7 +36,7 @@
     <!-- ---------- tài khoản ---------- -->
     <section id="tab-taikhoan" hidden>
       <div class="card">
-        <div class="cardhead"><div><h2>Tài khoản và phân quyền</h2><p class="hint"><b>Vai trò</b> quyết định thấy màn nào. <b>Phạm vi</b> quyết định thấy số của ai: toàn công ty, dự án, team, hay chỉ của mình (theo nhân sự được liên kết).</p></div><div class="page-actions"><button class="btn ghost sm" id="reloadUsers">Tải lại</button><button class="btn sm" id="ufOpen" type="button">+ Tạo tài khoản</button></div></div>
+        <div class="cardhead"><div><h2>Tài khoản và phân quyền <span class="onlinecnt" id="onlineCnt" role="status"></span></h2><p class="hint"><b>Vai trò</b> quyết định thấy màn nào. <b>Phạm vi</b> quyết định thấy số của ai: toàn công ty, dự án, team, hay chỉ của mình (theo nhân sự được liên kết).</p></div><div class="page-actions"><button class="btn ghost sm" id="reloadUsers">Tải lại</button><button class="btn sm" id="ufOpen" type="button">+ Tạo tài khoản</button></div></div>
         <div class="tw"><table><thead><tr><th class="l">Email</th><th class="l">Họ tên</th><th class="l">Vai trò</th><th class="l">Phạm vi xem</th><th class="l">Trạng thái</th><th class="l">Đăng nhập gần nhất</th><th></th></tr></thead><tbody id="users"><tr><td colspan="7"><div class="skel" style="height:12px"></div></td></tr></tbody></table></div>
         <div class="msg" id="usersMsg" role="status"></div>
         <form id="userForm" class="editor" novalidate hidden>
@@ -176,8 +176,8 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261110a"></script>
-<script src="js/shell.js?v=20261110a"></script>
+<script src="js/auth.js?v=20261111a"></script>
+<script src="js/shell.js?v=20261111a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (async function () {
@@ -508,9 +508,24 @@
     try { users = (await Auth.callFn("admin-users", { action: "list" })).users; renderUsers(); }
     catch (e) { $("#users").innerHTML = `<tr><td colspan="7" class="l neg">Không tải được: ${esc(e.message)}.</td></tr>`; }
   }
+  // Chấm xanh: người đang mở web (Supabase Realtime Presence, cập nhật ngay khi có người vào / thoát).
+  const PAGE_NAME = { index: "Báo cáo", admin: "Quản trị", tonkho: "Tồn kho" };
+  function onlineDot(id) {
+    const o = Shell.online.get(id);
+    if (!o) return '<span class="odot off" aria-hidden="true"></span>';
+    const t = "Đang online" + (o.page ? " · " + (PAGE_NAME[o.page] || o.page) : "") + (o.n > 1 ? " · " + o.n + " tab" : "");
+    return `<span class="odot on" title="${esc(t)}"><span class="sr">${esc(t)}. </span></span>`;
+  }
+  function onlineCount() {
+    const el = $("#onlineCnt"); if (!el) return;
+    const n = users.filter((u) => Shell.online.has(u.id)).length;
+    el.innerHTML = `<span class="odot on" aria-hidden="true"></span>${n} người đang online`;
+  }
+  document.addEventListener("rosan-presence", () => { if (users.length) { renderUsers(); } });
   function renderUsers() {
+    setTimeout(onlineCount, 0);
     $("#users").innerHTML = users.map((u) => `<tr data-id="${u.id}" class="${uEdit === u.id ? "editing" : ""}">
-      <td class="l">${esc(u.email)}${u.id === me.id ? ' <span class="pill p-mute">bạn</span>' : ""}</td><td class="l">${esc(u.full_name)}</td>
+      <td class="l">${onlineDot(u.id)}${esc(u.email)}${u.id === me.id ? ' <span class="pill p-mute">bạn</span>' : ""}</td><td class="l">${esc(u.full_name)}</td>
       <td class="l">${u.role ? esc(Auth.ROLES[u.role]) : '<span class="pill p-warn">Chưa cấp</span>'}</td><td class="l" style="white-space:normal">${u.role ? scopeText(u) : ""}</td>
       <td class="l">${u.banned ? '<span class="pill p-bad">Đã khoá</span>' : u.role ? '<span class="pill p-good">Hoạt động</span>' : '<span class="pill p-warn">Chờ cấp quyền</span>'}<div class="sub2">${u.policy_accepted_at ? "Đồng ý quy định " + when(u.policy_accepted_at) : "Chưa đồng ý quy định"}</div></td>
       <td class="l muted">${when(u.last_sign_in_at)}</td>

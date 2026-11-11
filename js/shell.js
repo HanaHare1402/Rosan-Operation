@@ -92,6 +92,7 @@
     aside.addEventListener("click", (e) => { if (e.target.closest("nav a")) close(); });
     aside.querySelector("#logout").onclick = () => Auth.signOut();
     ME = me;
+    joinPresence(me, page);
     aside.querySelector("#pwBtn").onclick = () => pwDialog(false);
     // Lần đầu (hoặc khi quy định đổi phiên bản): đồng ý Quy định sử dụng & bảo vệ dữ liệu; sau đó mới tới đổi mật khẩu được cấp.
     if (me.policy_version !== POLICY_VERSION) policyDialog();
@@ -116,6 +117,25 @@
       setH(); if (window.ResizeObserver) new ResizeObserver(setH).observe(sh); window.addEventListener("resize", setH);
     }
     return aside;
+  }
+
+  // ---------- ai đang online ----------
+  // Mỗi trang đang mở báo "đang online" qua Supabase Realtime Presence (không lưu gì vào database).
+  // Đóng hết tab / mất mạng thì tự rời sau vài chục giây. Trang Tài khoản nghe sự kiện "rosan-presence" để vẽ chấm xanh.
+  const ONLINE = new Map(); // user id → {at, page}
+  let presenceCh = null;
+  function joinPresence(me, page) {
+    if (presenceCh || !window.Auth || !Auth.sb || !me || !me.id) return;
+    try {
+      presenceCh = Auth.sb.channel("online", { config: { presence: { key: me.id } } });
+      presenceCh.on("presence", { event: "sync" }, () => {
+        ONLINE.clear();
+        const st = presenceCh.presenceState();
+        Object.keys(st).forEach((id) => { const metas = st[id] || []; const last = metas[metas.length - 1] || {}; ONLINE.set(id, { at: last.at, page: last.page, n: metas.length }); });
+        document.dispatchEvent(new CustomEvent("rosan-presence"));
+      });
+      presenceCh.subscribe((status) => { if (status === "SUBSCRIBED") presenceCh.track({ at: new Date().toISOString(), page }).catch(() => {}); });
+    } catch (e) { presenceCh = null; }
   }
 
   // ---------- quy định sử dụng & bảo vệ dữ liệu ----------
@@ -321,5 +341,5 @@
   window.addEventListener("scroll", followTip, true);
   window.addEventListener("resize", followTip);
 
-  window.Shell = { render, icon, badge, empty, toast, fixHeads };
+  window.Shell = { render, icon, badge, empty, toast, fixHeads, online: ONLINE };
 })();
