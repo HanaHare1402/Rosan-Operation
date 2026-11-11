@@ -302,7 +302,7 @@ Deno.serve(async (req) => {
         const shopTz = s.markets?.timezone || "Asia/Ho_Chi_Minh";
         const tzs = [shopTz];
         const { data: key } = await sb.rpc("internal_get_pos_key", { p_shop: s.id });
-        const out: any = { shop: s.name, shop_tz: shopTz, by_tz: [] };
+        const out: any = { shop: s.name, shop_id: s.id, shop_tz: shopTz, by_tz: [] };
         for (const tz of tzs) {
           const [from, to] = dayBounds(day, tz);
           const q = { updateStatus: "inserted_at", startDateTime: Math.floor(from / 1000), endDateTime: Math.floor(to / 1000) - 1, page_number: 1, page_size: 1 };
@@ -326,6 +326,73 @@ Deno.serve(async (req) => {
         return out;
       }));
       return json({ ok: true, day, results });
+    }
+
+    // So từng đơn của một ngày giữa POS và web: đơn chỉ có trên POS, chỉ có trên web, lệch trạng thái.
+    // fix: true → ghi lại bản trên POS của các đơn thiếu / lệch vào web (như đồng bộ, chỉ những đơn đó).
+    if (body.action === "diff") {
+      if (!["admin", "quan_ly"].includes(role || "")) return json({ error: "Chỉ admin hoặc quản lý" }, 403);
+      const day = String(body.day || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return json({ error: "Ngày không hợp lệ" }, 400);
+      const { data: s, error } = await sb.from("pos_shops").select("id, name, pos_shop_id, markets(timezone)").eq("id", String(body.shop_id || "")).maybeSingle();
+      if (error) throw error;
+      if (!s) return json({ error: "Không thấy shop" }, 404);
+      const { data: key } = await sb.rpc("internal_get_pos_key", { p_shop: (s as any).id });
+      if (!key) return json({ error: "Shop chưa có API key" }, 400);
+      const tz = (s as any).markets?.timezone || "Asia/Ho_Chi_Minh";
+      const [from, to] = dayBounds(day, tz);
+      const path = `/shops/${encodeURIComponent((s as any).pos_shop_id)}/orders`;
+      const q = { updateStatus: "inserted_at", startDateTime: Math.floor(from / 1000), endDateTime: Math.floor(to / 1000) - 1, include_removed: 1, page_size: PAGE_SIZE };
+      // Tải hết đơn của ngày trên POS (trang 1 cho biết số trang, các trang sau gọi song song).
+      const first = await posGet(path, key, { ...q, page_number: 1 });
+      const listOf = (b: any): any[] => Array.isArray(b?.data) ? b.data : Array.isArray(b?.orders) ? b.orders : [];
+      const posOrders: any[] = [...listOf(first)];
+      const totalPages = Number(first.total_pages) || 1;
+      for (let p0 = 2; p0 <= totalPages; p0 += PARALLEL) {
+        const n = Math.min(PARALLEL, totalPages - p0 + 1);
+        const got = await Promise.all(Array.from({ length: n }, (_, i) => posGet(path, key, { ...q, page_number: p0 + i })));
+        got.forEach((b) => posOrders.push(...listOf(b)));
+      }
+      const removed = (o: any) => ["true", "1"].includes(String(o.is_removed ?? o.is_deleted ?? o.removed ?? "false")) || !!(o.removed_at || o.deleted_at);
+      const posSt = (o: any) => removed(o) ? 7 : num(o.status);
+      const pos = new Map<string, any>();
+      for (const o of posOrders) { const id = String(o.id ?? o.system_id ?? ""); if (id) pos.set(id, o); }
+      // Đơn trên web của ngày đó (đọc từng trang 1.000 dòng).
+      const web = new Map<string, any>();
+      for (let i = 0; ; i += 1000) {
+        const r = await sb.from("orders").select("pos_order_id, status, status_name, source_name, channel_id, synced_at").eq("shop_id", (s as any).id).eq("local_day", day).range(i, i + 999);
+        if (r.error) throw r.error;
+        (r.data || []).forEach((x: any) => web.set(String(x.pos_order_id), x));
+        if (!r.data || r.data.length < 1000) break;
+      }
+      const onlyPos: any[] = [], onlyWeb: any[] = [], diff: any[] = [];
+      for (const [id, o] of pos) {
+        const w = web.get(id), st = posSt(o), src = o.order_sources_name ?? null;
+        if (!w) onlyPos.push({ id, pos_status: st, pos_status_name: o.status_name ?? null, source: src });
+        else if ((w.status ?? null) !== st) diff.push({ id, pos_status: st, pos_status_name: o.status_name ?? null, web_status: w.status, web_status_name: w.status_name, source: src, synced_at: w.synced_at });
+      }
+      for (const [id, w] of web) if (!pos.has(id)) onlyWeb.push({ id, web_status: w.status, web_status_name: w.status_name, source: w.source_name });
+      // Số đơn không huỷ / không xoá theo nguồn đơn, để so với bộ lọc trên POS.
+      const bySrc = new Map<string, { pos: number; web: number }>();
+      const bump = (k: string, f: "pos" | "web") => { const v = bySrc.get(k) || { pos: 0, web: 0 }; v[f]++; bySrc.set(k, v); };
+      for (const o of pos.values()) if (![6, 7].includes(posSt(o) as number)) bump(o.order_sources_name || "(không có nguồn)", "pos");
+      for (const w of web.values()) if (![6, 7].includes(w.status)) bump(w.source_name || "(không có nguồn)", "web");
+      let fixed = 0;
+      if (body.fix) {
+        const ids = new Set([...onlyPos.map((x) => x.id), ...diff.map((x) => x.id)]);
+        const rows = [...ids].map((id) => mapOrder((s as any).id, pos.get(id)));
+        for (let i = 0; i < rows.length; i += WRITE_CHUNK) await upsertSplit(sb, rows.slice(i, i + WRITE_CHUNK));
+        fixed = rows.length;
+      }
+      const notCancel = (arr: Iterable<any>, f: (x: any) => any) => [...arr].filter((x) => ![6, 7].includes(f(x))).length;
+      return json({
+        ok: true, day, shop: (s as any).name, tz, fixed,
+        pos_total: pos.size, web_total: web.size,
+        pos_active: notCancel(pos.values(), posSt), web_active: notCancel(web.values(), (w) => w.status),
+        only_pos: onlyPos.slice(0, 300), only_web: onlyWeb.slice(0, 300), diff: diff.slice(0, 300),
+        n_only_pos: onlyPos.length, n_only_web: onlyWeb.length, n_diff: diff.length,
+        by_source: [...bySrc.entries()].map(([k, v]) => ({ source: k, ...v })).sort((a, b) => b.pos + b.web - a.pos - a.web),
+      });
     }
 
     if (body.action === "refresh") {
