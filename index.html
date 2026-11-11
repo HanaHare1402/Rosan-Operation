@@ -1021,7 +1021,8 @@ Object.assign(DEF,{
   p_lng:'Lợi nhuận gộp ÷ doanh thu (đơn đã giao). Lợi nhuận gộp = doanh thu − giá vốn − vận chuyển − phí dịch vụ vận chuyển, GIP, fulfill − quảng cáo. Màu: xanh lãi từ 10%, vàng lãi dưới 10%, đỏ (▼) lỗ.',
   p_net:'Lợi nhuận NET ÷ doanh thu. NET = lợi nhuận gộp − chi phí test, bao bì − phần chi phí chung (Việt Nam, kho Philippines) chia theo doanh thu. Màu: xanh từ 10%, vàng dưới 10%, đỏ (▼) lỗ.',
 });
-let kqMode=store.get('kqmode','team')==='prod'?'prod':'team';
+// Cột của báo cáo KQKD: theo dự án, theo team (các team nhỏ trong dự án), hoặc theo sản phẩm.
+let kqMode=['proj','team','prod'].includes(store.get('kqmode2',''))?store.get('kqmode2',''):(store.get('kqmode','')==='prod'?'prod':'proj');
 const pctCell=(v,base,bad)=>{if(!base||!isFinite(v/base))return '<span class="muted">–</span>';const x=v/base;return `<span class="${(bad?x>bad:x<0)?'neg':''}">${P(x)}</span>`};
 
 function topCard(rows,kp,title){
@@ -1036,8 +1037,9 @@ V.kqkd=()=>{
   if(!KP.rows.length)return empty();
   const projOf=k=>{const st=byId(CAT.staff,k);if(!st)return '';const t=byId(CAT.teams,st.team_id);return (t&&t.project_id)||st.project_id||''};
   const teamOf=k=>(byId(CAT.staff,k)||{}).team_id||'';
-  const multiProj=!F.proj&&new Set(KP.rows.map(r=>projOf(r.who))).size>1;
-  const keyFn=multiProj?(r=>projOf(r.who)):(r=>teamOf(r.who)),nameFn=multiProj?(k=>projName(k||null)):(k=>teamName(k||null));
+  const multiProj=!F.proj&&new Set(KP.rows.map(r=>projOf(r.who))).size>1,byProj=kqMode==='proj'&&multiProj;
+  // Theo team: tên team, kèm dự án khi đang xem nhiều dự án; đơn chưa gán nhân sự / team gộp vào "Chưa gán team".
+  const keyFn=byProj?(r=>projOf(r.who)):(r=>teamOf(r.who)),nameFn=byProj?(k=>projName(k||null)):(k=>{if(!k)return 'Chưa gán team';const t=byId(CAT.teams,k);return teamName(k)+(multiProj&&t&&t.project_id?' · '+projName(t.project_id):'')});
   const s=KP.set,ms=monthShare(),T0=kSum(KP.rows,()=>'*')[0],totOk=KP.allOk||T0.ok||1,byProd=kqMode==='prod';
   if(byProd&&!PRODS)loadProducts();
   // Theo sản phẩm (giống form gốc): mỗi sản phẩm một cột, chi phí chung (dòng 9, 10, thu / chi khác) chỉ tính ở cột Tổng.
@@ -1082,7 +1084,7 @@ V.kqkd=()=>{
   const cmax=Math.max(1,...CI.map(x=>x[1])),csum=CI.reduce((t,x)=>t+x[1],0);
   const costCard=CI.length?`<div class="card c-amber"><div class="cardhead"><div><h2>Cơ cấu chi phí ${tipT('Từng khoản chi trong khoảng đang xem, xếp từ lớn đến nhỏ. % là so với doanh số gửi đi; thanh dài nhất là khoản chi lớn nhất.')}</h2></div><div class="muted">Tổng chi ${M(csum)}${T.sent?` · ${P(csum/T.sent)} doanh số gửi đi`:''}</div></div>
     <div class="costbars">${CI.map(([l,v],i)=>`<div class="cb${i===0?' top':''}"><span class="cl">${l}</span><span class="ct"><i style="width:${(v/cmax*100).toFixed(1)}%"></i></span><span class="cv">${M(v)}</span><span class="cp">${T.sent?P(v/T.sent):'–'}</span></div>`).join('')}</div></div>`:'';
-  const modeSeg=`<div class="seg" role="group" aria-label="Cột của báo cáo">${[['team',multiProj?'Theo dự án':'Theo team'],['prod','Theo sản phẩm']].map(([k,l])=>`<button type="button" data-kqmode="${k}" class="${kqMode===k?'on':''}" aria-pressed="${kqMode===k}">${l}</button>`).join('')}</div>`;
+  const modeSeg=`<div class="seg" role="group" aria-label="Cột của báo cáo">${[...(multiProj?[['proj','Theo dự án']]:[]),['team','Theo team'],['prod','Theo sản phẩm']].map(([k,l])=>`<button type="button" data-kqmode="${k}" class="${(kqMode===k||(k==='team'&&kqMode==='proj'&&!multiProj))?'on':''}" aria-pressed="${kqMode===k||(k==='team'&&kqMode==='proj'&&!multiProj)}">${l}</button>`).join('')}</div>`;
   return `${tiles}${costCard}<div class="card pl c-green"><div class="cardhead"><div><h2>Báo cáo kết quả kinh doanh · ${esc(rangeLabel())}</h2></div><div class="page-actions">${modeSeg}${exportBtn('tPL')}</div></div>
     ${(()=>{const fl=F.ch!=='all'||F.mkt;const nf=fl&&KP.noFlt?`<span class="pill p-warn">Chưa lọc theo kênh / thị trường ${tipT('Báo cáo đang hiện số của mọi kênh. Admin chạy file SQL 20261111000000_kqkd_filters.sql trên Supabase để lọc được.')}</span>`:'';
       const sh=fl&&!KP.noFlt&&KP.allOk?`<span class="pill p-info">Chi phí chung chia theo doanh thu: ${P(T0.ok/KP.allOk)} ${tipT('Chi phí Việt Nam, kho Philippines, thu / chi khác của cả công ty được chia theo tỷ lệ doanh thu đã giao của phần đang lọc trên toàn công ty.')}</span>`:'';
@@ -1407,7 +1409,7 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('[data-team]');if(t){curTeam=t.dataset.team;store.set('team',curTeam);render();return}
   const g=e.target.closest('[data-go]');if(g&&g.dataset.go){const i=g.dataset.go.indexOf(':');const v=g.dataset.go.slice(0,i),k=g.dataset.go.slice(i+1);if(v==='chiphi'&&k&&view==='chiphi'&&!adLeave())return;if(v==='team'){curTeam=k;store.set('team',k)}if(v==='nhansu'){curStaff=k;store.set('staff',k)}if(v==='kpi')kWho=k;if(v==='chiphi'&&k){const [d,st]=k.split('|');adDay=d;adStaff=st;adEdit=null}if(ALLOWED.includes(v))go(v);return}
   const kv=e.target.closest('[data-kview]');if(kv){kView=kv.dataset.kview;store.set('kview',kView);render();return}
-  const kq=e.target.closest('[data-kqmode]');if(kq){kqMode=kq.dataset.kqmode;store.set('kqmode',kqMode);render();return}
+  const kq=e.target.closest('[data-kqmode]');if(kq){kqMode=kq.dataset.kqmode;store.set('kqmode2',kqMode);render();return}
   const km=e.target.closest('[data-kmode]');if(km){kMode=km.dataset.kmode;store.set('kmode',kMode);kWho='';render();return}
   if(e.target.closest('#kSetBtn')){kSetOpen=!kSetOpen;render();return}
   const ap=e.target.closest('[data-adpick]');if(ap){if(ap.dataset.adpick!==adDay&&adLeave()){adDay=ap.dataset.adpick;adEdit=null;render()}return}
