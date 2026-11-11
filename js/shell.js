@@ -37,6 +37,8 @@
     x: '<path d="M6 6l12 12M18 6 6 18"/>',
     target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8"/>',
     pen: '<path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-4-4L4 16z"/><path d="m14 6 4 4"/>',
+    chat: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4v-4h0A1.5 1.5 0 0 1 4 14.5z"/><path d="M8 9h8M8 12h5"/>',
+    image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 18 5-5 4 4 2.5-2.5L20 18"/>',
     warehouse: '<path d="M3 9.5 12 4l9 5.5V20H3z"/><path d="M7 20v-7h10v7"/><path d="M7 16.5h10"/>',
     tag: '<path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9z"/><circle cx="8" cy="8" r="1.4"/>',
   };
@@ -48,7 +50,7 @@
   ];
   const ADMIN = [
     ["danhmuc", "Danh mục", "folder"], ["chuakhaibao", "Chưa khai báo", "alert", "unmappedCnt"], ["giavon", "Giá vốn", "coins"], ["nhomsp", "Nhóm sản phẩm", "tag"],
-    ["pos", "Kết nối POS", "plug"], ["taikhoan", "Tài khoản", "shield"], ["nhatky", "Nhật ký đồng bộ", "list"],
+    ["pos", "Kết nối POS", "plug"], ["taikhoan", "Tài khoản", "shield"], ["nhatky", "Nhật ký đồng bộ", "list"], ["phanhoi", "Phản hồi", "chat", "fbCnt"],
   ];
 
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -81,6 +83,7 @@
         <button class="icon-btn" id="themeBtn" type="button"></button>
         <button class="icon-btn" id="logout" type="button" title="Đăng xuất" aria-label="Đăng xuất">${icon("logout")}</button>
       </div>
+      <button type="button" class="policy-link fb-link" id="fbBtn">${icon("chat")}<span class="lbl">Góp ý / Báo lỗi</span></button>
       <a class="policy-link" href="policy" target="_blank" rel="noopener">${icon("shield")}<span class="lbl">Quy định sử dụng &amp; bảo mật</span></a>`;
     // Nút menu trên điện thoại + lớp phủ.
     if (!app.querySelector(".scrim")) app.insertAdjacentHTML("beforeend", '<div class="scrim"></div>');
@@ -94,6 +97,9 @@
     ME = me;
     joinPresence(me, page);
     aside.querySelector("#pwBtn").onclick = () => pwDialog(false);
+    aside.querySelector("#fbBtn").onclick = () => feedbackDialog();
+    // Admin: số phản hồi mới trên menu Quản trị → Phản hồi.
+    if (me.role === "admin" && Auth.sb) Auth.sb.from("feedback").select("id", { count: "exact", head: true }).eq("status", "moi").then(({ count, error }) => { if (!error) badge("fbCnt", count || 0); });
     // Lần đầu (hoặc khi quy định đổi phiên bản): đồng ý Quy định sử dụng & bảo vệ dữ liệu; sau đó mới tới đổi mật khẩu được cấp.
     if (me.policy_version !== POLICY_VERSION) policyDialog();
     else if (me.must_change_pw) pwDialog(true);
@@ -136,6 +142,113 @@
       });
       presenceCh.subscribe((status) => { if (status === "SUBSCRIBED") presenceCh.track({ at: new Date().toISOString(), page }).catch(() => {}); });
     } catch (e) { presenceCh = null; }
+  }
+
+  // ---------- góp ý / báo lỗi ----------
+  // Người dùng gửi nội dung + ảnh (chọn file, kéo thả, dán Ctrl+V). Ảnh lớn được thu nhỏ trước khi tải lên kho "feedback".
+  const FB_CAT = { loi: "Báo lỗi", gop_y: "Góp ý", cau_hoi: "Câu hỏi" };
+  const FB_ST = { moi: ["Mới", "p-info"], dang_xu_ly: ["Đang xử lý", "p-warn"], da_xong: ["Đã xong", "p-good"], khong_xu_ly: ["Không xử lý", "p-mute"] };
+  const fmtTime = (t) => t ? new Date(t).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "";
+  // Thu nhỏ ảnh: cạnh dài tối đa 1600px, JPEG 85% (ảnh nhỏ giữ nguyên).
+  function shrink(file) {
+    return new Promise((res) => {
+      if (file.size < 600 * 1024 && /png|jpe?g|webp|gif/.test(file.type)) return res(file);
+      const img = new Image(), url = URL.createObjectURL(file);
+      img.onload = () => {
+        const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        c.toBlob((b) => res(b ? new File([b], (file.name || "anh").replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file), "image/jpeg", 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); res(file); };
+      img.src = url;
+    });
+  }
+  async function signed(paths) {
+    if (!paths || !paths.length) return [];
+    const { data } = await Auth.sb.storage.from("feedback").createSignedUrls(paths, 3600);
+    return (data || []).map((x) => x.signedUrl).filter(Boolean);
+  }
+  function feedbackDialog() {
+    if (!ME || document.querySelector("dialog.fbdlg")) return;
+    const st = { cat: "loi", files: [], tab: "new" };
+    const d = document.createElement("dialog");
+    d.className = "pwdlg fbdlg"; d.setAttribute("aria-labelledby", "fbT");
+    d.innerHTML = `<div class="fbwrap">
+      <div class="pwhead"><span class="pwico" aria-hidden="true">${icon("chat")}</span><div><h2 id="fbT">Góp ý / Báo lỗi</h2>
+        <p class="hint keep">Gửi thẳng cho admin. Kèm ảnh chụp màn hình giúp sửa lỗi nhanh hơn.</p></div>
+        <button class="icon-btn" type="button" data-fbclose aria-label="Đóng">${icon("x")}</button></div>
+      <div class="seg fbtabs" role="group" aria-label="Phần"><button type="button" data-fbtab="new" class="on" aria-pressed="true">Gửi mới</button><button type="button" data-fbtab="mine" aria-pressed="false">Đã gửi</button></div>
+      <form id="fbForm" novalidate>
+        <div class="seg" role="radiogroup" aria-label="Loại phản hồi">${Object.entries(FB_CAT).map(([k, l]) => `<button type="button" role="radio" data-fbcat="${k}" class="${k === "loi" ? "on" : ""}" aria-checked="${k === "loi"}">${l}</button>`).join("")}</div>
+        <label>Nội dung<textarea id="fbMsg" rows="5" maxlength="5000" placeholder="VD: Màn Chi phí ads, chọn ngày 10/11 bấm Lưu thì báo lỗi… / Muốn thêm cột … ở bảng …"></textarea></label>
+        <div class="fbdrop" id="fbDrop" tabindex="0" role="button" aria-label="Đính kèm ảnh: bấm để chọn, kéo thả hoặc dán">${icon("image")}<span><b>Đính kèm ảnh</b> · bấm để chọn, kéo thả vào đây, hoặc dán ảnh chụp màn hình (Ctrl+V)</span><input type="file" id="fbFile" accept="image/*" multiple hidden></div>
+        <div class="fbthumbs" id="fbThumbs"></div>
+        <div class="msg" id="fbMsgOut" role="status" aria-live="polite"></div>
+        <div class="pwfoot"><span class="muted fbmeta">Kèm theo: tên tài khoản, trang đang mở</span><button class="btn" type="submit" id="fbSend">Gửi phản hồi</button></div>
+      </form>
+      <div id="fbMine" hidden></div></div>`;
+    document.body.appendChild(d);
+    const $ = (s) => d.querySelector(s), out = (t, c) => { $("#fbMsgOut").className = "msg" + (c ? " " + c : ""); $("#fbMsgOut").textContent = t; };
+    const thumbs = () => { $("#fbThumbs").innerHTML = st.files.map((f, i) => `<figure><img src="${f.url}" alt="Ảnh ${i + 1}"><button type="button" class="icon-btn" data-fbrm="${i}" aria-label="Bỏ ảnh ${i + 1}">${icon("x")}</button></figure>`).join(""); };
+    const addFiles = async (list) => {
+      for (const f of [...list]) {
+        if (!/^image\//.test(f.type)) { out("Chỉ đính kèm được ảnh (PNG, JPG…).", "neg"); continue; }
+        if (st.files.length >= 5) { out("Tối đa 5 ảnh mỗi lần gửi.", "neg"); break; }
+        const s2 = await shrink(f);
+        if (s2.size > 5 * 1024 * 1024) { out("Ảnh quá lớn (trên 5 MB), chụp lại nhỏ hơn.", "neg"); continue; }
+        st.files.push({ file: s2, url: URL.createObjectURL(s2) });
+      }
+      thumbs();
+    };
+    const close = () => { st.files.forEach((f) => URL.revokeObjectURL(f.url)); d.close(); d.remove(); };
+    d.addEventListener("cancel", (e) => { e.preventDefault(); close(); });
+    d.addEventListener("paste", (e) => { const items = [...(e.clipboardData?.files || [])].filter((f) => /^image\//.test(f.type)); if (items.length) { e.preventDefault(); addFiles(items); } });
+    $("#fbMsg").addEventListener("input", () => { if ($("#fbMsgOut").textContent) out(""); });
+    const drop = $("#fbDrop");
+    drop.addEventListener("click", () => $("#fbFile").click());
+    drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#fbFile").click(); } });
+    ["dragover", "dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.toggle("over", ev === "dragover"); if (ev === "drop") addFiles(e.dataTransfer.files); }));
+    $("#fbFile").addEventListener("change", (e) => { addFiles(e.target.files); e.target.value = ""; });
+    d.addEventListener("click", async (e) => {
+      if (e.target.closest("[data-fbclose]")) return close();
+      const c = e.target.closest("[data-fbcat]"); if (c) { st.cat = c.dataset.fbcat; d.querySelectorAll("[data-fbcat]").forEach((b) => { b.classList.toggle("on", b === c); b.setAttribute("aria-checked", String(b === c)); }); return; }
+      const rm = e.target.closest("[data-fbrm]"); if (rm) { const [f] = st.files.splice(+rm.dataset.fbrm, 1); URL.revokeObjectURL(f.url); return thumbs(); }
+      const t = e.target.closest("[data-fbtab]"); if (t) {
+        st.tab = t.dataset.fbtab; d.querySelectorAll("[data-fbtab]").forEach((b) => { b.classList.toggle("on", b === t); b.setAttribute("aria-pressed", String(b === t)); });
+        $("#fbForm").hidden = st.tab !== "new"; $("#fbMine").hidden = st.tab !== "mine";
+        if (st.tab === "mine") loadMine();
+      }
+    });
+    async function loadMine() {
+      const box = $("#fbMine"); box.innerHTML = '<p class="muted">Đang tải…</p>';
+      const { data, error } = await Auth.sb.from("feedback").select("*").eq("user_id", ME.id).order("created_at", { ascending: false }).limit(30);
+      if (error) { box.innerHTML = `<div class="msg neg">Chưa tải được: ${esc(error.message)}</div>`; return; }
+      if (!data.length) { box.innerHTML = empty("chat", "Chưa gửi phản hồi nào", "Phản hồi đã gửi và trả lời của admin sẽ hiện ở đây.", ""); return; }
+      box.innerHTML = `<ul class="fblist">${data.map((f) => `<li><div class="fbhead"><span class="pill ${FB_ST[f.status][1]}">${FB_ST[f.status][0]}</span><b>${FB_CAT[f.category]}</b><span class="muted">${fmtTime(f.created_at)}</span></div>
+        <p class="fbtext">${esc(f.message)}</p><div class="fbimgs" data-paths="${esc(JSON.stringify(f.images || []))}"></div>
+        ${f.admin_note ? `<div class="fbreply"><b>Admin trả lời:</b> ${esc(f.admin_note)}</div>` : ""}</li>`).join("")}</ul>`;
+      box.querySelectorAll(".fbimgs").forEach(async (el) => { const urls = await signed(JSON.parse(el.dataset.paths)); el.innerHTML = urls.map((u, i) => `<a href="${u}" target="_blank" rel="noopener"><img src="${u}" alt="Ảnh ${i + 1}"></a>`).join(""); });
+    }
+    $("#fbForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = $("#fbMsg").value.trim();
+      if (!msg) { out("Nhập nội dung: gặp lỗi gì, ở màn nào, hoặc muốn góp ý gì.", "neg"); $("#fbMsg").focus(); return; }
+      const btn = $("#fbSend"); btn.disabled = true; btn.textContent = "Đang gửi…"; out("");
+      try {
+        const id = crypto.randomUUID(), paths = [];
+        for (const [i, f] of st.files.entries()) {
+          const ext = (f.file.type.split("/")[1] || "jpg").replace("jpeg", "jpg"), path = `${ME.id}/${id}/${i + 1}.${ext}`;
+          const up = await Auth.sb.storage.from("feedback").upload(path, f.file, { contentType: f.file.type, upsert: false });
+          if (up.error) throw new Error("Chưa tải được ảnh " + (i + 1) + ": " + up.error.message);
+          paths.push(path);
+        }
+        const { error } = await Auth.sb.from("feedback").insert({ id, user_email: ME.login_email || ME.email, user_name: ME.full_name || null, user_role: ME.role, page: location.pathname.split("/").pop() + location.hash, category: st.cat, message: msg, images: paths, user_agent: navigator.userAgent.slice(0, 300) });
+        if (error) throw new Error(/feedback|relation|schema cache/i.test(error.message) ? "Hệ thống chưa bật phần phản hồi. Báo admin chạy file SQL 20261111020000_feedback.sql." : error.message);
+        close(); toast("Đã gửi phản hồi. Cảm ơn bạn! Xem trả lời ở Góp ý / Báo lỗi → Đã gửi.");
+      } catch (err) { btn.disabled = false; btn.textContent = "Gửi phản hồi"; out(String(err.message || err), "neg"); }
+    });
+    d.showModal(); $("#fbMsg").focus();
   }
 
   // ---------- quy định sử dụng & bảo vệ dữ liệu ----------
@@ -341,5 +454,5 @@
   window.addEventListener("scroll", followTip, true);
   window.addEventListener("resize", followTip);
 
-  window.Shell = { render, icon, badge, empty, toast, fixHeads, online: ONLINE };
+  window.Shell = { render, icon, badge, empty, toast, fixHeads, online: ONLINE, signedImages: signed, FB_CAT, FB_ST };
 })();

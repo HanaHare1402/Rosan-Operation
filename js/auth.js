@@ -44,6 +44,7 @@
     pos: ["admin"],
     taikhoan: ["admin"],
     nhatky: ["admin"],
+    phanhoi: ["admin"],
   };
 
   const configured = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
