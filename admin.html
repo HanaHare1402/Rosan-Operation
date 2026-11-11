@@ -108,6 +108,7 @@
         <div class="cardhead"><div><h2>Đối chiếu số đơn với POS</h2><p class="hint">Chọn một ngày: web hỏi thẳng POS ngày đó có bao nhiêu đơn rồi đặt cạnh số web đang có. Ngày tính theo giờ của thị trường của shop, như trên POS và các báo cáo. Số đơn gồm cả đơn huỷ, không tính đơn đã xoá.</p></div></div>
         <form id="cmpForm" class="formrow" novalidate style="margin:0"><label class="flabel" for="cmpDay">Ngày</label><input type="date" id="cmpDay" required><button class="btn" type="submit">Đối chiếu</button><span class="fmsg" id="cmpMsg"></span></form>
         <div id="cmpOut" style="margin-top:12px"></div>
+        <div id="diffOut"></div>
       </div>
       <div class="card" id="outCard" hidden><div class="cardhead"><h2 id="outTitle">Kết quả</h2><button class="lnk" id="outClose">Đóng</button></div><div id="out"></div></div>
     </section>
@@ -739,12 +740,40 @@
           : miss > 0 ? `<span class="pill p-bad">Web thiếu ${nf.format(miss)} đơn</span> <span class="muted">Bấm Đồng bộ, hoặc kiểm tra Khoảng đồng bộ có gồm ngày này</span>`
           : miss < 0 ? `<span class="pill p-warn">Web nhiều hơn ${nf.format(-miss)} đơn</span> <span class="muted">Có thể POS đã xoá đơn mà web chưa cập nhật: bấm Đồng bộ</span>`
           : `<span class="pill p-good">Khớp</span>`;
-        rows.push(`<tr><td class="l"><b>${esc(x.shop)}</b></td><td class="l">${esc(tzName(t.tz))}</td><td>${Number.isFinite(t.pos) ? nf.format(t.pos) : "–"}</td><td><b>${nf.format(t.web_total)}</b></td><td>${nf.format(t.web_cancel)}</td><td class="l" style="white-space:normal;min-width:220px">${verdict}</td></tr>`);
+        rows.push(`<tr><td class="l"><b>${esc(x.shop)}</b></td><td class="l">${esc(tzName(t.tz))}</td><td>${Number.isFinite(t.pos) ? nf.format(t.pos) : "–"}</td><td><b>${nf.format(t.web_total)}</b></td><td>${nf.format(t.web_cancel)}</td><td class="l" style="white-space:normal;min-width:220px">${verdict}</td><td class="actions"><button type="button" class="btn ghost sm" data-diff="${esc(x.shop_id)}" data-day="${esc(day)}">Xem đơn lệch</button></td></tr>`);
       }));
-      $("#cmpOut").innerHTML = rows.length ? `<div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Ngày theo</th><th>Số đơn trên POS</th><th>Số đơn trên web</th><th>Trong đó đã huỷ</th><th class="l">Kết luận</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`
+      $("#cmpOut").innerHTML = rows.length ? `<div class="tw"><table><thead><tr><th class="l">Shop</th><th class="l">Ngày theo</th><th>Số đơn trên POS</th><th>Số đơn trên web</th><th>Trong đó đã huỷ</th><th class="l">Kết luận</th><th></th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`
         : Shell.empty("inbox", "Chưa có shop nào để đối chiếu", "Thêm shop và API key ở thẻ phía trên.");
     } catch (err) { say($("#cmpMsg"), "Không đối chiếu được: " + esc(err.message), "neg"); }
   });
+  // So từng đơn: kéo hết đơn của ngày trên POS, so với web, liệt kê đơn lệch; có nút cập nhật lại các đơn đó từ POS.
+  const ST_NAME = { 0: "Mới", 1: "Đã xác nhận", 2: "Đã gửi hàng", 3: "Đã nhận", 4: "Đang hoàn", 5: "Đã hoàn", 6: "Đã huỷ", 7: "Đã xoá", 8: "Đang đóng hàng", 9: "Chờ chuyển hàng", 11: "Chờ hàng", 12: "Chờ in", 13: "Đã in", 15: "Hoàn một phần", 16: "Đã thu tiền", 20: "Đã đặt hàng" };
+  const stName = (c, n) => c == null ? "–" : (ST_NAME[c] || n || "Mã " + c);
+  async function runDiff(shopId, day, fix) {
+    const box = $("#diffOut");
+    box.innerHTML = `<div class="msg muted">${fix ? "Đang cập nhật lại các đơn lệch từ POS…" : "Đang kéo toàn bộ đơn ngày " + esc(day) + " từ POS để so từng đơn (mất khoảng 10–60 giây)…"}</div>`;
+    try {
+      const r = await Auth.callFn("pos", { action: "diff", shop_id: shopId, day, fix: !!fix });
+      if (fix) { say($("#cmpMsg"), `Đã cập nhật lại ${nf.format(r.fixed)} đơn từ POS. Bảng dưới là kết quả so lại.`, "pos"); return runDiff(shopId, day, false); }
+      const nFix = r.n_only_pos + r.n_diff;
+      const tbl = (title, list, cols) => list.length ? `<h3 style="margin:16px 0 6px">${title}</h3><div class="tw" style="max-height:340px;overflow:auto"><table><thead><tr>${cols.map((c) => `<th class="l">${c[0]}</th>`).join("")}</tr></thead><tbody>${list.map((x) => `<tr>${cols.map((c) => `<td class="l">${c[1](x)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : "";
+      box.innerHTML = `<h3 style="margin:18px 0 8px">So từng đơn · ${esc(r.shop)} · ngày ${esc(day)}</h3>
+        <div class="statstrip" style="margin-bottom:12px">
+          <div><span class="l">POS (không huỷ, không xoá)</span><b>${nf.format(r.pos_active)}</b><span class="muted">tổng ${nf.format(r.pos_total)} đơn</span></div>
+          <div><span class="l">Web (không huỷ, không xoá)</span><b>${nf.format(r.web_active)}</b><span class="muted">tổng ${nf.format(r.web_total)} đơn</span></div>
+          <div><span class="l">Lệch trạng thái</span><b class="${r.n_diff ? "neg" : ""}">${nf.format(r.n_diff)}</b><span class="muted">web chưa cập nhật kịp POS</span></div>
+          <div><span class="l">Chỉ có ở một bên</span><b class="${r.n_only_pos + r.n_only_web ? "neg" : ""}">${nf.format(r.n_only_pos + r.n_only_web)}</b><span class="muted">${nf.format(r.n_only_pos)} chỉ trên POS · ${nf.format(r.n_only_web)} chỉ trên web</span></div>
+        </div>
+        ${nFix ? `<div class="formrow" style="margin:0 0 8px"><button type="button" class="btn sm" data-difffix="${esc(shopId)}" data-day="${esc(day)}">Cập nhật lại ${nf.format(nFix)} đơn từ POS</button><span class="muted">Ghi lại bản mới nhất trên POS của các đơn thiếu / lệch trạng thái, báo cáo tự tính lại.</span></div>` : '<div class="msg pos">Từng đơn trên web khớp với POS.</div>'}
+        ${tbl("Số đơn không huỷ theo nguồn đơn", r.by_source, [["Nguồn đơn", (x) => esc(x.source)], ["POS", (x) => nf.format(x.pos)], ["Web", (x) => nf.format(x.web)], ["Lệch", (x) => x.pos === x.web ? '<span class="muted">0</span>' : `<b class="neg">${x.web - x.pos > 0 ? "+" : ""}${nf.format(x.web - x.pos)}</b>`]])}
+        ${tbl(`Lệch trạng thái (${nf.format(r.n_diff)})`, r.diff, [["Mã đơn", (x) => esc(x.id)], ["Trên POS", (x) => esc(stName(x.pos_status, x.pos_status_name))], ["Trên web", (x) => esc(stName(x.web_status, x.web_status_name))], ["Nguồn", (x) => esc(x.source || "")], ["Web cập nhật lúc", (x) => when(x.synced_at)]])}
+        ${tbl(`Chỉ có trên POS (${nf.format(r.n_only_pos)})`, r.only_pos, [["Mã đơn", (x) => esc(x.id)], ["Trạng thái POS", (x) => esc(stName(x.pos_status, x.pos_status_name))], ["Nguồn", (x) => esc(x.source || "")]])}
+        ${tbl(`Chỉ có trên web (${nf.format(r.n_only_web)})`, r.only_web, [["Mã đơn", (x) => esc(x.id)], ["Trạng thái web", (x) => esc(stName(x.web_status, x.web_status_name))], ["Nguồn", (x) => esc(x.source || "")]])}
+        ${r.n_only_web ? '<p class="hint keep">Đơn chỉ có trên web: thường là đơn POS đã đổi ngày tạo hoặc đã bị xoá hẳn; tra mã đơn trên POS để kiểm tra.</p>' : ""}`;
+    } catch (err) { box.innerHTML = `<div class="msg neg">Không so được: ${esc(err.message)}</div>`; }
+  }
+  $("#cmpOut").addEventListener("click", (e) => { const b = e.target.closest("[data-diff]"); if (b) runDiff(b.dataset.diff, b.dataset.day, false); });
+  $("#diffOut").addEventListener("click", (e) => { const b = e.target.closest("[data-difffix]"); if (b) { b.disabled = true; runDiff(b.dataset.difffix, b.dataset.day, true); } });
   $("#keyForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const shop = $("#kfShop").value, key = $("#kfKey").value.trim();
