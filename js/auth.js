@@ -117,7 +117,11 @@
     return "Chưa đổi được mật khẩu: " + m;
   }
 
-  async function signOut() { if (sb) await sb.auth.signOut(); location.replace("login"); }
+  // Đăng xuất: xoá cả số liệu lưu tạm trên máy (bảng điều hành, tồn kho) để người dùng sau trên cùng máy không thấy.
+  async function signOut() {
+    try { ["tv_cache_dash", "tv_stk"].forEach((k) => localStorage.removeItem(k)); } catch (e) {}
+    if (sb) await sb.auth.signOut(); location.replace("login");
+  }
 
   window.Auth = { sb, configured, ROLES, VIEWS, ADMIN_TABS, SCOPES, DEFAULT_SCOPE, loadCatalog, loadProfile, requireAuth, callFn, changePassword, signOut };
 })();

@@ -3,12 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Vận hành - Rosan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261111c">
+<link rel="stylesheet" href="css/app.css?v=20261112a">
 </head>
 <body>
 <div class="app">
@@ -104,6 +106,10 @@
           <div class="formrow"><button class="btn" type="submit" id="sfSubmit">Thêm shop</button><button class="btn ghost" type="button" id="sfCancel">Huỷ</button><span class="fmsg" id="shopMsg"></span></div>
         </form>
       </div>
+      <div class="card" id="speedCard">
+        <div class="cardhead"><div><h2>Kiểm tra tốc độ</h2><p class="hint keep">Đo từ máy đang mở trang: thời gian đi về tới máy chủ (mạng) và thời gian máy chủ tính các bảng số liệu tháng này (xử lý). Chạy khoảng 10–30 giây.</p></div><button class="btn sm" id="speedRun" type="button">Chạy kiểm tra</button></div>
+        <div id="speedOut"></div>
+      </div>
       <div class="card c-blue" id="cmpCard">
         <div class="cardhead"><div><h2>Đối chiếu số đơn với POS</h2><p class="hint">Chọn một ngày: web hỏi thẳng POS ngày đó có bao nhiêu đơn rồi đặt cạnh số web đang có. Ngày tính theo giờ của thị trường của shop, như trên POS và các báo cáo. Số đơn gồm cả đơn huỷ, không tính đơn đã xoá.</p></div></div>
         <form id="cmpForm" class="formrow" novalidate style="margin:0"><label class="flabel" for="cmpDay">Ngày</label><input type="date" id="cmpDay" required><button class="btn" type="submit">Đối chiếu</button><span class="fmsg" id="cmpMsg"></span></form>
@@ -186,9 +192,9 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261111c"></script>
-<script src="js/shell.js?v=20261111c"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/auth.js?v=20261112a"></script>
+<script src="js/shell.js?v=20261112a"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (async function () {
   const $ = (s) => document.querySelector(s);
@@ -797,6 +803,45 @@
         : Shell.empty("inbox", "Chưa có shop nào để đối chiếu", "Thêm shop và API key ở thẻ phía trên.");
     } catch (err) { say($("#cmpMsg"), "Không đối chiếu được: " + esc(err.message), "neg"); }
   });
+  // ---------- kiểm tra tốc độ: mạng hay xử lý ----------
+  $("#speedRun").addEventListener("click", async () => {
+    const out = $("#speedOut"), btn = $("#speedRun"); btn.disabled = true;
+    const rows = [], put = () => { out.innerHTML = `<div class="tw"><table><thead><tr><th class="l">Hạng mục</th><th>Thời gian</th><th>Dung lượng</th><th class="l">Đánh giá</th></tr></thead><tbody>${rows.map((r) => `<tr><td class="l">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="l" style="white-space:normal">${r[3]}</td></tr>`).join("")}</tbody></table></div>`; };
+    const time = async (f) => { const t = performance.now(); const r = await f(); return [performance.now() - t, r]; };
+    const ms = (v) => nf.format(Math.round(v)) + " ms", kb = (o) => o ? nf.format(Math.round(JSON.stringify(o).length / 1024)) + " KB" : "–";
+    const pill = (ok, warn, txt) => `<span class="pill ${ok ? "p-good" : warn ? "p-warn" : "p-bad"}">${ok ? "Tốt" : warn ? "Hơi chậm" : "Chậm"}</span> ${txt}`;
+    out.innerHTML = '<div class="msg muted">Đang đo…</div>';
+    try {
+      // 1. Mạng: 5 lần hỏi rất nhỏ, lấy trung vị.
+      const pings = [];
+      for (let i = 0; i < 5; i++) { const [t] = await time(() => sb.from("app_settings").select("key").limit(1)); pings.push(t); }
+      pings.sort((a, b) => a - b); const ping = pings[2];
+      rows.push(["Mạng: đi về tới máy chủ (trung vị 5 lần)", ms(ping), "–", pill(ping < 250, ping < 600, ping < 250 ? "đường truyền ổn" : "mạng hoặc khoảng cách tới máy chủ làm chậm mỗi lần tải")]); put();
+      const now = new Date(), from = new Date(now.getFullYear(), now.getMonth(), 1), to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const iso = (d) => new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - 7 * 36e5).toISOString();
+      const tests = [
+        ["Tổng quan tháng này (dash_orders)", () => sb.rpc("dash_orders_json", { p_from: iso(from), p_to: iso(to) })],
+        ["Bảng sản phẩm tháng này (dash_products)", () => sb.rpc("dash_products_json", { p_from: iso(from), p_to: iso(to) })],
+        ["KPI / KQKD tháng này (kpi_report)", () => sb.rpc("kpi_report_json", { p_from: iso(from), p_to: iso(to), p_mode: "ads" })],
+        ["Theo dõi theo ngày (team_daily)", () => sb.rpc("team_daily", { p_from: iso(from), p_to: iso(to) })],
+        ["Tồn kho (stock_report)", () => sb.rpc("stock_report_all")],
+      ];
+      let worst = 0;
+      for (const [label, f] of tests) {
+        const [t, r] = await time(f);
+        if (r.error) { rows.push([label, "–", "–", `<span class="pill p-mute">Bỏ qua</span> ${esc(r.error.message.slice(0, 120))}`]); put(); continue; }
+        const proc = Math.max(0, t - ping); worst = Math.max(worst, proc);
+        rows.push([label, ms(t), kb(r.data), pill(proc < 1500, proc < 4000, `máy chủ xử lý ≈ ${ms(proc)}`)]); put();
+      }
+      const verdict = ping >= 600 ? "Chậm chủ yếu do <b>mạng / khoảng cách tới máy chủ</b>: mỗi lần tải mất " + ms(ping) + " chỉ để đi về. Kiểm tra mạng nơi làm việc, hoặc chuyển dự án Supabase sang vùng gần (Singapore)."
+        : worst >= 4000 ? "Mạng ổn, chậm chủ yếu do <b>máy chủ xử lý</b> (có bảng mất " + ms(worst) + "). Nên nâng cấu hình máy chủ database (Compute) hoặc báo người phát triển tối ưu bảng đó."
+        : worst >= 1500 ? "Mạng ổn, máy chủ xử lý ở mức chấp nhận được; lúc nhiều người dùng cùng lúc có thể chậm hơn."
+        : "Mạng và máy chủ đều nhanh. Nếu vẫn thấy lag, có thể do máy tính / trình duyệt (nhiều tab, máy yếu).";
+      out.insertAdjacentHTML("beforeend", `<div class="msg ${worst >= 4000 || ping >= 600 ? "neg" : "pos"}" style="margin-top:10px">${verdict}</div>`);
+    } catch (e) { out.innerHTML = `<div class="msg neg">Không đo được: ${esc(e.message)}</div>`; }
+    btn.disabled = false;
+  });
+
   // So từng đơn: kéo hết đơn của ngày trên POS, so với web, liệt kê đơn lệch; có nút cập nhật lại các đơn đó từ POS.
   const ST_NAME = { 0: "Mới", 1: "Đã xác nhận", 2: "Đã gửi hàng", 3: "Đã nhận", 4: "Đang hoàn", 5: "Đã hoàn", 6: "Đã huỷ", 7: "Đã xoá", 8: "Đang đóng hàng", 9: "Chờ chuyển hàng", 11: "Chờ hàng", 12: "Chờ in", 13: "Đã in", 15: "Hoàn một phần", 16: "Đã thu tiền", 20: "Đã đặt hàng" };
   const stName = (c, n) => c == null ? "–" : (ST_NAME[c] || n || "Mã " + c);
@@ -896,7 +941,7 @@
     rangeUI();
     const { data: st } = await sb.rpc("admin_storage");
     const x = st && st[0];
-    if (x) $("#storage").innerHTML = `${nf.format(x.orders)} đơn đang lưu${x.oldest ? " · cũ nhất " + fmtDate(new Date(x.oldest)) : ""} · database ${(x.db_bytes / 1048576).toFixed(0)} MB / 500 MB (gói Free)`;
+    if (x) $("#storage").innerHTML = `${nf.format(x.orders)} đơn đang lưu${x.oldest ? " · cũ nhất " + fmtDate(new Date(x.oldest)) : ""} · database ${nf.format(Math.round(x.db_bytes / 1048576))} MB`;
   }
   ["#rgMode", "#rgN", "#rgDate", "#rgPurge"].forEach((id) => $(id).addEventListener("input", rangeUI));
   async function saveRange(apply) {

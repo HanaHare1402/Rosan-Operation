@@ -1,5 +1,5 @@
 // Quản lý tài khoản: chỉ admin gọi được. Tạo tài khoản, đổi quyền, đặt lại mật khẩu, khoá, xoá.
-import { adminClient, cors, getCaller, json } from "../_shared/common.ts";
+import { adminClient, cors, getCaller, json, withCors } from "../_shared/common.ts";
 
 const ROLES = ["admin", "lanh_dao", "quan_ly", "truong_team", "marketing", "ke_toan", "van_don", "kho", "sale"];
 const SCOPES = ["all", "project", "team", "self"];
@@ -22,7 +22,9 @@ function scopePatch(body: Record<string, any>, role: string | null) {
 }
 const BAN_FOREVER = "876000h";
 
-Deno.serve(async (req) => {
+Deno.serve(async (req) => withCors(req, await handle(req)));
+
+async function handle(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Chỉ nhận POST" }, 405);
 
@@ -123,4 +125,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: (e as Error).message || String(e) }, 500);
   }
-});
+}

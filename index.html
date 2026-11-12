@@ -3,12 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Vận hành - Rosan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261111c">
+<link rel="stylesheet" href="css/app.css?v=20261112a">
 </head>
 <body>
 
@@ -28,12 +30,12 @@
   </main>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261111c"></script>
-<script src="js/settings-db.js?v=20261111c"></script>
-<script src="js/shell.js?v=20261111c"></script>
+<script src="js/auth.js?v=20261112a"></script>
+<script src="js/settings-db.js?v=20261112a"></script>
+<script src="js/shell.js?v=20261112a"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -1347,9 +1349,15 @@ async function runAdImport(){
 let UNMAPPED=null;
 // Tồn kho (gộp mọi kho theo sản phẩm): nhãn ở bảng Sản phẩm và cảnh báo hết / sắp hết hàng.
 let STK=null;
-function loadStock(){if(!SEE_STOCK)return;sbc.rpc('stock_report_all').then(({data,error})=>{if(error)return;const m=new Map();
+// Tồn kho tính khá nặng: lưu kết quả trên máy 10 phút, mọi tab / lần mở trong 10 phút dùng lại.
+function loadStock(){if(!SEE_STOCK)return;
+  try{const c=JSON.parse(localStorage.getItem('tv_stk')||'null');if(c&&c.u===ME.id&&Date.now()-c.at<6e5){useStock(c.data);return}}catch(e){}
+  sbc.rpc('stock_report_all').then(({data,error})=>{if(error)return;
+  try{const v=JSON.stringify({u:ME.id,at:Date.now(),data:(data||[]).map(r=>({product_key:r.product_key,name:r.name,code:r.code,on_hand:r.on_hand,cho_gui:r.cho_gui,sold_30d:r.sold_30d}))});if(v.length<3e6)localStorage.setItem('tv_stk',v)}catch(e){}
+  useStock(data)})}
+function useStock(data){const m=new Map();
   (data||[]).forEach(r=>{if(r.on_hand==null)return;const k=String(r.product_key);const a=m.get(k)||{on:0,s30:0,name:r.name||r.code};a.on+=+r.on_hand-(+r.cho_gui||0);a.s30+=+r.sold_30d;m.set(k,a)});
-  m.forEach(a=>{const avg=a.s30/30;a.st=a.on<=0?'het':avg>0&&a.on/avg<7?'sap':a.s30===0?'lau':'on';a.days=avg>0?Math.floor(a.on/avg):null});STK=m;render()})}
+  m.forEach(a=>{const avg=a.s30/30;a.st=a.on<=0?'het':avg>0&&a.on/avg<7?'sap':a.s30===0?'lau':'on';a.days=avg>0?Math.floor(a.on/avg):null});STK=m;render()}
 function stockTag(code){const a=STK&&STK.get(String(code||'').trim().toLowerCase());if(!a||(a.st!=='het'&&a.st!=='sap'))return '';
   return ` · <a class="pill ${a.st==='het'?'p-bad':'p-warn'}" href="tonkho#ton?st=${a.st}" title="${a.st==='het'?(a.on<0?'Có thể bán: âm '+N(-a.on)+' (đã nhận đơn vượt số hàng)':'Có thể bán: hết hàng'):'Có thể bán: còn '+N(a.on)+', đủ bán khoảng '+N(a.days)+' ngày'}">${a.st==='het'?'Hết hàng':'Sắp hết'}</a>`}
 function alerts(){

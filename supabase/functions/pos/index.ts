@@ -3,7 +3,7 @@
 //   action "sample" (admin)            : trả 1 đơn mới nhất dạng thô để xem POS có những trường gì
 //   action "sync"   (admin, quản lý, cron): kéo đơn mới/vừa cập nhật về bảng orders
 //   action "refresh"(mọi tài khoản có vai trò): gọi khi mở trang, kéo nhanh phần mới nhất của các shop đã đồng bộ xong
-import { adminClient, cors, getCaller, json } from "../_shared/common.ts";
+import { adminClient, cors, getCaller, json, withCors } from "../_shared/common.ts";
 
 const POS = "https://pos.pages.fm/api/v1";
 const PAGE_SIZE = 100;
@@ -77,6 +77,19 @@ function mapOrder(shopId: string, o: any) {
     raw: o,
     synced_at: new Date().toISOString(),
   };
+}
+
+// Lọc các đơn thật sự mới / vừa đổi: so giờ cập nhật trên POS với bản đang lưu.
+async function onlyChanged(sb: ReturnType<typeof adminClient>, shopId: string, rows: ReturnType<typeof mapOrder>[]) {
+  if (!rows.length) return rows;
+  const have = new Map<string, number>();
+  for (let i = 0; i < rows.length; i += 200) {
+    const ids = rows.slice(i, i + 200).map((r) => r.pos_order_id);
+    const { data, error } = await sb.from("orders").select("pos_order_id, updated_at").eq("shop_id", shopId).in("pos_order_id", ids);
+    if (error) return rows; // không so được thì ghi hết như cũ
+    (data || []).forEach((x: any) => have.set(String(x.pos_order_id), x.updated_at ? +new Date(x.updated_at) : NaN));
+  }
+  return rows.filter((r) => { const t = have.get(r.pos_order_id); return t === undefined || !r.updated_at || !(t === +new Date(r.updated_at)); });
 }
 
 // Ghi một nhóm đơn; nếu quá giờ (statement timeout) thì chia đôi ghi lại, tới từng đơn một.
@@ -191,7 +204,9 @@ async function syncShop(sb: ReturnType<typeof adminClient>, shop: Shop, trigger:
         if (!list.length || (totalPages ? last >= totalPages : list.length < PAGE_SIZE)) { stop = true; break; }
       }
       await writing;            // lượt ghi trước phải xong (và không lỗi) rồi mới ghi tiếp
-      writeBatch(rows, last + 1);
+      // Kéo định kỳ (không phải kéo lần đầu / kéo lại): bỏ qua đơn không đổi gì so với bản đang lưu (cùng giờ cập nhật trên POS).
+      // Mỗi lần ghi đơn, database phải tính lại giá vốn, nhân sự, kênh… nên ghi đè đơn không đổi là phí sức máy chủ.
+      writeBatch(backfill ? rows : await onlyChanged(sb, shop.id, rows), last + 1);
       if (stop) break;
       page = last + 1;
     }
@@ -214,7 +229,9 @@ async function drainRecompute(sb: ReturnType<typeof adminClient>, until: number)
   return total;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req) => withCors(req, await handle(req)));
+
+async function handle(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Chỉ nhận POST" }, 405);
   const deadline = Date.now() + TIME_BUDGET_MS;
@@ -416,4 +433,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: (e as Error).message || String(e) }, 500);
   }
-});
+}
