@@ -1267,35 +1267,63 @@ async function saveAds(){
 // Tải file: mỗi dòng một khoản chi (ngày, nhân sự, sản phẩm, USD). File không có cột ngày thì ghi vào ngày đang chọn.
 function adImportCard(){
   const x=adImp;
-  return `<div class="card"><div class="cardhead"><div><h2>Tải chi phí từ file Excel</h2><p class="hint">File .xlsx hoặc .csv, mỗi dòng một khoản chi, có các cột <b>Ngày</b>, <b>Nhân sự</b> (tên hoặc mã nhận diện), <b>Sản phẩm</b> (tên tiếng Anh như trên POS), <b>Kênh</b> (Facebook, Shopee…), <b>USD</b>. Không có cột ngày thì ghi hết vào ngày ${fmtDY(new Date(adDay+'T00:00:00'))}. Tải lại cùng ngày, nhân sự, sản phẩm thì số mới thay số cũ.</p></div><button class="lnk" type="button" id="adImpClose">Đóng</button></div>
+  return `<div class="card"><div class="cardhead"><div><h2>Tải chi phí từ file Excel</h2><p class="hint keep">File .xlsx hoặc .csv, theo một trong hai kiểu:<br>· <b>Dọc</b>: mỗi dòng một khoản, có các cột <b>Ngày</b>, <b>Nhân sự</b>, <b>Sản phẩm</b>, <b>Kênh</b>, <b>USD</b> (không có cột ngày thì ghi vào ngày ${fmtDY(new Date(adDay+'T00:00:00'))}).<br>· <b>Ngang</b>: mỗi dòng <b>Nhân sự</b> + <b>Sản phẩm</b> + <b>Kênh</b>, mỗi cột một ngày (01/11, 02/11…), ô là số USD; ô trống hoặc 0 bỏ qua.<br>Nhân sự ghi tên hoặc mã nhận diện (VD HUYND); sản phẩm ghi tên tiếng Anh như trên POS. Tải lại cùng ngày, nhân sự, sản phẩm, kênh thì số mới thay số cũ.</p></div><button class="lnk" type="button" id="adImpClose">Đóng</button></div>
     <div class="drop"><input type="file" id="adFile" accept=".xlsx,.xls,.csv" style="max-width:100%"></div>
-    ${x?`<div class="msg ${x.err?'neg':x.rows.length?'muted':'neg'}">${x.err?esc(x.err):`Đọc được <b>${N(x.rows.length)}</b> dòng hợp lệ · tổng <b>${U(x.rows.reduce((t,r)=>t+r.usd,0))} USD</b>${x.noDate?' · không có cột ngày, ghi vào ngày đang chọn':''}${x.noCh?' · không có cột Kênh, các dòng sẽ ghi là “Chưa chọn kênh”':''}.${x.skip.length?`<br>Bỏ qua ${N(x.skip.length)} dòng: ${esc(x.skip.slice(0,6).join('; '))}${x.skip.length>6?'…':''}`:''}`}</div>
+    ${x?`<div class="msg ${x.err?'neg':x.rows.length?'muted':'neg'}">${x.err?esc(x.err):`Đọc được <b>${N(x.rows.length)}</b> khoản chi${x.wide?' (file kiểu ngang)':''}${x.days&&x.days.length?` · ngày ${fmtD(new Date(x.days[0]+'T00:00:00'))}${x.days.length>1?' – '+fmtD(new Date(x.days[x.days.length-1]+'T00:00:00')):''}`:''} · tổng <b>${U(x.rows.reduce((t,r)=>t+r.usd,0))} USD</b>${x.noDate?' · không có cột ngày, ghi vào ngày đang chọn':''}${x.noCh?' · không có cột Kênh, các dòng sẽ ghi là “Chưa chọn kênh”':''}.${x.skip.length?`<br>Bỏ qua ${N(x.skip.length)} dòng: ${esc(x.skip.slice(0,6).join('; '))}${x.skip.length>6?'…':''}`:''}`}</div>
     ${x.rows.length?`<div class="formrow"><button class="btn" type="button" id="adImpGo">Ghi ${N(x.rows.length)} dòng</button><span class="fmsg" id="adImpMsg"></span></div>`:''}`:''}</div>`;
 }
 function readAdFile(file){
   const fr=new FileReader();
   fr.onload=e=>{try{
     const wb=/\.csv$/i.test(file.name)?XLSX.read(new TextDecoder('utf-8').decode(e.target.result).replace(/^﻿/,''),{type:'string'}):XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-    const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:true});
-    if(!data.length){adImp={err:'File không có dòng dữ liệu nào.',rows:[],skip:[]};render();return}
-    const keys=Object.keys(data[0]),nk=k=>k.normalize('NFC').toLowerCase().trim(),find=(...c)=>{for(const x of c){const k=keys.find(k=>nk(k)===x||nk(k).includes(x));if(k)return k}};
-    const kC=AD.noCh?null:find('kênh','channel','nền tảng','platform'),kD=find('ngày','date','day'),kS=find('nhân sự','nhân viên','marketer','mkt','ads','người'),kP=find('product','sản phẩm','tên sp'),kU=find('usd','chi phí','tổng','spend','tiền');
-    if(!kS||!kP||!kU){adImp={err:`Không tìm thấy đủ cột Nhân sự, Sản phẩm, USD. Các cột trong file: ${keys.join(', ')}.`,rows:[],skip:[]};render();return}
+    // Đọc dạng mảng: dòng đầu là tiêu đề. Hỗ trợ 2 kiểu file:
+    //  · dọc: mỗi dòng một khoản (Ngày, Nhân sự, Sản phẩm, Kênh, USD);
+    //  · ngang: mỗi dòng Nhân sự + Sản phẩm + Kênh, mỗi cột một ngày (01/11, 02/11…).
+    const A=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:true}).filter(r=>r.some(v=>String(v).trim()!==''));
+    if(A.length<2){adImp={err:'File không có dòng dữ liệu nào.',rows:[],skip:[]};render();return}
+    const H=A[0],body=A.slice(1),nk=h=>typeof h==='string'?h.normalize('NFC').toLowerCase().trim():'';
+    const used=new Set(),find=(...c)=>{for(const x of c){const i=H.findIndex((h,j)=>!used.has(j)&&(nk(h)===x||nk(h).includes(x)));if(i>=0){used.add(i);return i}}return null};
+    const kS=find('nhân sự','nhân viên','marketer','mkt','người'),kP=find('product','sản phẩm','tên sp'),kC=AD.noCh?null:find('kênh','channel','nền tảng','platform'),kD=find('ngày','date','day'),kU=find('usd','chi phí','tổng','spend','tiền');
+    const year=+adDay.slice(0,4);
+    const day=v=>{if(typeof v==='number'&&v>20000){const d=new Date(Math.round((v-25569)*864e5));return isoD(new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()))}const t=String(v).trim(),m=t.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);if(m)return `${m[3]}-${p2(m[2])}-${p2(m[1])}`;const m1=t.match(/^(\d{1,2})[\/.-](\d{1,2})$/);if(m1)return `${year}-${p2(m1[2])}-${p2(m1[1])}`;const m2=t.match(/^(\d{4})-(\d{2})-(\d{2})/);return m2?m2[0].slice(0,10):null};
+    // Cột ngày (kiểu ngang). Excel hay hiểu "01/11" thành 11/01 (tháng/ngày): thử cả hai cách đọc các ô ngày
+    // và chọn cách cho dãy cột liên tiếp từng ngày nhiều nhất.
+    let wide=null;
+    if(kU==null&&kD==null){
+      const cols=H.map((h,i)=>({i,h})).filter(x=>!used.has(x.i)&&(typeof x.h==='number'?x.h>20000:/^\d{1,2}[\/.-]\d{1,2}([\/.-]\d{4})?$/.test(String(x.h).trim())));
+      if(cols.length>=1){
+        const asIs=cols.map(x=>day(x.h)),swap=cols.map(x=>{if(typeof x.h!=='number')return day(x.h);const d=new Date(Math.round((x.h-25569)*864e5)),dd=d.getUTCDate(),mm=d.getUTCMonth()+1;return dd<=12?`${d.getUTCFullYear()}-${p2(dd)}-${p2(mm)}`:day(x.h)});
+        const score=l=>l.reduce((t,v,i)=>t+(i&&v&&l[i-1]&&Math.round((new Date(v)-new Date(l[i-1]))/864e5)===1?1:0),0);
+        const ds=score(swap)>score(asIs)?swap:asIs;
+        wide=cols.map((x,j)=>({i:x.i,d:ds[j]})).filter(x=>x.d);
+      }
+    }
+    if(kS==null||kP==null||(kU==null&&!(wide&&wide.length))){adImp={err:`Không nhận ra cấu trúc file. Cần cột Nhân sự, Sản phẩm và một trong hai: cột USD (mỗi dòng một khoản), hoặc các cột ngày như 01/11, 02/11… (mỗi dòng một sản phẩm). Các cột trong file: ${H.map(h=>typeof h==='number'?'(ô ngày)':String(h)).join(', ')}.`,rows:[],skip:[]};render();return}
     const staff=adStaffList(),match=n=>{const q=pkey(n);if(!q)return null;const ex=staff.filter(s=>pkey(s.name)===q||(s.pos_names||[]).some(p=>pkey(p)===q));if(ex.length===1)return ex[0].id;const tail=staff.filter(s=>pkey(s.name).split(/\s+/).pop()===q);return tail.length===1?tail[0].id:null};
-    const day=v=>{if(typeof v==='number'&&v>20000){const d=new Date(Math.round((v-25569)*864e5));return isoD(new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()))}const m=String(v).trim().match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);if(m)return `${m[3]}-${p2(m[2])}-${p2(m[1])}`;const m2=String(v).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);return m2?m2[0].slice(0,10):null};
-    const rows=new Map(),skip=[];
-    data.forEach((r,i)=>{const ln=i+2,name=String(r[kP]).trim(),u=typeof r[kU]==='number'?r[kU]:parseFloat(String(r[kU]).replace(/[^\d,.-]/g,'').replace(',','.'));
-      if(!name&&!r[kS])return;
-      const sid=match(r[kS]);if(!sid){skip.push(`dòng ${ln}: không nhận ra nhân sự “${r[kS]}”`);return}
-      if(!name){skip.push(`dòng ${ln}: thiếu sản phẩm`);return}
-      if(!(u>=0)){skip.push(`dòng ${ln}: USD không hợp lệ`);return}
-      if(!u)return;
-      const d=kD?day(r[kD]):adDay;if(!d){skip.push(`dòng ${ln}: ngày “${r[kD]}” không đọc được`);return}
-      let ch='';if(kC&&String(r[kC]).trim()){const q=pkey(r[kC]),c=CAT.channels.find(c=>pkey(c.id)===q||pkey(c.name)===q||(c.keywords||[]).some(w=>pkey(w)===q));if(!c){skip.push(`dòng ${ln}: không nhận ra kênh “${r[kC]}”`);return}ch=c.id}
-      const k=d+'|'+sid+'|'+pkey(name)+'|'+ch,o=rows.get(k);
-      if(o)o.usd=Math.round((o.usd+u)*100)/100;else rows.set(k,Object.assign({day:d,staff_id:sid,product_key:pkey(name),product_name:name,usd:Math.round(u*100)/100},AD.noCh?{}:{channel_id:ch}));
+    // Số dạng chữ: "12,05" / "12.05" / "1.234,5" / "1,234.5" — dấu đứng sau cùng là dấu thập phân.
+    const num=v=>{if(typeof v==='number')return v;let t=String(v).replace(/[^\d,.-]/g,'');const c=t.lastIndexOf(','),d=t.lastIndexOf('.');
+      if(c>=0&&d>=0)t=c>d?t.replace(/\./g,'').replace(',','.'):t.replace(/,/g,'');else if(c>=0)t=(t.match(/,/g).length>1?t.replace(/,/g,''):t.replace(',','.'));return t===''?NaN:parseFloat(t)};
+    // Gom về từng khoản: {ln, s, p, c, d, u}
+    const recs=[];
+    body.forEach((r,i)=>{const ln=i+2,base={ln,s:r[kS],p:String(r[kP]??'').trim(),c:kC!=null?r[kC]:''};
+      if(wide){wide.forEach(w=>{const v=r[w.i];if(v===''||v==null)return;recs.push({...base,d:w.d,u:num(v),dRaw:w.d})})}
+      else recs.push({...base,d:kD!=null?day(r[kD]):adDay,dRaw:kD!=null?r[kD]:'',u:num(r[kU])});
     });
-    adImp={rows:[...rows.values()],skip,noDate:!kD,noCh:!AD.noCh&&!kC};render();
+    const rows=new Map(),skipM=new Map(),skip=(msg)=>skipM.set(msg,(skipM.get(msg)||0)+1);
+    recs.forEach(x=>{
+      if(!x.p&&!String(x.s).trim())return;
+      if(!(x.u>=0)){skip(`dòng ${x.ln}: số tiền không hợp lệ`);return}
+      if(!x.u)return;
+      const sid=match(x.s);if(!sid){skip(`không nhận ra nhân sự “${x.s}”`);return}
+      if(!x.p){skip(`dòng ${x.ln}: thiếu sản phẩm`);return}
+      if(!x.d){skip(`dòng ${x.ln}: ngày “${x.dRaw}” không đọc được`);return}
+      let ch='';if(kC!=null&&String(x.c).trim()){const q=pkey(x.c),c=CAT.channels.find(c=>pkey(c.id)===q||pkey(c.name)===q||(c.keywords||[]).some(w=>pkey(w)===q));if(!c){skip(`không nhận ra kênh “${x.c}”`);return}ch=c.id}
+      const k=x.d+'|'+sid+'|'+pkey(x.p)+'|'+ch,o=rows.get(k);
+      if(o)o.usd=Math.round((o.usd+x.u)*100)/100;else rows.set(k,Object.assign({day:x.d,staff_id:sid,product_key:pkey(x.p),product_name:x.p,usd:Math.round(x.u*100)/100},AD.noCh?{}:{channel_id:ch}));
+    });
+    const skipList=[...skipM.entries()].map(([m,n])=>n>1?`${m} (${N(n)} ô)`:m);
+    const days=[...new Set([...rows.values()].map(r=>r.day))].sort();
+    adImp={rows:[...rows.values()],skip:skipList,noDate:!wide&&kD==null,noCh:!AD.noCh&&kC==null,wide:!!wide,days};render();
   }catch(err){adImp={err:'Không đọc được file: '+err.message,rows:[],skip:[]};render()}};
   fr.readAsArrayBuffer(file);
 }
