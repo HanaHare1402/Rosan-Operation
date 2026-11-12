@@ -165,9 +165,19 @@ function renderFilters(){
 // ---------- dữ liệu ----------
 // ROWS: đơn gộp theo ngày × team × nhân sự × kênh × thị trường × shop × nhóm trạng thái (dash_orders). PREV: cùng cấu trúc, kỳ so sánh.
 let ROWS=[],PREV=[],PRODS=null,loading=false,loadErr='',loadSeq=0;
+// Gọi một lần lấy cả bảng (hàm *_json); database chưa có hàm đó thì đọc từng trang 1.000 dòng như cũ.
+const NO_JSON={};
+async function rpcAll(fn,args,ord){
+  if(!NO_JSON[fn]){const r=await sbc.rpc(fn+'_json',args);if(!r.error)return {data:r.data||[]};if(/function|schema cache|could not find/i.test(r.error.message))NO_JSON[fn]=true;else return r}
+  return fetchAll(()=>ord.reduce((q,c)=>q.order(c,{nullsFirst:true}),sbc.rpc(fn,args)));
+}
+// Số của lần mở trước (lưu trên máy): hiện ngay trong lúc chờ số mới.
+const CACHE_KEY='tv_cache_dash';
+function cacheGet(k){try{const c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');return c&&c.k===k&&c.u===ME.id?c:null}catch(e){return null}}
+function cacheSet(k,cur,prev){try{const v=JSON.stringify({k,u:ME.id,at:Date.now(),cur,prev});if(v.length<4e6)localStorage.setItem(CACHE_KEY,v);else localStorage.removeItem(CACHE_KEY)}catch(e){}}
 const mapRow=r=>({day:r.day,proj:r.project_id,team:r.team_id,staff:r.staff_id,mk:r.marketer,ch:r.channel_id,mkt:r.market_id,shop:r.shop_id,g:r.st_group,n:+r.orders,rev:+r.revenue_vnd,cogs:+r.cogs_vnd||0,miss:+r.cogs_missing||0});
 async function loadData(){
-  const seq=++loadSeq;loading=true;loadErr='';render();
+  const seq=++loadSeq;loadErr='';
   // Chưa xác định kênh: lấy mọi kênh rồi giữ đơn chưa gán kênh (chạy được cả khi database chưa có bản lọc '__none').
   // Chọn nhiều kênh / thị trường hoặc "Chưa xác định kênh": lấy rộng rồi lọc tại đây (chạy được cả khi database chưa có bản lọc nhiều).
   const chs=fList('ch'),mks=fList('mkt');
@@ -175,7 +185,11 @@ async function loadData(){
   const [from,to]=rangeDates(),[pf,pt]=prevDates();
   // Máy chủ trả tối đa 1.000 dòng mỗi lần: đọc từng trang cho đủ (sắp theo đủ các cột gộp để trang sau không trùng / sót).
   const DO=['day','project_id','team_id','staff_id','marketer','channel_id','market_id','shop_id','st_group'];
-  const dash=a=>fetchAll(()=>DO.reduce((q,c)=>q.order(c,{nullsFirst:true}),sbc.rpc('dash_orders',a)));
+  const dash=a=>rpcAll('dash_orders',a,DO);
+  // Có số của lần mở trước cho đúng bộ lọc này thì hiện ngay, số mới về sẽ thay vào.
+  const ck=JSON.stringify([base,dayISO(from),dayISO(to),F.cmp?dayISO(pf):'',F.ch,F.mkt]),cached=cacheGet(ck);
+  if(cached){ROWS=cached.cur;PREV=cached.prev;loading=false;if(!PRODS&&['sanpham','nhansu','tongquan','team','kqkd'].includes(view))loadProducts()}else loading=true;
+  render();
   const [cur,prev]=await Promise.all([dash({...base,p_from:dayISO(from),p_to:dayISO(to)}),
     F.cmp?dash({...base,p_from:dayISO(pf),p_to:dayISO(pt)}):Promise.resolve({data:[]})]);
   if(seq!==loadSeq)return;
@@ -183,13 +197,14 @@ async function loadData(){
   const keep=r=>(!chs.length||chs.includes(r.ch||'__none'))&&(!mks.length||mks.includes(r.mkt));
   if(cur.error){loadErr=cur.error.message;ROWS=[]}else ROWS=cur.data.map(mapRow).filter(keep);
   PREV=prev.error?[]:(prev.data||[]).map(mapRow).filter(keep);
+  if(!cur.error)cacheSet(ck,ROWS,PREV);
   PRODS=null;
   if(['sanpham','nhansu','tongquan','team','kqkd'].includes(view)||(SEE_COST&&view==='canhbao'))loadProducts();
   render();
 }
 async function loadProducts(){
   const [from,to]=rangeDates();
-  const {data,error}=await fetchAll(()=>['code','team_id','staff_id','st_group'].reduce((q,c)=>q.order(c,{nullsFirst:true}),sbc.rpc('dash_products',{p_from:dayISO(from),p_to:dayISO(to),p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch})));
+  const {data,error}=await rpcAll('dash_products',{p_from:dayISO(from),p_to:dayISO(to),p_project:F.proj||null,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch},['code','team_id','staff_id','st_group']);
   PRODS=error?{err:error.message,rows:[]}:{rows:data.map(r=>({code:r.code,name:r.name,team:r.team_id,staff:r.staff_id,g:r.st_group,n:+r.orders,qty:+r.qty,rev:+r.revenue_vnd,cogs:+r.cogs_vnd||0,unit:r.unit_cost_vnd==null?null:+r.unit_cost_vnd}))};
   if(['sanpham','nhansu','canhbao','tongquan','team','kqkd'].includes(view))render();
 }
@@ -641,7 +656,7 @@ async function getKSet(m){
 async function loadKpi(key){
   const [from,to]=rangeDates(),[pf,pt]=prevDates(),m=isoD(monthStart(from));
   const args=(f,t)=>({p_from:dayISO(f),p_to:dayISO(t),p_mode:kMode,p_project:F.proj||null});
-  const rep=(f,t)=>fetchAll(()=>sbc.rpc('kpi_report',args(f,t)).order('who').order('product_key'));
+  const rep=(f,t)=>rpcAll('kpi_report',args(f,t),['who','product_key']);
   const [cur,prev,set]=await Promise.all([rep(from,to),F.cmp?rep(pf,pt):Promise.resolve({data:[]}),getKSet(m)]);
   if(key!==K.key)return;
   K.loading=false;K.month=m;K.set=set;if(KCAT.month&&KCAT.month!==m)KCAT.rows=null;
@@ -852,7 +867,7 @@ async function loadTD(key){
 // Thi đua: 2 người LNG cao nhất tháng trước (theo bảng KPI nhân viên ADS).
 async function loadContest(key){
   const t=sod(new Date()),pf=new Date(t.getFullYear(),t.getMonth()-1,1),pt=new Date(t.getFullYear(),t.getMonth(),1);
-  const [r,s]=await Promise.all([fetchAll(()=>sbc.rpc('kpi_report',{p_from:dayISO(pf),p_to:dayISO(pt),p_mode:'ads',p_project:F.proj||null}).order('who').order('product_key')),getKSet(isoD(pf))]);
+  const [r,s]=await Promise.all([rpcAll('kpi_report',{p_from:dayISO(pf),p_to:dayISO(pt),p_mode:'ads',p_project:F.proj||null},['who','product_key']),getKSet(isoD(pf))]);
   if(key!==CONTEST.key)return;
   CONTEST.month=isoD(pf);CONTEST.rows=r.error?[]:kSum(r.data.map(kRow),x=>x.who).filter(a=>a.k!=='~').map(a=>kCalc(a,s));
   if(view==='team'||view==='tongquan'||view==='nhansu')render();
@@ -882,7 +897,7 @@ function dSpark(vals,fmt,cap){
 const GNAME=g=>g?'Nhóm '+g+' ('+{1:'khó đẩy',2:'chưa đẩy mạnh',3:'dễ đẩy'}[g]+')':'Chưa xếp nhóm';
 function dailyCard(teamId){
   ensureTD();
-  if(ME.scope!=='self'&&CONTEST.key!==F.proj){CONTEST.key=F.proj;CONTEST.rows=null;loadContest(F.proj)}
+  if(ME.scope!=='self'&&CONTEST.key!==F.proj){CONTEST.key=F.proj;CONTEST.rows=null;const pj=F.proj;setTimeout(()=>loadContest(pj),1200)}
   const title=teamId?'Theo dõi theo ngày · '+esc(teamName(teamId)):'Theo dõi theo ngày · tất cả team';
   if(TD.err)return `<div class="card blk c-cyan"><h2>${title}</h2>${Shell.empty('alert','Chưa tải được bảng theo dõi',esc(TD.err)+'<br>Kiểm tra đã chạy file SQL 20261026010000_team_daily.sql trên Supabase chưa.')}</div>`;
   if(TD.loading&&!TD.rows.length)return `<div class="card blk c-cyan"><h2>${title}</h2><div class="skel" style="height:14px;margin-top:14px"></div><div class="skel" style="height:180px;margin-top:12px"></div></div>`;
@@ -967,7 +982,7 @@ async function loadSD(key,staff){
 function staffDailyCard(staffId){
   const key=JSON.stringify([staffId,F.mkt,F.ch,F.range,F.from,F.to]);
   if(key!==SD.key){SD.key=key;SD.loading=true;SD.rows=[];loadSD(key,staffId)}
-  if(CONTEST.key!==F.proj){CONTEST.key=F.proj;CONTEST.rows=null;loadContest(F.proj)}
+  if(CONTEST.key!==F.proj){CONTEST.key=F.proj;CONTEST.rows=null;const pj=F.proj;setTimeout(()=>loadContest(pj),1200)}
   const title='Theo dõi theo ngày · '+esc(staffName(staffId));
   if(SD.err)return `<div class="card blk c-cyan"><h2>${title}</h2>${Shell.empty('alert','Chưa tải được bảng theo dõi',esc(SD.err)+'<br>Kiểm tra đã chạy file SQL 20261026020000_staff_daily.sql trên Supabase chưa.')}</div>`;
   if(SD.loading&&!SD.rows.length)return `<div class="card blk c-cyan"><h2>${title}</h2><div class="skel" style="height:14px;margin-top:14px"></div><div class="skel" style="height:180px;margin-top:12px"></div></div>`;
@@ -990,7 +1005,7 @@ function ensureKP(){
   const [from,to]=rangeDates(),m=isoD(monthStart(from));
   // Lọc kênh / thị trường: lấy thêm doanh thu của mọi kênh để chia chi phí chung theo tỷ lệ (kênh đang xem chỉ gánh phần của mình).
   const flt=F.ch!=='all'||!!F.mkt,base={p_from:dayISO(from),p_to:dayISO(to),p_mode:'ads',p_project:F.proj||null};
-  const call=a=>fetchAll(()=>sbc.rpc('kpi_report',a).order('who').order('product_key'));
+  const call=a=>rpcAll('kpi_report',a,['who','product_key']);
   const main=flt?call({...base,p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch}).then(r=>{KP.noFlt=!!(r.error&&/function|schema cache|p_channel/i.test(r.error.message));return KP.noFlt?call(base):r}):(KP.noFlt=false,call(base));
   Promise.all([main,getKSet(m),
     SEE_COST?sbc.from('pl_other').select('item,amount_vnd').eq('month',m):Promise.resolve({data:[]})]).then(([r,st,o])=>{
@@ -1480,9 +1495,12 @@ const HOME={ke_toan:'kqkd',van_don:'donhang',kho:'donhang'}[ME.role];
 const h=(location.hash||'').slice(1).split('?')[0];
 view=V[h]&&ALLOWED.includes(h)?h:(HOME&&ALLOWED.includes(HOME)?HOME:ALLOWED[0]);
 try{history.replaceState(null,'',hashFor(view))}catch(e){}
-render();loadData();loadStock();
-sbc.from('pos_shops').select('id,name,active,last_sync_status,last_sync_error').then(({data})=>{SHOPS=data||[]});
-if(ME.role==='admin'||ME.role==='quan_ly')sbc.rpc('admin_unmapped').then(({data})=>{UNMAPPED=data||[];render()});
+render();loadData();
+// Phần phụ (tồn kho cho cảnh báo, shop lỗi đồng bộ, mục chưa khai báo) tải sau để số chính hiện trước.
+const later=f=>setTimeout(f,1800);
+later(loadStock);
+later(()=>sbc.from('pos_shops').select('id,name,active,last_sync_status,last_sync_error').then(({data})=>{SHOPS=data||[];render()}));
+if(ME.role==='admin'||ME.role==='quan_ly')later(()=>sbc.rpc('admin_unmapped').then(({data})=>{UNMAPPED=data||[];render()}));
 
 // Đơn vị FFM dùng chung (bảng ffm_units).
 (async()=>{
@@ -1505,15 +1523,19 @@ function showFresh(){
 }
 async function refreshPOS(){
   if(refreshing)return;refreshing=true;showFresh();
-  try{const r=await Auth.callFn('pos',{action:'refresh'});freshErr='';freshAt=r.synced_at}
+  let changed=true;
+  try{const r=await Auth.callFn('pos',{action:'refresh'});freshErr='';freshAt=r.synced_at;
+    // Chỉ tải lại số khi lần kéo này có đơn mới / đơn đổi trạng thái (hoặc vừa tính lại đơn).
+    if(Array.isArray(r.results))changed=r.results.some(x=>+x.orders>0)||+r.recomputed>0||+r.purged>0}
   catch(e){freshErr=e.message}
   lastRefresh=Date.now();refreshing=false;showFresh();
-  loadData();
+  if(changed)loadData();
 }
 document.addEventListener('click',e=>{if(e.target.closest('#refreshNow'))refreshPOS()});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-lastRefresh>60000)refreshPOS()});
 setInterval(()=>{if(document.visibilityState==='visible')refreshPOS()},120000);
-refreshPOS();
+// Mở trang: để số liệu chính hiện trước, vài giây sau mới kéo đơn mới từ POS.
+lastRefresh=Date.now();setTimeout(refreshPOS,4000);
 })();
 </script>
 
