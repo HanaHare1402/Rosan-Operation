@@ -105,10 +105,48 @@
     return { projects: p.data, teams: t.data, markets: m.data, channels: c.data, staff: s.data };
   }
 
+  // Ô xác minh chống bot (Cloudflare Turnstile) cho đăng nhập / quên mật khẩu / đổi mật khẩu.
+  // Chưa điền TURNSTILE_SITE_KEY trong config.js thì bỏ qua; tải thư viện chỉ khi cần.
+  const CAPTCHA_KEY = cfg.TURNSTILE_SITE_KEY || "";
+  let tsLoad = null;
+  function loadTurnstile() {
+    if (!tsLoad) tsLoad = new Promise((ok) => {
+      if (window.turnstile) return ok(window.turnstile);
+      const s = document.createElement("script");
+      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      s.async = true; s.onload = () => ok(window.turnstile || null); s.onerror = () => ok(null);
+      document.head.appendChild(s);
+    });
+    return tsLoad;
+  }
+  function captcha(el) {
+    let token = "", id = null, failed = !CAPTCHA_KEY || !el, waiters = [];
+    const flush = () => { const w = waiters; waiters = []; w.forEach((f) => f(token)); };
+    if (!failed) loadTurnstile().then((ts) => {
+      if (!ts) { failed = true; flush(); return; }
+      const t = document.documentElement.getAttribute("data-theme");
+      id = ts.render(el, {
+        sitekey: CAPTCHA_KEY, language: "vi", theme: t === "dark" || t === "light" ? t : "auto",
+        size: el.clientWidth && el.clientWidth < 300 ? "compact" : "flexible",
+        callback: (v) => { token = v; failed = false; flush(); },
+        "expired-callback": () => { token = ""; },
+        "error-callback": () => { failed = true; flush(); },
+      });
+    });
+    return {
+      on: !!CAPTCHA_KEY,
+      // Mã xác minh để gửi kèm; chờ tối đa 15 giây. Rỗng khi không dùng / không tải được (máy chủ tự quyết định).
+      get: () => (token || failed) ? Promise.resolve(token) : new Promise((ok) => { waiters.push(ok); setTimeout(() => ok(token), 15000); }),
+      // Mỗi mã chỉ dùng được 1 lần: gọi sau mỗi lần gửi.
+      reset: () => { token = ""; if (id != null && window.turnstile) try { window.turnstile.reset(id); } catch (e) {} },
+    };
+  }
+  const CAPTCHA_MSG = "Chưa qua bước xác minh chống bot. Đợi ô xác minh hiện dấu tích (hoặc bấm vào ô đó) rồi thử lại.";
+
   // Đổi mật khẩu: kiểm tra mật khẩu hiện tại trước, rồi đặt mật khẩu mới. Trả về câu lỗi tiếng Việt hoặc "" nếu xong.
-  async function changePassword(email, current, next) {
-    const a = await sb.auth.signInWithPassword({ email, password: current });
-    if (a.error) return /rate|too many/i.test(a.error.message) ? "Nhập sai nhiều lần. Đợi vài phút rồi thử lại." : "Mật khẩu hiện tại chưa đúng.";
+  async function changePassword(email, current, next, captchaToken) {
+    const a = await sb.auth.signInWithPassword({ email, password: current, options: captchaToken ? { captchaToken } : undefined });
+    if (a.error) return /captcha/i.test(a.error.message) ? CAPTCHA_MSG : /rate|too many/i.test(a.error.message) ? "Nhập sai nhiều lần. Đợi vài phút rồi thử lại." : "Mật khẩu hiện tại chưa đúng.";
     const b = await sb.auth.updateUser({ password: next, data: { must_change_pw: false } });
     if (!b.error) return "";
     const m = b.error.message || "";
@@ -123,5 +161,5 @@
     if (sb) await sb.auth.signOut(); location.replace("login");
   }
 
-  window.Auth = { sb, configured, ROLES, VIEWS, ADMIN_TABS, SCOPES, DEFAULT_SCOPE, loadCatalog, loadProfile, requireAuth, callFn, changePassword, signOut };
+  window.Auth = { sb, configured, ROLES, VIEWS, ADMIN_TABS, SCOPES, DEFAULT_SCOPE, loadCatalog, loadProfile, requireAuth, callFn, changePassword, signOut, captcha, CAPTCHA_MSG };
 })();

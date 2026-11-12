@@ -1212,3 +1212,6 @@ dialog.fbdlg{width:min(620px,calc(100vw - 32px))}
 .fbadmin label.grow{flex:1 1 280px}
 .fbadmin textarea{width:100%;font:500 13px var(--font);color:var(--ink);background:var(--panel);border:1px solid var(--line-2);border-radius:9px;padding:7px 10px;resize:vertical}
 #fbMine{max-height:60vh;overflow:auto}
+
+/* Ô xác minh chống bot (Cloudflare Turnstile) */
+.cfbox:not(:empty){display:flex;justify-content:center;min-height:65px;margin:2px 0}

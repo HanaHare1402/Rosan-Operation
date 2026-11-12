@@ -317,10 +317,12 @@
       ${pwField("pwNew", "Mật khẩu mới", "new-password")}
       ${pwField("pwRep", "Nhập lại mật khẩu mới", "new-password")}
       <ul class="pwrules" aria-label="Yêu cầu mật khẩu">${PW_RULES.map(([k, t]) => `<li data-r="${k}"><span class="pwchk" aria-hidden="true">${icon("check")}</span><span>${t}</span><span class="sr"> – chưa đạt</span></li>`).join("")}</ul>
+      <div class="cfbox" id="pwCf"></div>
       <div class="msg" id="pwMsg" role="status" aria-live="polite"></div>
       <div class="pwfoot">${forced ? '<button class="lnk" type="button" data-pwout>Đăng xuất</button>' : '<button class="btn ghost" type="button" data-pwclose>Huỷ</button>'}<button class="btn" type="submit" id="pwSave">Lưu mật khẩu mới</button></div>
     </form>`;
     document.body.appendChild(d);
+    const cap = Auth.captcha ? Auth.captcha(d.querySelector("#pwCf")) : { get: async () => "", reset() {} };
     const $ = (s) => d.querySelector(s), msg = (t, cls) => { $("#pwMsg").className = "msg" + (cls ? " " + cls : ""); $("#pwMsg").textContent = t; };
     const check = () => {
       const c = $("#pwCur").value, n = $("#pwNew").value, r = $("#pwRep").value;
@@ -342,7 +344,11 @@
       if (!$("#pwCur").value) { msg("Nhập mật khẩu " + (forced ? "được cấp" : "hiện tại") + ".", "neg"); $("#pwCur").focus(); return; }
       if (!check()) { const bad = PW_RULES.find(([k]) => !d.querySelector(`[data-r="${k}"]`).classList.contains("ok")); msg("Mật khẩu mới chưa đạt: " + bad[1].toLowerCase() + ".", "neg"); $("#pwNew").focus(); return; }
       const btn = $("#pwSave"); btn.disabled = true; btn.textContent = "Đang lưu…";
-      const err = await Auth.changePassword(ME.login_email || ME.email, $("#pwCur").value, $("#pwNew").value).catch((x) => "Chưa đổi được mật khẩu: " + (x.message || x));
+      if (cap.on) btn.textContent = "Đang xác minh…";
+      const tok = await cap.get();
+      btn.textContent = "Đang lưu…";
+      const err = await Auth.changePassword(ME.login_email || ME.email, $("#pwCur").value, $("#pwNew").value, tok).catch((x) => "Chưa đổi được mật khẩu: " + (x.message || x));
+      cap.reset();
       btn.disabled = false; btn.textContent = "Lưu mật khẩu mới";
       if (err) { msg(err, "neg"); return; }
       ME.must_change_pw = false; close();
