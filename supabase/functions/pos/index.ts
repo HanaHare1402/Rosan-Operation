@@ -229,6 +229,19 @@ async function drainRecompute(sb: ReturnType<typeof adminClient>, until: number)
   return total;
 }
 
+// Tổng hợp lại bảng số liệu theo ngày (order_daily) cho các ngày vừa có đơn đổi. Báo cáo vẫn đúng khi chưa kịp
+// tổng hợp (phần chưa tổng hợp được tính thẳng từ đơn), việc này chỉ để báo cáo nhanh.
+async function drainDaily(sb: ReturnType<typeof adminClient>, until: number) {
+  let total = 0;
+  while (Date.now() < until - 4000) {
+    const { data, error } = await sb.rpc("order_daily_refresh", { p_ms: 3000 });
+    if (error || !data?.[0]) break; // chưa chạy SQL 20261112030000_order_daily.sql
+    total += Number(data[0].done) || 0;
+    if (!Number(data[0].remaining) || !Number(data[0].done)) break;
+  }
+  return total;
+}
+
 Deno.serve(async (req) => withCors(req, await handle(req)));
 
 async function handle(req: Request): Promise<Response> {
@@ -304,7 +317,8 @@ async function handle(req: Request): Promise<Response> {
         purged = typeof data === "number" ? data : null;
       }
       const recomputed = await drainRecompute(sb, deadline + 20_000);
-      return json({ ok: true, results, purged, recomputed });
+      const summarized = await drainDaily(sb, deadline + 30_000);
+      return json({ ok: true, results, purged, recomputed, summarized });
     }
 
     // Đối chiếu số đơn một ngày giữa POS và web, cắt ngày theo giờ của thị trường của shop (như POS và các báo cáo trên web).
@@ -422,6 +436,8 @@ async function handle(req: Request): Promise<Response> {
       if (error) throw error;
       const until = Date.now() + REFRESH_BUDGET_MS;
       const results = await Promise.all((shops as Shop[]).map((s) => syncShop(sb, s, "mở trang: " + trigger, until)));
+      // Tổng hợp nhanh các ngày vừa có đơn đổi (tối đa ~3 giây), phần còn lại để lịch tự động làm.
+      if (results.some((r: any) => Number(r?.orders) > 0)) await drainDaily(sb, Date.now() + 8000);
       // Mốc dữ liệu = shop cũ nhất trong số shop đang bán và có key.
       const { data: all } = await sb.from("pos_shops").select("name, last_synced_at")
         .eq("active", true).not("api_key_secret_id", "is", null);
