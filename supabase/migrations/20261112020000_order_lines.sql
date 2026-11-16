@@ -6,7 +6,9 @@
 --     đổi trạng thái, đổi tỷ giá... không cần cập nhật bảng này.
 --   * Cuối file có bước tự kiểm tra: so cách tính mới với cách tính cũ trên TOÀN BỘ đơn; lệch dù 1 dòng thì
 --     cả file bị huỷ (không thay đổi gì), web giữ nguyên cách tính cũ.
--- Chạy sau 20261112010000_security_hardening.sql. Chạy lại nhiều lần không lỗi. Có thể mất 1–3 phút.
+-- Chạy sau 20261112010000_security_hardening.sql. Có thể mất 1–3 phút.
+-- LƯU Ý: đã chạy rồi thì KHÔNG chạy lại. Cách chia doanh số theo dòng đã được cập nhật ở 20261116000000_product_revenue_fallback.sql;
+-- chạy lại file này sẽ bị bước tự kiểm tra chặn (không thay đổi gì).
 
 begin;
 set local statement_timeout = '15min';
