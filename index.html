@@ -72,7 +72,7 @@ let PHP=(byId(CAT.markets,'ph')||CAT.markets[0]||{rate_vnd:403}).rate_vnd;
 const projName=id=>id?(byId(CAT.projects,id)||{name:'(dự án đã xoá)'}).name:'(chưa gán dự án)';
 const teamName=id=>id?(byId(CAT.teams,id)||{name:'(team đã xoá)'}).name:'(chưa gán team)';
 const staffName=(id,fallback)=>id?(byId(CAT.staff,id)||{name:fallback||'(nhân sự đã xoá)'}).name:(fallback?fallback+' · chưa khai báo':'(không có marketer)');
-const chName=id=>id?(byId(CAT.channels,id)||{name:id}).name:'Chưa xác định';
+const chName=id=>id?(byId(CAT.channels,id)||{name:id}).name:'Mess';
 const chColor=id=>(byId(CAT.channels,id)||{color:'#8a9289'}).color;
 const chTag=id=>`<span class="ch"><span class="dot" style="background:${esc(chColor(id))}"></span>${esc(chName(id))}</span>`;
 $('#sideFoot').innerHTML=CAT.markets.map(m=>`${esc(m.name)}: 1 ${esc(m.currency)} = ${N(m.rate_vnd)} đ`).join('<br>');
@@ -123,7 +123,7 @@ const cleanList=(v,ok)=>String(v||'').split(',').filter(x=>x&&ok(x)).join(',');
 F.ch=F.ch==='all'?'all':(cleanList(F.ch,x=>x==='__none'||byId(CAT.channels,x))||'all');
 F.mkt=cleanList(F.mkt,x=>byId(CAT.markets,x));
 const fList=k=>!F[k]||F[k]==='all'?[]:F[k].split(',');
-const chLabel=id=>id==='__none'?'Chưa xác định kênh':chName(id);
+const chLabel=id=>id==='__none'?'Mess':chName(id);
 // Đường link chỉ ghi tên màn (#tongquan) cho gọn; bộ lọc được nhớ trên máy. Link cũ có bộ lọc vẫn mở đúng rồi tự gọn lại.
 function hashFor(v){return '#'+v}
 function scopeLabel(){
@@ -155,7 +155,7 @@ function renderFilters(){
   const rd=view==='kpi'&&kMode==='rd';
   const pSel=projOpts.length?(rd?'':sel('fProj','Dự án',[['',ME.scope==='all'?'Tất cả dự án':'Dự án của tôi'],...projOpts.map(p=>[p.id,p.name])],F.proj)):`<span class="pill p-info">${scopeLabel()}</span>`;
   const mSel=CAT.markets.length>1&&view!=='kpi'?msel('mkt','Thị trường','Mọi thị trường',CAT.markets.map(m=>[m.id,m.name])):'';
-  const cSel=CAT.channels.length&&view!=='kpi'&&view!=='canhbao'?msel('ch','Kênh','Mọi kênh',[...CAT.channels.map(c=>[c.id,c.name]),['__none','Chưa xác định kênh']]):'';
+  const cSel=CAT.channels.length&&view!=='kpi'&&view!=='canhbao'?msel('ch','Kênh','Mọi kênh',[...CAT.channels.map(c=>[c.id,c.name]),['__none','Mess']]):'';
   const rSel=sel('fRange','Thời gian',Object.entries(RANGES),F.range);
   const custom=F.range==='custom'?`<span class="drange"><input type="date" id="fFrom" value="${esc(F.from)}" aria-label="Từ ngày" title="Từ ngày"><span aria-hidden="true">–</span><input type="date" id="fTo" value="${esc(F.to)}" aria-label="Đến ngày" title="Đến ngày"></span>`:'';
   const cmp=`<button type="button" class="ibtn ${F.cmp?'on':''}" id="fCmpBtn" aria-pressed="${F.cmp}" aria-label="So với ${cmpLabel()}" title="${F.cmp?'Đang so với':'Bấm để so với'} ${cmpLabel()}">${Shell.icon('compare')}</button>`;
