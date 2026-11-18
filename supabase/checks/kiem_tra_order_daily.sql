@@ -58,7 +58,7 @@ language sql stable as $$
   oa as (select d, team_id, grp, count(*) as n, sum(rev) as rev from o group by 1, 2, 3),
   a as (
     select x.day as d, s.team_id, pg.grp, sum(x.usd) as usd
-    from public.ad_spend x
+    from public.ad_spend_alloc((p_from at time zone 'Asia/Ho_Chi_Minh')::date, (p_to at time zone 'Asia/Ho_Chi_Minh')::date) x
     join public.staff s on s.id = x.staff_id
     left join public.teams t on t.id = s.team_id
     left join pg on pg.product_key = x.product_key, sc
@@ -101,7 +101,7 @@ language sql stable as $$
   oa as (select d, grp, count(*) as n, sum(rev) as rev from o group by 1, 2),
   a as (
     select x.day as d, pg.grp, sum(x.usd) as usd
-    from public.ad_spend x left join pg on pg.product_key = x.product_key
+    from public.ad_spend_alloc((p_from at time zone 'Asia/Ho_Chi_Minh')::date, (p_to at time zone 'Asia/Ho_Chi_Minh')::date) x left join pg on pg.product_key = x.product_key
     where x.staff_id = p_staff
       and (p_channel is null or x.channel_id = any(string_to_array(p_channel, ',')) or ('__none' = any(string_to_array(p_channel, ',')) and coalesce(x.channel_id, '') = ''))
       and x.day >= (p_from at time zone 'Asia/Ho_Chi_Minh')::date and x.day < (p_to at time zone 'Asia/Ho_Chi_Minh')::date
@@ -169,7 +169,7 @@ language sql stable as $$
   a as (
     select case when p_mode = 'rd' then pg.rd_staff_id else x.staff_id end as who, x.product_key as pk,
            max(x.product_name) as product, sum(x.usd) as usd
-    from public.ad_spend x
+    from public.ad_spend_alloc((p_from at time zone 'Asia/Ho_Chi_Minh')::date, (p_to at time zone 'Asia/Ho_Chi_Minh')::date) x
     left join pg on pg.product_key = x.product_key
     left join public.staff s on s.id = x.staff_id left join public.teams t on t.id = s.team_id
     where x.day >= (p_from at time zone 'Asia/Ho_Chi_Minh')::date and x.day < (p_to at time zone 'Asia/Ho_Chi_Minh')::date
