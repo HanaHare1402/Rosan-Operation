@@ -346,10 +346,12 @@
       fields: [
         { k: "name", label: "Tên kênh", req: true },
         { k: "keywords", label: "Từ khoá trong nguồn đơn, cách nhau dấu phẩy", type: "tags" },
+        // Chỉ hiện khi đã chạy SQL 20261118010000_ad_currency.sql (bảng kênh có cột ad_currency).
+        { k: "ad_currency", label: "Tiền nhập chi phí ads", type: "select", need: true, options: () => [["USD", "USD ($)"], ...[...new Set(C.markets.map((m) => String(m.currency || "").toUpperCase()).filter((x) => x && x !== "USD"))].map((x) => [x, x === "PHP" ? "Peso PHP (₱)" : x])] },
         { k: "color", label: "Màu", type: "color" },
         { k: "sort", label: "Thứ tự", type: "number" },
       ],
-      cell: { keywords: (r) => (r.keywords || []).map((x) => `<span class="pill p-mute">${esc(x)}</span>`).join(" "), color: (r) => `<span class="dot" style="background:${esc(r.color)}"></span>` },
+      cell: { ad_currency: (r) => `<span class="pill p-mute">${esc(r.ad_currency === "PHP" ? "₱ peso" : r.ad_currency === "USD" ? "$ USD" : r.ad_currency || "USD")}</span>`, keywords: (r) => (r.keywords || []).map((x) => `<span class="pill p-mute">${esc(x)}</span>`).join(" "), color: (r) => `<span class="dot" style="background:${esc(r.color)}"></span>` },
     },
   };
   const catOrder = ["projects", "teams", "staff", "markets", "channels"];
@@ -394,12 +396,14 @@
     go(tab);
   });
 
+  // Trường có need: chỉ dùng khi bảng đã có cột đó (đã chạy file SQL tương ứng).
+  const fieldsOf = (c) => c.fields.filter((f) => !f.need || (C[curCat] || []).some((r) => f.k in r));
   function renderCat() {
     renderSetup();
     const c = CAT[curCat], rows = C[curCat], canW = c.write();
     document.querySelectorAll("#catTabs button").forEach((b) => b.classList.toggle("on", b.dataset.cat === curCat));
     const rec = editing ? byId(rows, editing) : prefill;
-    const shown = c.fields.filter((f) => f.type !== "bool" || true);
+    const shown = fieldsOf(c);
     const formOpen = canW && (editing || prefill || addOpen);
     $("#catBody").innerHTML = `<div class="card"><div class="cardhead"><div><h2>${c.label} <span class="muted" style="font-weight:500">(${rows.length})</span></h2><p class="hint">${c.hint}</p></div>${canW && !formOpen ? `<button class="btn sm" type="button" id="catAdd">${Shell.icon("plus")} Thêm ${c.label.toLowerCase()}</button>` : ""}</div>
       <div class="msg" id="catMsg">${catMsg}</div>
@@ -408,7 +412,7 @@
         <td class="actions">${canW ? `<button class="lnk" data-edit="${esc(r.id)}">Sửa</button><button class="lnk" data-del="${esc(r.id)}">Xoá</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="${shown.length + (c.extra || []).length + 1}">${Shell.empty("folder", "Chưa có " + c.label.toLowerCase() + " nào", canW ? "Bấm “Thêm " + c.label.toLowerCase() + "” để tạo mục đầu tiên." : "")}</td></tr>`}
       </tbody></table></div>
       ${formOpen ? `<form id="catForm" class="editor" novalidate><div class="edtitle">${editing ? "Sửa " + c.label.toLowerCase() + ": " + esc(rec?.name) : "Thêm " + c.label.toLowerCase()}</div>
-        <div class="form">${c.fields.map((f) => `<label>${esc(f.label)}${fieldInput(f, rec ? rec[f.k] : f.type === "bool" ? true : undefined)}</label>`).join("")}</div>
+        <div class="form">${shown.map((f) => `<label>${esc(f.label)}${fieldInput(f, rec ? rec[f.k] : f.type === "bool" ? true : undefined)}</label>`).join("")}</div>
         <div class="formrow"><button class="btn" type="submit">${editing ? "Lưu thay đổi" : "Thêm"}</button><button class="btn ghost" type="button" id="catCancel">Huỷ</button></div></form>` : !canW ? '<p class="hint" style="margin:12px 0 0">Chỉ admin sửa được mục này.</p>' : ""}</div>`;
     prefill = null;
   }
@@ -441,7 +445,7 @@
   });
   $("#catBody").addEventListener("submit", async (e) => {
     e.preventDefault(); const c = CAT[curCat]; const row = {};
-    for (const f of c.fields) {
+    for (const f of fieldsOf(c)) {
       const el = document.getElementById("cf_" + f.k); let v = el.value;
       if (f.type === "number") v = v === "" ? 0 : Number(v);
       else if (f.type === "tags") v = tags(v);
