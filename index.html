@@ -677,12 +677,13 @@ function kCalc(a,s){
   a=a||{n:0,sent:0,ret:0,ok:0,cogs:0,miss:0,sr:0,usd:0};
   const proc=a.sent-a.ret-a.ok,ship=a.sr*s.ship_local,dvvc=a.ok*s.dvvc_pct/100,gip=a.ok*s.gip_pct/100,ffm=a.sent*s.ffm_pct/100,
     ads=a.usd*s.usd_vnd,test=a.sent*s.test_pct/100,pack=a.sent*s.pack_pct/100,plat=a.fee||0,cost=a.cogs+ship+dvvc+gip+ffm+plat+ads+test+pack;
-  return Object.assign({},a,{proc,ship,dvvc,gip,ffm,plat,ads,test,pack,cost,lng:a.ok-cost,rr:a.ret+a.ok>0?a.ret/(a.ret+a.ok):NaN});
+  return Object.assign({},a,{proc,procN:Math.max(0,(a.n||0)-(a.okN||0)-(a.retN||0)),ship,dvvc,gip,ffm,plat,ads,test,pack,cost,lng:a.ok-cost,rr:a.ret+a.ok>0?a.ret/(a.ret+a.ok):NaN});
 }
 Object.assign(DEF,{
   k_sent:'Tổng COD các đơn tạo trong kỳ (theo ngày tạo đơn), không tính đơn huỷ / đã xoá, quy ra VNĐ. Đơn sàn (Shopee, TikTok) tính COD + phí sàn.',
   k_plat:'Phí sàn Shopee / TikTok của các đơn đã giao (POS trả về cùng đơn). Doanh số đơn sàn đã cộng phí này nên trừ lại ở đây.',
   k_ok:'COD các đơn khách đã nhận hàng. Đây là gốc để tính lợi nhuận gộp.',
+  k_proc:'Doanh số các đơn chưa có kết quả: mới tạo, chờ gửi hoặc đang giao (= gửi đi − thành công − hoàn). Số này sẽ chuyển dần sang thành công hoặc hoàn.',
   k_rr:'Hoàn ÷ (đã giao + hoàn), tính theo tiền COD. Đơn đang xử lý chưa tính vì chưa có kết quả.',
   k_lng:'Doanh số thành công trừ giá vốn, cước, phí vận chuyển, phí GIP, fulfill, phí sàn, quảng cáo, test, bao bì. Dùng để tính lương.',
   k_cost:'Tổng các khoản trừ: giá vốn, cước, phí vận chuyển, GIP, fulfill, quảng cáo, test, bao bì.',
@@ -751,6 +752,7 @@ function kCols(first,prevMap){
   const head=[first,
     {k:'sent',label:'Gửi đi',tip:'k_sent',fmt:r=>M(r.sent),val:r=>r.sent},
     {k:'rr',label:'% hoàn',tip:'k_rr',fmt:r=>retPill(r.rr),val:r=>r.rr},
+    {k:'proc',label:'Đang xử lý',tip:'k_proc',fmt:r=>r.proc>0.5?`<div class="num2"><b>${M(r.proc)}</b><span class="muted">${N(r.procN)} đơn · ${pctOf(r.proc,r.sent)}</span></div>`:'<span class="muted">0</span>',val:r=>r.proc},
     {k:'ok',label:'Thành công',tip:'k_ok',fmt:r=>M(r.ok),val:r=>r.ok}];
   if(kView==='short')return head.concat([{k:'cost',label:'Tổng chi phí',tip:'k_cost',fmt:r=>`<div class="num2"><b>${M(r.cost)}</b><span class="muted">ads ${M(r.ads)}</span></div>`,val:r=>r.cost},lng,
     {k:'pl',label:'% LNG',fmt:r=>`<span class="${r.lng<0?'neg':''}">${pctOf(r.lng,r.sent)}</span>`,val:r=>r.sent?r.lng/r.sent:NaN}]);
@@ -761,11 +763,11 @@ function kCols(first,prevMap){
 // Dòng tổng cho mọi cột, kèm % trên doanh số gửi đi như dòng "Tỷ lệ" của file gốc.
 function kFoot(T){
   const f={name:'<b>Tổng</b>',rr:retPill(T.rr),pl:`<b class="${T.lng<0?'neg':''}">${pctOf(T.lng,T.sent)}</b>`};
-  ['sent','ok','cogs','ship','dvvc','gip','ffm','ads','test','pack','cost','lng'].forEach(k=>{f[k]=`<div class="num2"><b class="${k==='lng'&&T.lng<0?'neg':''}">${M(T[k])}</b>${k==='sent'?'':`<span class="muted">${pctOf(T[k],T.sent)}</span>`}</div>`});
+  ['sent','proc','ok','cogs','ship','dvvc','gip','ffm','ads','test','pack','cost','lng'].forEach(k=>{f[k]=`<div class="num2"><b class="${k==='lng'&&T.lng<0?'neg':''}">${M(T[k])}</b>${k==='sent'?'':`<span class="muted">${pctOf(T[k],T.sent)}</span>`}</div>`});
   return f;
 }
 const kViewSeg=()=>`<div class="seg" role="group" aria-label="Cách hiện chi phí">${[['full','Đủ từng khoản'],['short','Gọn']].map(([k,l])=>`<button type="button" data-kview="${k}" class="${kView===k?'on':''}" aria-pressed="${kView===k}">${l}</button>`).join('')}</div>`;
-const KX=[['Số đơn','n'],['Doanh số gửi đi','sent'],['Hoàn','ret'],['Đang xử lý','proc'],['Doanh số thành công','ok'],['Giá vốn','cogs'],['Cước vận chuyển','ship'],['Phí DV vận chuyển','dvvc'],['Phí DV GIP','gip'],['Phí fulfill','ffm'],['Phí sàn','plat'],['Chi phí quảng cáo (USD)','usd'],['Chi phí quảng cáo (VNĐ)','ads'],['Chi phí test','test'],['Chi phí bao bì','pack'],['Lợi nhuận gộp','lng']].map(([label,k])=>({label,val:r=>Math.round(r[k]*100)/100}))
+const KX=[['Số đơn','n'],['Doanh số gửi đi','sent'],['Hoàn','ret'],['Đang xử lý','proc'],['Số đơn đang xử lý','procN'],['Doanh số thành công','ok'],['Giá vốn','cogs'],['Cước vận chuyển','ship'],['Phí DV vận chuyển','dvvc'],['Phí DV GIP','gip'],['Phí fulfill','ffm'],['Phí sàn','plat'],['Chi phí quảng cáo (USD)','usd'],['Chi phí quảng cáo (VNĐ)','ads'],['Chi phí test','test'],['Chi phí bao bì','pack'],['Lợi nhuận gộp','lng']].map(([label,k])=>({label,val:r=>Math.round(r[k]*100)/100}))
   .filter(c=>SEE_COST||c.label!=='Giá vốn').concat([{label:'% LNG / gửi đi',val:r=>r.sent?Math.round(r.lng/r.sent*10000)/100:''}]);
 function kPL(a,s){
   // Cột "Cách tính" (tỷ lệ phí, cước, tỷ giá) chỉ admin và kế toán thấy.
