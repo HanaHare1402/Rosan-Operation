@@ -223,7 +223,13 @@ function agg(list,key){
 const ZERO={ord:0,rev:0,ok:0,okRev:0,okCogs:0,okMiss:0,ret:0,retRev:0,ship:0,shipRev:0,neu:0,cancel:0};
 const tot=list=>agg(list,()=>'all')[0]||Object.assign({},ZERO);
 const retRate=a=>(a.ok+a.ret)>0?a.ret/(a.ok+a.ret):NaN;
-const gp=a=>a.okRev-a.okCogs;
+// Lợi nhuận gộp (III) giống Kết quả kinh doanh, tính từ KP (kpi_report theo nhân sự × sản phẩm).
+// gpOf(filter): {gp, ok, prev} cho một nhóm dòng; gpMap(keyFn): lợi nhuận gộp theo khoá (nhân sự, team).
+const gpCalc=list=>{const a=kSum(list,()=>'*')[0];if(!a)return {gp:0,ok:0};const c=plCalc(a,KP.set,0);return {gp:c.gp3,ok:c.ok}};
+const gpWait=()=>{ensureKP();return KP.loading||!!KP.err};
+function gpOf(fil){if(gpWait())return null;const f=fil||(()=>true);return Object.assign(gpCalc(KP.rows.filter(f)),{prev:KP.prev?gpCalc(KP.prev.filter(f)).gp:null})}
+function gpMap(keyFn){if(gpWait())return null;return new Map(kSum(KP.rows,keyFn).map(a=>[a.k,plCalc(a,KP.set,0).gp3]))}
+const gpTeam=who=>(byId(CAT.staff,who)||{}).team_id||'';
 // Tỷ lệ hoàn: dưới 25% tốt, 25–35% cần để ý, trên 35% xấu. Có chữ, không chỉ dựa vào màu.
 const retPill=r=>!isFinite(r)?'<span class="muted">–</span>':r>.35?`<span class="pill p-bad" title="Cao">${P(r)}</span>`:r>.25?`<span class="pill p-warn" title="Cần để ý">${P(r)}</span>`:`<span class="pill p-good" title="Tốt">${P(r)}</span>`;
 function days(){const [f,t]=rangeDates();const out=[];for(let d=new Date(f);d<t;d.setDate(d.getDate()+1))out.push(new Date(d));return out}
@@ -236,7 +242,7 @@ const DEF={
   rev:'Tổng COD (tiền thu hộ) các đơn đặt trong khoảng ngày, quy ra VNĐ, không tính đơn huỷ / đã xoá. Đơn sàn Shopee / TikTok tính COD + phí sàn; đơn không có COD lấy giá trị đơn. Cách tính giống KPI và Kết quả kinh doanh.',
   ord:'Số đơn đặt trong khoảng ngày, không tính đơn huỷ / đã xoá.',
   ret:'Đơn hoàn ÷ (đơn đã giao + đơn hoàn). Đơn đang giao chưa tính vì chưa biết kết quả.',
-  gp:'Tiền các đơn đã giao trừ giá vốn (giá nhập gần nhất tính đến ngày đặt). Chưa trừ chi phí ads, vận chuyển.',
+  gp:'Giống mục III ở Kết quả kinh doanh: doanh thu đơn đã giao − giá vốn − cước vận chuyển − phí dịch vụ vận chuyển, GIP, fulfill − phí sàn − chi phí quảng cáo. Chưa trừ test, bao bì và chi phí chung. Đơn và chi phí ads tính cho nhân sự; team theo team hiện tại của nhân sự.',
   ok:'Tiền các đơn khách đã nhận hàng (POS báo đã giao / đã thu tiền).',
   aov:'Doanh số ÷ số đơn.',
   ship:'Đơn đã gửi cho đơn vị vận chuyển, chưa có kết quả giao.',
@@ -288,13 +294,13 @@ function spark(vals,color){if(vals.length<2)return '';const W=120,H=30,mx=Math.m
 // ---------- ô chỉ số ----------
 // 4 chỉ số chính, mỗi ô: giá trị, so với kỳ trước, xu hướng theo ngày. Dưới là dải số phụ.
 // ads: {cost, rev, cap, loading} từ bảng theo dõi (chi phí ads ÷ doanh số trong kỳ); null thì không hiện ô này.
-function kpiCards(list,prevList,ads){
+function kpiCards(list,prevList,ads,g){
   const a=tot(list),p=tot(prevList),ds=days();
   const four=[
     ['rev','Doanh số',M(a.rev),delta(a.rev,p.rev),series(list,ds,x=>x.rev)],
     ['ord','Số đơn',N(a.ord),delta(a.ord,p.ord),series(list,ds,x=>x.ord)],
     ['ret','Tỷ lệ hoàn',P(retRate(a)),delta(retRate(a),retRate(p),{pp:1,lowerBetter:1}),null,`${N(a.ret)} đơn hoàn · ${N(a.ok)} đã giao`],
-    SEE_COST?['gp','Lợi nhuận gộp',M(gp(a)),delta(gp(a),gp(p)),null,a.okRev?`${P(gp(a)/a.okRev)} trên tiền đã giao`:'Chưa có đơn đã giao']
+    SEE_COST?['gp','Lợi nhuận gộp',g?`<span class="${g.gp<0?'neg':''}">${M(g.gp)}</span>`:'<span class="skel" style="display:inline-block;height:22px;width:110px"></span>',g&&g.prev!=null?delta(g.gp,g.prev):'',null,!g?'Đang tính…':g.ok?`${P(g.gp/g.ok)} trên tiền đã giao`:'Chưa có đơn đã giao']
            :['ok','Tiền đã giao',M(a.okRev),delta(a.okRev,p.okRev),null,`${N(a.ok)} đơn đã giao`],
   ];
   if(ads){const v=ads.rev?ads.cost/ads.rev:NaN,over=ads.cap&&v*100>ads.cap;
@@ -383,12 +389,16 @@ function rankCols(label,nameFn,o={}){
     {k:'rev',label:'Doanh số',tip:'rev',fmt:r=>`<div class="num2"><b>${M(r.rev)}</b>${delta(r.rev,r.p.rev,{short:1})}</div>`,val:r=>r.rev},
     {k:'ord',label:'Số đơn',fmt:r=>N(r.ord),val:r=>r.ord},
     {k:'ret',label:'Tỷ lệ hoàn',tip:'ret',fmt:r=>retPill(retRate(r)),val:r=>retRate(r)}];
-  if(SEE_COST&&o.gp)cols.push({k:'gp',label:'Lợi nhuận gộp',tip:'gp',fmt:r=>r.ok?M(gp(r)):'<span class="muted">–</span>',val:r=>gp(r)});
+  // o.gp: Map khoá → lợi nhuận gộp (null khi đang tải). Dòng không có trong Map (VD marketer chưa khai báo) ghi "–".
+  if(SEE_COST&&o.gp!==undefined){const m=o.gp,has=r=>m&&m.has(o.gpKey?o.gpKey(r.k):r.k),v=r=>has(r)?m.get(o.gpKey?o.gpKey(r.k):r.k):NaN;
+    cols.push({k:'gp',label:'Lợi nhuận gộp',tip:'gp',fmt:r=>!m?'<span class="skel" style="display:inline-block;width:70px;height:10px"></span>':has(r)?`<span class="${v(r)<0?'neg':''}">${M(v(r))}</span>`:'<span class="muted">–</span>',val:v})}
   if(o.target)cols.push({k:'tg',label:'Tiến độ target',fmt:r=>{const t=o.target(r.k);return t?`<div class="minibar" title="${P(r.rev/t)} target ${M(t)}"><i style="width:${Math.min(100,r.rev/t*100).toFixed(0)}%"></i><span>${P(r.rev/t,0)}</span></div>`:'<span class="muted">–</span>'},val:r=>{const t=o.target(r.k);return t?r.rev/t:NaN}});
   if(o.extra)cols.push(...o.extra);
   return cols;
 }
-const totFoot=(list)=>{const a=tot(list);return {name:'<b>Tổng</b>',rev:`<b>${M(a.rev)}</b>`,ord:N(a.ord),ret:retPill(retRate(a)),gp:SEE_COST?M(gp(a)):''}};
+// g: tổng lợi nhuận gộp; shown: cộng các dòng đang có trong bảng. Chênh lệch là phần của đơn chưa gán nhân sự (không thuộc dòng nào).
+const totFoot=(list,g,shown)=>{const a=tot(list),gap=g&&shown!=null?g.gp-shown:0;return {name:'<b>Tổng</b>',rev:`<b>${M(a.rev)}</b>`,ord:N(a.ord),ret:retPill(retRate(a)),gp:SEE_COST&&g?`<div class="num2"><b class="${g.gp<0?'neg':''}">${M(g.gp)}</b>${Math.abs(gap)>=1?`<span class="muted" title="Đơn chưa gán nhân sự không thuộc dòng nào ở trên, nhưng vẫn tính vào tổng (giống Kết quả kinh doanh).">gồm ${M(gap)} chưa gán nhân sự</span>`:''}</div>`:''}};
+const gpShown=(m,keys)=>m?keys.reduce((t,k)=>t+(m.has(k)?m.get(k):0),0):null;
 function legend(list,keyFn,nameFn,colorFn){
   const a=tot(list),g=agg(list,keyFn).sort((x,y)=>y.rev-x.rev);
   return `${colorFn?`<div class="mix">${g.map(c=>`<span style="width:${a.rev?c.rev/a.rev*100:0}%;background:${esc(colorFn(c.k))}" title="${esc(String(nameFn(c.k)).replace(/<[^>]+>/g,''))}: ${P(a.rev?c.rev/a.rev:0)}"></span>`).join('')}</div>`:''}
@@ -422,12 +432,13 @@ V.tongquan=()=>{
   const target=CAT.teams.filter(t=>teamIds.includes(t.id)).reduce((s,t)=>s+(+t.target_vnd||0),0);
   const multiProj=!F.proj&&new Set(ROWS.map(r=>r.proj)).size>1;
   const tgt=k=>{const t=byId(CAT.teams,k);return F.range==='month'&&t?+t.target_vnd||0:0};
-  const cols=rankCols('Team',(k)=>k?`${esc(teamName(k))}${multiProj?`<div class="sub2">${esc(projName((byId(CAT.teams,k)||{}).project_id))}</div>`:''}`:'<span class="muted">Chưa gán team</span>',{gp:1,target:tgt});
+  const g=SEE_COST?gpOf():null,gm=SEE_COST?gpMap(r=>gpTeam(r.who)):null,trows=rankRows(ROWS,PREV,r=>r.team||'');
+  const cols=rankCols('Team',(k)=>k?`${esc(teamName(k))}${multiProj?`<div class="sub2">${esc(projName((byId(CAT.teams,k)||{}).project_id))}</div>`:''}`:'<span class="muted">Chưa gán team</span>',{gp:SEE_COST?gm:undefined,target:tgt});
   // Cảnh báo không hiện ở Tổng quan nữa: xem ở màn Cảnh báo (số trên menu).
   const tb=targetBlock(ROWS,target);
   ensureTD();
   const adsT=adsInfo(TD,TD.rows,CAT.teams.filter(t=>TD.rows.some(r=>r.team===t.id)));
-  return `${kpiCards(ROWS,PREV,adsT)}${tb}
+  return `${kpiCards(ROWS,PREV,adsT,g)}${tb}
   <div class="${days().length<2?'grid2 even':'grid2'}">
     ${chartCard('Xu hướng theo ngày',ROWS,PREV)}
     <div class="card c-amber"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn trên POS.</p>${legend(ROWS,r=>r.ch,chTag,chColor)}
@@ -436,7 +447,7 @@ V.tongquan=()=>{
     </div>
   </div>
   <div class="card blk c-purple"><div class="cardhead"><div><h2>Các team</h2></div>${exportBtn('tTeams')}</div>
-  ${dataTable('tTeams',cols,rankRows(ROWS,PREV,r=>r.team||''),{name:'Team',click:r=>r.k?'team:'+r.k:'',foot:totFoot(ROWS)})}</div>
+  ${dataTable('tTeams',cols,trows,{name:'Team',click:r=>r.k?'team:'+r.k:'',foot:totFoot(ROWS,g,gpShown(gm,trows.map(r=>r.k)))})}</div>
   ${topCard(PRODS?PRODS.rows:null,KP.rows,'Sản phẩm bán chạy')}
   ${dailyCard(null)}`;
 };
@@ -451,12 +462,13 @@ V.team=()=>{
   const head=(ALLOWED.includes('tongquan')&&ME.scope!=='team'?crumbs([['Tổng quan','tongquan:'],[t.name,'']]):'')+sel;
   if(!list.length)return head+`<div class="card">${Shell.empty('inbox',esc(t.name)+' chưa có đơn','Không có đơn trong khoảng ngày và kênh đang lọc. Thử chọn khoảng dài hơn.')}</div>`;
   const key=r=>r.staff||'~'+(r.mk||'');
-  const cols=rankCols('Nhân sự',k=>k.startsWith('~')?`<span class="muted">${esc(k.slice(1)||'Không có marketer')}</span><div class="sub2">chưa khai báo</div>`:esc(staffName(k)),{gp:1,
+  const g=SEE_COST?gpOf(r=>gpTeam(r.who)===curTeam):null;
+  const cols=rankCols('Nhân sự',k=>k.startsWith('~')?`<span class="muted">${esc(k.slice(1)||'Không có marketer')}</span><div class="sub2">chưa khai báo</div>`:esc(staffName(k)),{gp:SEE_COST?gpMap(r=>r.who):undefined,
     extra:[{k:'ch',label:'Kênh',l:1,fmt:r=>[...new Set(list.filter(x=>key(x)===r.k).map(x=>x.ch))].map(chTag).join(' '),val:r=>''}]});
   ensureTD();
-  return head+kpiCards(list,plist,adsInfo(TD,TD.rows.filter(r=>r.team===curTeam),[t]))+targetBlock(list,F.range==='month'?+t.target_vnd||0:0)+
+  return head+kpiCards(list,plist,adsInfo(TD,TD.rows.filter(r=>r.team===curTeam),[t]),g)+targetBlock(list,F.range==='month'?+t.target_vnd||0:0)+
   `<div class="card blk c-purple"><div class="cardhead"><div><h2>Xếp hạng nhân sự · ${esc(t.name)}</h2></div>${exportBtn('tStaff')}</div>
-  ${dataTable('tStaff',cols,rankRows(list,plist,key),{name:'Nhân sự '+t.name,click:r=>r.k.startsWith('~')?'':'nhansu:'+r.k,foot:totFoot(list)})}</div>
+  ${dataTable('tStaff',cols,rankRows(list,plist,key),{name:'Nhân sự '+t.name,click:r=>r.k.startsWith('~')?'':'nhansu:'+r.k,foot:totFoot(list,g)})}</div>
   ${topCard(PRODS?PRODS.rows.filter(r=>r.team===curTeam):null,KP.rows.filter(r=>(byId(CAT.staff,r.who)||{}).team_id===curTeam),'Sản phẩm bán chạy · '+esc(t.name))}
   ${dailyCard(curTeam)}
   ${chartCard('Xu hướng theo ngày · '+esc(t.name),list,plist,true)}`;
@@ -475,7 +487,7 @@ V.nhansu=()=>{
   const head=(ME.scope!=='self'&&ALLOWED.includes('tongquan')?crumbs([['Tổng quan','tongquan:'],...(s.team_id&&ALLOWED.includes('team')?[[teamName(s.team_id),'team:'+s.team_id]]:[]),[staffName(curStaff),'']]):'')+
     `<div class="tools">${ids.length>1?`<span class="flabel">Nhân sự</span><select id="staffSel">${opts}</select>`:`<b style="font-size:15px">${esc(staffName(curStaff))}</b>`}<span class="muted">${esc(teamName(s.team_id))} · ${[...new Set(list.map(r=>r.ch))].map(chTag).join(' ')}</span></div>`;
   const sKey=JSON.stringify([curStaff,F.mkt,F.ch,F.range,F.from,F.to]);if(sKey!==SD.key){SD.key=sKey;SD.loading=true;SD.rows=[];loadSD(sKey,curStaff)}
-  return head+kpiCards(list,plist,adsInfo(SD,SD.rows,[byId(CAT.teams,s.team_id)].filter(Boolean)))+
+  return head+kpiCards(list,plist,adsInfo(SD,SD.rows,[byId(CAT.teams,s.team_id)].filter(Boolean)),SEE_COST?gpOf(r=>r.who===curStaff):null)+
   `<div class="${days().length<2?'grid2 even':'grid2'}">${chartCard('Xu hướng theo ngày',list,plist)}
    <div class="card c-amber"><h2>Theo kênh</h2><p class="hint">Tỷ trọng doanh số theo nguồn đơn.</p>${legend(list,r=>r.ch,chTag,chColor)}</div></div>
   ${staffDailyCard(curStaff)}
@@ -1004,8 +1016,8 @@ function staffDailyCard(staffId){
 const KP={key:'',rows:[],set:KDEF,month:'',other:{},loading:false,err:''};
 const PL_ITEMS=[['qldn_vn','a. Chi phí quản lý doanh nghiệp Việt Nam'],['nguyen_lieu','b. Chi phí nguyên liệu'],['luong_vn','c. Chi phí lương Việt Nam'],['kho_phil','Chi phí vận hành kho Philippines'],['thu_nhap_khac','Thu nhập khác'],['chi_phi_khac','Chi phí khác']];
 function ensureKP(){
-  const key=JSON.stringify([F.proj,F.mkt,F.ch,F.range,F.from,F.to]);if(key===KP.key)return;
-  KP.key=key;KP.loading=true;KP.rows=[];
+  const key=JSON.stringify([F.proj,F.mkt,F.ch,F.range,F.from,F.to,F.cmp]);if(key===KP.key)return;
+  KP.key=key;KP.loading=true;KP.rows=[];KP.prev=null;
   const [from,to]=rangeDates(),m=isoD(monthStart(from));
   // Lọc kênh / thị trường: lấy thêm doanh thu của mọi kênh để chia chi phí chung theo tỷ lệ (kênh đang xem chỉ gánh phần của mình).
   const flt=F.ch!=='all'||!!F.mkt,base={p_from:dayISO(from),p_to:dayISO(to),p_mode:'ads',p_project:F.proj||null};
@@ -1016,6 +1028,8 @@ function ensureKP(){
     if(key!==KP.key)return;
     KP.loading=false;KP.set=st;KP.month=m;KP.other={};(o.data||[]).forEach(x=>KP.other[x.item]=+x.amount_vnd||0);
     if(r.error){KP.err=r.error.message;KP.rows=[]}else{KP.err='';KP.rows=r.data.map(kRow);KP.old=r.data.length>0&&!('ok_n' in r.data[0])}
+    // Kỳ trước (khi bật so sánh): để ô Lợi nhuận gộp ở Tổng quan / Team / Nhân sự có mũi tên so sánh.
+    if(F.cmp){const [pf,pt]=prevDates();call({...base,p_from:dayISO(pf),p_to:dayISO(pt),...(flt&&!KP.noFlt?{p_market:F.mkt||null,p_channel:F.ch==='all'?null:F.ch}:{})}).then(a=>{if(key!==KP.key||a.error)return;KP.prev=a.data.map(kRow);if(['tongquan','team','nhansu'].includes(view))render()})}
     KP.allOk=null;if(flt&&!KP.noFlt)call(base).then(a=>{if(key!==KP.key||a.error)return;KP.allOk=a.data.reduce((t,x)=>t+(+x.ok||0),0);if(view==='kqkd')render()});
     if(['tongquan','team','nhansu','sanpham','kqkd'].includes(view))render();
   });
