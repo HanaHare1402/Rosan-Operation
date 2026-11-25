@@ -1216,9 +1216,19 @@ dialog.fbdlg{width:min(620px,calc(100vw - 32px))}
 /* Ô xác minh chống bot (Cloudflare Turnstile) */
 .cfbox:not(:empty){display:flex;justify-content:center;min-height:65px;margin:2px 0}
 
-/* Lọc sản phẩm theo điều kiện */
-.pcpanel .pcrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
-.pcpanel .pcrow select{min-height:32px}
-.pcv{position:relative;display:inline-flex;align-items:center;gap:6px}.pcv input{width:150px;min-height:32px;text-align:right}.pcv span{color:var(--muted);font-size:12.5px}
-.pcsum{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin:0 0 14px}
-@media (max-width:640px){.pcpanel .pcrow select{flex:1 1 100%}.pcv input{width:120px}}
+/* Lọc sản phẩm theo điều kiện: menu sổ xuống + thẻ điều kiện */
+.pcwrap{position:relative}
+.pcpop{position:absolute;top:calc(100% + 6px);left:0;z-index:40;width:300px;max-width:calc(100vw - 32px);max-height:min(440px,70vh);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-2);padding:6px}
+.pch{font-size:11px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:10px 10px 4px}
+.pcit{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:7px 10px;border:0;border-radius:8px;background:none;color:var(--ink);font:500 13.5px var(--font);text-align:left;cursor:pointer}
+.pcit:hover,.pcit:focus-visible{background:var(--bg)}
+.pcit>span:not(.pcdot):not(.pcarr):not(.pill){flex:1}.pcit .pcarr{color:var(--muted);font-size:16px}
+.pcit.pcback{color:var(--ink-2);border-bottom:1px solid var(--line);border-radius:8px 8px 0 0;margin-bottom:4px}
+.pcit .pcdot{flex:0 0 14px;width:14px;height:14px;border-radius:50%;border:2px solid var(--line-2)}
+.pcit.on .pcdot{border:4px solid var(--accent)}
+.pcit.on{font-weight:650}
+.pcval{padding:6px 10px 2px}.pcval .fmsg{display:block;margin-top:4px}
+.pcv{display:inline-flex;align-items:center;gap:6px}.pcv input{width:150px;min-height:32px;text-align:right}.pcv span{color:var(--muted);font-size:12.5px}
+.pcfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px;border-top:1px solid var(--line);margin-top:6px}
+.pcchip{padding:0;gap:0}.pcchip button{background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:5px 4px 5px 11px}.pcchip .pcx{padding:5px 10px 5px 6px;font-size:15px;line-height:1}
+@media (max-width:640px){.pcpop{position:fixed;left:16px;right:16px;top:auto;bottom:16px;width:auto;max-width:none;max-height:70vh}}
