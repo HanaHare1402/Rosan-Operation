@@ -124,6 +124,8 @@
       <div class="card" id="costUpload">
         <h2>Tải dữ liệu nhập hàng</h2>
         <p class="hint">Giá vốn tính theo <b>giá nhập gần nhất</b>: mỗi sản phẩm trong đơn lấy đơn giá của lần nhập gần nhất tính đến ngày tạo đơn (chưa có lần nhập nào trước đó thì lấy lần nhập sớm nhất). Tải file Excel (.xlsx) hoặc .csv; tải lại cùng file không bị trùng, chỉ thêm dòng mới.</p>
+        <div class="msg warn gpnote" role="note"><b>Ghi chú</b><br>File .xlsx hoặc .csv, mỗi dòng một lần nhập hàng. Cần các cột: <b>Mã sản phẩm</b> (mã trên POS), <b>Ngày nhập</b>, <b>Số lượng</b> và <b>Đơn giá (VND)</b> (hoặc cột Thành tiền).
+          Nên có thêm <b>Tên sản phẩm tiếng Anh</b> (đúng như trên POS, để khớp khi mã khác nhau), <b>Tên sản phẩm</b>, <b>Nhà cung cấp</b>. Tải lên xong vẫn chọn lại được cột nếu tiêu đề khác mẫu. <button class="lnk" type="button" id="costSample">Tải file mẫu</button></div>
         <div class="drop" id="costDrop"><input type="file" id="costFile" accept=".xlsx,.xls,.csv" style="max-width:100%"><div style="margin-top:6px;font-size:12px">hoặc kéo thả file vào đây</div></div>
         <div id="costMap" hidden style="margin-top:14px">
           <div class="form">
@@ -1131,6 +1133,14 @@
   $("#cmCur").innerHTML = [["VND", 1], ["PHP", (C.markets.find((m) => m.currency === "PHP") || {}).rate_vnd || 403], ["CNY", 3500], ["USD", 26000]].map(([c, r]) => `<option value="${c}" data-rate="${r}">${c}</option>`).join("");
   $("#cmRate").value = 1;
   $("#cmCur").addEventListener("change", () => { $("#cmRate").value = $("#cmCur").selectedOptions[0].dataset.rate; preview(); });
+  // File mẫu giá vốn: tiêu đề khớp cách tự nhận cột (GUESS), điền sẵn 2 sản phẩm đang bán chưa có giá vốn.
+  $("#costSample").onclick = () => {
+    const H = ["Mã sản phẩm", "Tên sản phẩm tiếng Anh", "Tên sản phẩm", "Ngày nhập", "Số lượng", "Đơn giá (VND)", "Nhà cung cấp"];
+    const pick = (costList.filter((x) => x.unit_cost_vnd == null).length ? costList.filter((x) => x.unit_cost_vnd == null) : costList).slice(0, 2);
+    const d = new Date(), day = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+    const ex = pick.length ? pick.map((x, i) => [x.code, x.name || "", "", day, 500 * (i + 1), 12000 + 3000 * i, "NCC A"]) : [["G042-0001088", "Oxy Stain Remover", "Bột Oxy Tẩy Vết Bẩn", day, 500, 12000, "NCC A"]];
+    dlSample("mau-gia-von.xlsx", "Nhap hang", [H, ...ex], [18, 30, 28, 12, 10, 14, 16]);
+  };
   $("#costFile").addEventListener("change", (e) => e.target.files[0] && openFile(e.target.files[0]));
   ["dragover", "dragleave", "drop"].forEach((ev) => $("#costDrop").addEventListener(ev, (e) => { e.preventDefault(); $("#costDrop").classList.toggle("over", ev === "dragover"); if (ev === "drop" && e.dataTransfer.files[0]) openFile(e.dataTransfer.files[0]); }));
   $("#cmSheet").addEventListener("change", loadSheet);
@@ -1240,6 +1250,12 @@
   };
   $("#gpImpOpen").onclick = () => { $("#gpImp").hidden = false; };
   // File mẫu: 4 cột, điền sẵn 3 sản phẩm bán nhiều nhất (tên tiếng Việt / nhóm / R&D đang có).
+  // Tải file mẫu .xlsx (thư viện Excel chưa tải xong thì tải dạng .csv).
+  function dlSample(name, sheet, rows, widths) {
+    if (window.XLSX) { const ws = XLSX.utils.aoa_to_sheet(rows); if (widths) ws["!cols"] = widths.map((w) => ({ wch: w })); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, sheet || "Mau"); XLSX.writeFile(wb, name); return; }
+    const csv = "\ufeff" + rows.map((r) => r.map((v) => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v).join(",")).join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = name.replace(/\.xlsx$/, ".csv"); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
   $("#gpSample").onclick = () => {
     const H = ["Tên sản phẩm (tiếng Anh, như trên POS)", ...(gpVi ? ["Tên tiếng Việt"] : []), "Nhóm (1, 2, 3)", "R&D (tên nhân sự)"];
     const ex = gpList.slice(0, 3).map((x) => [x.name, ...(gpVi ? [gpVi.get(x.k) || ""] : []), x.grp || "", x.rd ? (byId(C.staff, x.rd) || {}).name || "" : ""]);

@@ -1192,7 +1192,9 @@ V.kqkd=()=>{
       return `<div class="fh"><table id="tPLh" class="pltab" style="min-width:${mw}px">${cg}<thead><tr><th class="l">Chỉ tiêu (đồng)</th>${cols.map((c,i)=>`<th title="${esc(c[0])}"><span class="pn">${esc(c[0])}</span></th>${i===0?'<th>Tỷ lệ</th>':''}`).join('')}</tr></thead></table></div>
       <div class="tw fhb"><table id="tPL" class="pltab" style="min-width:${mw}px">${cg}<tbody>${body}</tbody></table></div>`})()}</div>
   ${otherCard}
-  <div class="card c-blue" id="jt"><h2>Đối soát file J&amp;T / FFM</h2><p class="hint">Chọn đơn vị FFM, rồi tải file .xlsx hoặc .csv có các cột Mã vận đơn (hoặc Waybill Number), COD, Tên sản phẩm, Order Status. File chỉ đọc trong trình duyệt, không gửi đi đâu.</p>
+  <div class="card c-blue" id="jt"><h2>Đối soát file J&amp;T / FFM</h2>
+  <div class="msg warn gpnote" role="note"><b>Ghi chú</b><br>Chọn đơn vị FFM, rồi tải file .xlsx hoặc .csv (file xuất từ J&amp;T / FFM dùng được luôn). Cần cột <b>COD</b> và <b>Order Status</b> (hoặc Trạng thái: Delivered / Signed = đã giao, Returned = hoàn);
+    nên có <b>Mã vận đơn</b> (Waybill Number, để bỏ dòng trùng) và <b>Tên sản phẩm</b> (để xem hoàn theo sản phẩm). File chỉ đọc trong trình duyệt, không gửi đi đâu. <button class="lnk" type="button" id="jtSample">Tải file mẫu</button></div>
   <div class="tools"><label for="jtFfm" class="muted">File của đơn vị</label><select id="jtFfm">${FFMS.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}</select></div>
   <div class="drop" id="drop"><input type="file" id="jtFile" accept=".xlsx,.xls,.csv" style="max-width:100%"><div style="margin-top:6px;font-size:12px">hoặc kéo thả file vào đây</div></div>
   <div id="jtOut" style="margin-top:14px"></div></div>`;
@@ -1386,7 +1388,13 @@ async function saveAds(){
 // Tải file: mỗi dòng một khoản chi (ngày, nhân sự, sản phẩm, USD). File không có cột ngày thì ghi vào ngày đang chọn.
 function adImportCard(){
   const x=adImp;
-  return `<div class="card"><div class="cardhead"><div><h2>Tải chi phí từ file Excel</h2><p class="hint keep">File .xlsx hoặc .csv, theo một trong hai kiểu:<br>· <b>Dọc</b>: mỗi dòng một khoản, có các cột <b>Ngày</b>, <b>Nhân sự</b>, <b>Sản phẩm</b>, <b>Kênh</b>, <b>USD</b> (không có cột ngày thì ghi vào ngày ${fmtDY(new Date(adDay+'T00:00:00'))}).<br>· <b>Ngang</b>: mỗi dòng <b>Nhân sự</b> + <b>Sản phẩm</b> + <b>Kênh</b>, mỗi cột một ngày (01/11, 02/11…), ô là số USD; ô trống hoặc 0 bỏ qua.<br>Nhân sự ghi tên hoặc mã nhận diện (VD HUYND); sản phẩm ghi tên tiếng Anh như trên POS. Tải lại cùng ngày, nhân sự, sản phẩm, kênh thì số mới thay số cũ.<br>· Kênh <b>Shopee / TikTok / Lazada</b>: ghi <b>tên shop</b> (gian hàng) vào cột Sản phẩm.${AD.noCur?'':(()=>{const l=CAT.channels.filter(c=>adChCur(c.id)!=='USD');return l.length?`<br>· Số tiền hiểu theo tiền của kênh: ${l.map(c=>`<b>${esc(c.name)}</b> là <b>${esc(adChCur(c.id)==='PHP'?'peso (₱)':adChCur(c.id))}</b>`).join(', ')}; kênh khác là USD. Dòng không có kênh tính là USD.`:''})()}</p></div><button class="lnk" type="button" id="adImpClose">Đóng</button></div>
+  return `<div class="card"><div class="cardhead"><div><h2>Tải chi phí từ file Excel</h2></div><button class="lnk" type="button" id="adImpClose">Đóng</button></div>
+    <div class="msg warn gpnote" role="note"><b>Ghi chú</b><br>File .xlsx hoặc .csv, dòng đầu là tiêu đề, theo một trong hai kiểu:<br>
+      · <b>Dọc</b>: mỗi dòng một khoản, cột <b>Ngày</b>, <b>Nhân sự</b>, <b>Sản phẩm / Shop</b>, <b>Kênh</b>, <b>Chi phí</b>. Không có cột Ngày thì ghi vào ngày ${fmtDY(new Date(adDay+'T00:00:00'))}.<br>
+      · <b>Ngang</b>: mỗi dòng <b>Nhân sự</b> + <b>Sản phẩm / Shop</b> + <b>Kênh</b>, mỗi cột một ngày (01/11, 02/11…); ô trống hoặc 0 bỏ qua.<br>
+      Nhân sự ghi tên hoặc mã (VD HUYND). Sản phẩm ghi tên như trên POS; kênh Shopee / TikTok / Lazada ghi <b>tên shop</b>.
+      ${AD.noCur?'':(()=>{const l=CAT.channels.filter(c=>adChCur(c.id)!=='USD');return l.length?`Số tiền theo tiền của kênh: ${l.map(c=>`<b>${esc(c.name)}</b> là ${esc(adChCur(c.id)==='PHP'?'peso (₱)':adChCur(c.id))}`).join(', ')}, kênh khác USD. `:''})()}Tải lại cùng ngày, nhân sự, sản phẩm, kênh thì số mới thay số cũ.
+      <br><button class="lnk" type="button" data-adsample="0">Tải file mẫu kiểu dọc</button> · <button class="lnk" type="button" data-adsample="1">Tải file mẫu kiểu ngang</button></div>
     <div class="drop"><input type="file" id="adFile" accept=".xlsx,.xls,.csv" style="max-width:100%"></div>
     ${x?`<div class="msg ${x.err?'neg':x.rows.length?'muted':'neg'}">${x.err?esc(x.err):`Đọc được <b>${N(x.rows.length)}</b> khoản chi${x.wide?' (file kiểu ngang)':''}${x.days&&x.days.length?` · ngày ${fmtD(new Date(x.days[0]+'T00:00:00'))}${x.days.length>1?' – '+fmtD(new Date(x.days[x.days.length-1]+'T00:00:00')):''}`:''} · tổng <b>${curTxt(x.rows.reduce((m,r)=>curAdd(m,r.currency||'USD',r.amount??r.usd),new Map()))}</b>${x.noDate?' · không có cột ngày, ghi vào ngày đang chọn':''}${x.noCh?' · không có cột Kênh, các dòng sẽ ghi là “Chưa chọn kênh”':''}.${x.skip.length?`<br>Bỏ qua: ${esc(x.skip.slice(0,6).join('; '))}${x.skip.length>6?'…':''}`:''}`}</div>
     ${x.rows.length?`<div class="formrow"><button class="btn" type="button" id="adImpGo">Ghi ${N(x.rows.length)} dòng</button><span class="fmsg" id="adImpMsg"></span></div>`:''}`:''}</div>`;
@@ -1597,6 +1605,8 @@ document.addEventListener('click',e=>{
   const acp=e.target.closest('[data-adcopy]');if(acp){const names=[...new Map(AD.rows.filter(r=>r.staff_id===adStaff&&r.day===acp.dataset.adcopy).map(r=>[r.product_key+'|'+(r.channel_id||''),[r.product_name,r.channel_id||'']])).values()];adEdit=readAdForm().filter(x=>x.name||x.usd).concat(names.map(([n,c])=>({name:n,usd:'',ch:c,cur:adChCur(c)})));render();const u=document.querySelector('#adForm .adUsd');if(u)u.focus();return}
   const arm=e.target.closest('[data-adrm]');if(arm){const r=readAdForm();r.splice(+arm.dataset.adrm,1);adEdit=r;render();return}
   const aa=e.target.closest('[data-adadd]');if(aa){const r=readAdForm().filter(x=>x.name||x.usd);{const ch=aa.dataset.adch||adDefCh();r.push({name:aa.dataset.adadd,usd:'',ch,cur:adChCur(ch)})}adEdit=r;render();const ins=document.querySelectorAll('#adForm .adUsd');if(ins.length>1)ins[ins.length-2].focus();return}
+  const asm=e.target.closest('[data-adsample]');if(asm){adSample(asm.dataset.adsample==='1');return}
+  if(e.target.closest('#jtSample')){dlSample('mau-doi-soat-jt.xlsx','Doi soat',[['Mã vận đơn','Tên sản phẩm','COD','Order Status'],['JT0001234567','Six Lucks Charm',1290,'Delivered'],['JT0001234568','Oxy Descaling Tabs',990,'Returned'],['JT0001234569','Oxy Stain Remover',1190,'In Transit']],[18,30,10,16]);return}
   if(e.target.id==='adImpBtn'){adImpOpen=!adImpOpen;render();return}
   if(e.target.id==='adImpClose'){adImpOpen=false;adImp=null;render();return}
   if(e.target.id==='adImpGo'){e.target.disabled=true;runAdImport();return}
@@ -1651,6 +1661,20 @@ document.addEventListener('change',e=>{
   if(e.target.matches&&e.target.matches('#adForm .adCh')){adEdit=readAdForm();const i=+e.target.closest('.adrow').dataset.i;if(adEdit[i])adEdit[i].cur=adChCur(adEdit[i].ch);render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adName`);if(n)n.focus();return}
   if(e.target.matches&&e.target.matches('#adForm .adName')){{const en=viToPos(e.target.value);if(en)e.target.value=en}const r=readAdForm();adEdit=r;const i=+e.target.closest('.adrow').dataset.i;if(i===r.length-1&&r[i].name){render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adUsd`);if(n)n.focus()}}
 });
+// Tải file mẫu .xlsx (thư viện Excel chưa tải xong thì tải dạng .csv).
+function dlSample(name,sheet,rows,widths){
+  if(window.XLSX){const ws=XLSX.utils.aoa_to_sheet(rows);if(widths)ws['!cols']=widths.map(w=>({wch:w}));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet||'Mau');XLSX.writeFile(wb,name);return}
+  const csv='\ufeff'+rows.map(r=>r.map(v=>/[",\n]/.test(String(v))?`"${String(v).replace(/"/g,'""')}"`:v).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=name.replace(/\.xlsx$/,'.csv');a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+// Mẫu chi phí ads: kiểu dọc (mỗi dòng một khoản) hoặc ngang (mỗi cột một ngày). Điền sẵn nhân sự, sản phẩm / shop, kênh thật.
+function adSample(wide){
+  const st=staffName(adStaff),fb=CAT.channels.find(c=>!isMktCh(c.id))||{name:'Facebook'},mk=CAT.channels.find(c=>isMktCh(c.id)),shop=mk&&(SHOPLIST||[]).find(x=>x.channel_id===mk.id);
+  const prods=(PRODLIST||[]).slice(0,2).map(p=>p.name);if(!prods.length)prods.push('Six Lucks Charm');
+  const lines=[...prods.map(p=>[p,fb.name,25.5]),...(mk?[[shop?shop.shop:'Tên shop',mk.name,adChCur(mk.id)==='USD'?20:1500]]:[])];
+  const d=new Date(adDay+'T00:00:00'),dd=k=>`${p2(k)}/${p2(d.getMonth()+1)}`,full=`${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`;
+  if(wide)dlSample('mau-chi-phi-ads-ngang.xlsx','Chi phi ads',[['Nhân sự','Sản phẩm / Shop','Kênh',dd(1),dd(2),dd(3)],...lines.map(([p,c,v])=>[st,p,c,v,v,''])],[22,34,14,10,10,10]);
+  else dlSample('mau-chi-phi-ads.xlsx','Chi phi ads',[['Ngày','Nhân sự','Sản phẩm / Shop','Kênh','Chi phí'],...lines.map(([p,c,v])=>[full,st,p,c,v])],[12,22,34,14,12]);
+}
 // ---------- gợi ý tên sản phẩm / shop ở màn Chi phí ads ----------
 // Dò cả tên POS (tiếng Anh) và tên tiếng Việt, không phân biệt dấu, khớp ở bất kỳ đâu trong tên. Chọn xong ghi tên POS.
 const fold=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/\s+/g,' ').trim();
