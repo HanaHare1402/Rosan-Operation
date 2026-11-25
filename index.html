@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261125a">
+<link rel="stylesheet" href="css/app.css?v=20261125b">
 </head>
 <body>
 
@@ -31,11 +31,11 @@
 </div>
 
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=20261125a"></script>
+<script src="config.js?v=20261125b"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261125a"></script>
-<script src="js/settings-db.js?v=20261125a"></script>
-<script src="js/shell.js?v=20261125a"></script>
+<script src="js/auth.js?v=20261125b"></script>
+<script src="js/settings-db.js?v=20261125b"></script>
+<script src="js/shell.js?v=20261125b"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -513,7 +513,7 @@ const PM={rev:['Doanh số','đ',a=>a.rev],ord:['Số đơn','đơn',a=>a.ord],q
   rr:['% hoàn','%',a=>retRate(a)],ads:['% chi phí ads','%',a=>a.adsP],
   ...(SEE_COST?{unit:['Giá vốn / SP','đ',a=>a.unit==null?NaN:a.unit],gp:['LNG','đ',a=>a.gp3],lng:['% LNG','%',a=>a.lngP],net:['% Net','%',a=>a.netP]}:{})};
 const POP=[['gte','từ (trở lên)'],['lt','dưới'],['top','thuộc top cao nhất'],['bot','thuộc top thấp nhất'],['hi','cao hơn trung bình'],['lo','thấp hơn trung bình']];
-let PCOND=(()=>{try{const x=JSON.parse(store.get('pcond','[]'));return Array.isArray(x)?x.filter(c=>c&&PM[c.m]&&POP.some(o=>o[0]===c.op)):[]}catch(e){return []}})(),pfOpen=false;
+let PCOND=(()=>{try{const x=JSON.parse(store.get('pcond','[]'));return Array.isArray(x)?x.filter(c=>c&&PM[c.m]&&POP.some(o=>o[0]===c.op)):[]}catch(e){return []}})();
 const pcSave=()=>{store.set('pcond',JSON.stringify(PCOND));pgState('prod').page=0};
 const pcPct=m=>PM[m][1]==='%';
 // Mẫu dựng sẵn (bấm một lần). Trần % CP ads lấy theo team nếu có.
@@ -538,23 +538,38 @@ function pcText(x){const l=PM[x.m][0],u=PM[x.m][1];
   if(x.op==='hi'||x.op==='lo')return `${l} ${x.op==='hi'?'cao':'thấp'} hơn trung bình${isFinite(x.t)?` (${pcVal(x.m,x.t)})`:''}`;
   const t=String(x.v??'').trim();return `${l} ${x.op==='gte'?'từ':'dưới'} ${t===''?'…':(pcPct(x.m)?t+'%':N(parseFloat(t.replace(',','.')))+' '+u)}${x.op==='gte'?' trở lên':''}`}
 function pcApply(g){if(!PCOND.length)return g;const xs=pcPrep(g);return g.filter(a=>xs.every(x=>pcOk(a,x)))}
-// Khung chọn điều kiện + dòng tóm tắt "đang lọc".
-function pcPanel(rows,kpRows){
-  const g=prodAgg(rows,kpRows),hit=pcApply(g).length,xs=pcPrep(g),needCost=PCOND.some(c=>['gp','lng','net','ads'].includes(c.m))&&KP.loading&&!KP.rows.length;
-  const btn=`<button class="btn ghost sm" type="button" id="pcToggle" aria-expanded="${pfOpen}">${Shell.icon('filter',' style="width:14px;height:14px"')} Lọc theo điều kiện${PCOND.length?` (${PCOND.length})`:''}</button>`;
-  const sum=PCOND.length?`<div class="msg muted pcsum" role="status"><span><b>Đang lọc:</b> ${xs.map(x=>esc(pcText(x))).join(' <b>và</b> ')} · còn <b>${N(hit)}</b>/${N(g.length)} sản phẩm${needCost?' (đang tính chi phí…)':''}</span><span class="pcact"><button class="lnk" type="button" id="pcClear">Xoá lọc</button></span></div>`:'';
-  if(!pfOpen)return {btn,panel:sum};
-  const ms=Object.entries(PM),row=(c,i)=>{const noV=c.op==='hi'||c.op==='lo',isN=c.op==='top'||c.op==='bot';
-    return `<div class="pcrow" data-pci="${i}">
-      <select class="pcM" aria-label="Chỉ số điều kiện ${i+1}">${ms.map(([k,[l]])=>`<option value="${k}" ${k===c.m?'selected':''}>${l}</option>`).join('')}</select>
-      <select class="pcOp" aria-label="Cách so sánh điều kiện ${i+1}">${POP.map(([k,l])=>`<option value="${k}" ${k===c.op?'selected':''}>${l}</option>`).join('')}</select>
-      ${noV?'':`<label class="pcv"><input class="pcV" type="number" step="any" ${isN?'min="1" step="1"':''} inputmode="decimal" value="${esc(c.v??'')}" placeholder="${isN?'VD 20':pcPct(c.m)?'VD 35':'VD 100000000'}" aria-label="Giá trị điều kiện ${i+1}"><span aria-hidden="true">${isN?'sản phẩm':esc(PM[c.m][1])}</span></label>`}
-      <button class="icon-btn" type="button" data-pcrm="${i}" aria-label="Bỏ điều kiện ${i+1}" title="Bỏ điều kiện">×</button></div>`};
-  return {btn,panel:`<div class="card pcpanel"><div class="cardhead"><div><h2>Lọc theo điều kiện</h2><p class="hint keep">Sản phẩm phải khớp <b>tất cả</b> điều kiện. “Top” và “trung bình” tính trên ${N(g.length)} sản phẩm có đơn trong khoảng đang lọc.</p></div><button class="lnk" type="button" id="pcClose">Đóng</button></div>
-    <div class="tools" style="margin-bottom:10px"><span class="flabel">Mẫu có sẵn</span><div class="chips">${pcPresets().map(([l],i)=>`<button type="button" class="chip" data-pcpre="${i}">${esc(l)}</button>`).join('')}</div></div>
-    ${PCOND.map(row).join('')||'<p class="hint">Chưa có điều kiện. Chọn một mẫu ở trên, hoặc bấm “Thêm điều kiện”.</p>'}
-    <div class="formrow"><button class="btn ghost sm" type="button" id="pcAdd">${Shell.icon('plus',' style="width:14px;height:14px"')} Thêm điều kiện</button>${PCOND.length?`<span class="fmsg">Khớp <b>${N(hit)}</b>/${N(g.length)} sản phẩm</span><button class="lnk" type="button" id="pcClear">Xoá hết điều kiện</button>`:''}</div></div>`};
+// Menu lọc sổ xuống (giống menu lọc của POS): gốc = mẫu nhanh + danh sách chỉ số (›); bấm chỉ số → chọn cách so sánh, gõ số, Áp dụng.
+// pcMenu: null (đóng) | {m:null} (gốc) | {m, op, v, i} (đang chọn cho chỉ số m; i = vị trí điều kiện đang sửa, -1 = thêm mới).
+let pcMenu=null;
+const pcNeedV=op=>op==='gte'||op==='lt'||op==='top'||op==='bot';
+function pcMenuHtml(g){
+  if(!pcMenu)return '';
+  if(!pcMenu.m){const used=new Set(PCOND.map(c=>c.m));
+    return `<div class="pcpop" role="menu" aria-label="Lọc sản phẩm">
+      <div class="pch">Mẫu nhanh</div>${pcPresets().map(([l],i)=>`<button type="button" class="pcit" role="menuitem" data-pcpre="${i}">${esc(l)}</button>`).join('')}
+      <div class="pch">Lọc theo chỉ số</div>${Object.entries(PM).map(([k,[l]])=>`<button type="button" class="pcit" role="menuitem" data-pcm="${k}"><span>${l}</span>${used.has(k)?'<span class="pill p-info">đang lọc</span>':''}<span class="pcarr" aria-hidden="true">›</span></button>`).join('')}</div>`}
+  const c=pcMenu,u=PM[c.m][1];
+  const avg=(()=>{const vals=g.map(PM[c.m][2]).filter(isFinite);return vals.length?vals.reduce((t,v)=>t+v,0)/vals.length:NaN})();
+  const opLabel=k=>k==='hi'||k==='lo'?`${k==='hi'?'Cao':'Thấp'} hơn trung bình${isFinite(avg)?` (${pcVal(c.m,avg)})`:''}`:k==='gte'?'Từ … trở lên':k==='lt'?'Dưới …':k==='top'?'Thuộc top cao nhất':'Thuộc top thấp nhất';
+  const isN=c.op==='top'||c.op==='bot';
+  return `<div class="pcpop" role="menu" aria-label="${esc(PM[c.m][0])}">
+    <button type="button" class="pcit pcback" data-pcback>‹ <b>${esc(PM[c.m][0])}</b></button>
+    ${POP.map(([k])=>`<button type="button" class="pcit${c.op===k?' on':''}" role="menuitemradio" aria-checked="${c.op===k}" data-pcop="${k}"><span class="pcdot" aria-hidden="true"></span><span>${opLabel(k)}</span></button>`).join('')}
+    ${c.op&&pcNeedV(c.op)?`<div class="pcval"><label class="pcv"><input id="pcVin" type="number" ${isN?'min="1" step="1"':'step="any"'} inputmode="decimal" value="${esc(c.v??'')}" placeholder="${isN?'VD 20':pcPct(c.m)?'VD 35':'VD 100000000'}" aria-label="Giá trị"><span aria-hidden="true">${isN?'sản phẩm':esc(u)}</span></label><span class="fmsg" id="pcErr"></span></div>`:''}
+    <div class="pcfoot">${c.i>=0?'<button type="button" class="lnk" data-pcdel>Bỏ điều kiện này</button>':'<span></span>'}<button type="button" class="btn sm" data-pcapply ${c.op?'':'disabled'}>Áp dụng</button></div></div>`;
 }
+function pcPanel(rows,kpRows){
+  const g=prodAgg(rows,kpRows),hit=pcApply(g).length,xs=pcPrep(g),needCost=PCOND.some(c=>['gp','lng','net','ads','unit'].includes(c.m))&&KP.loading&&!KP.rows.length;
+  const btn=`<div class="pcwrap"><button class="btn ghost sm" type="button" id="pcToggle" aria-haspopup="menu" aria-expanded="${!!pcMenu}">${Shell.icon('filter',' style="width:14px;height:14px"')} Lọc${PCOND.length?` (${PCOND.length})`:''} <span aria-hidden="true">▾</span></button>${pcMenuHtml(g)}</div>
+    ${xs.map((x,i)=>`<span class="chip on pcchip"><button type="button" class="pcedit" data-pcedit="${i}" title="Bấm để sửa">${esc(pcText(x))}</button><button type="button" class="pcx" data-pcrm="${i}" aria-label="Bỏ điều kiện: ${esc(pcText(x))}">×</button></span>`).join('')}
+    ${PCOND.length?`<span class="muted" role="status">còn <b>${N(hit)}</b>/${N(g.length)} sản phẩm${needCost?' (đang tính chi phí…)':''}</span><button class="lnk" type="button" id="pcClear">Xoá lọc</button>`:''}`;
+  return {btn,panel:''};
+}
+// Áp dụng lựa chọn trong menu. Trả false (và báo lỗi) khi thiếu số.
+function pcCommit(){const c=pcMenu;if(!c||!c.m||!c.op)return false;
+  if(pcNeedV(c.op)){const v=parseFloat(String(c.v??'').replace(',','.'));if(!isFinite(v)||((c.op==='top'||c.op==='bot')&&v<1)){const e=$('#pcErr');if(e){e.className='fmsg neg';e.textContent=c.op==='top'||c.op==='bot'?'Nhập số sản phẩm, từ 1 trở lên.':'Nhập một con số.'}const n=$('#pcVin');if(n)n.focus();return false}}
+  const nc={m:c.m,op:c.op,...(pcNeedV(c.op)?{v:c.v}:{})};if(c.i>=0)PCOND[c.i]=nc;else PCOND.push(nc);pcSave();pcMenu=null;render();$('#pcToggle')&&$('#pcToggle').focus();return true}
+const pcFocus=()=>{const el=document.querySelector('#pcVin')||document.querySelector('.pcpop .pcit.on')||document.querySelector('.pcpop .pcit');if(el)el.focus()};
 function prodTable(rows,withSearch,kpRows,o={}){
   let g=prodAgg(rows,kpRows);
   if(withSearch)g=pcApply(g);
@@ -1110,7 +1125,7 @@ const pctCell=(v,base,bad)=>{if(!base||!isFinite(v/base))return '<span class="mu
 
 function topCard(rows,kp,title){
   ensureKP();
-  return `<div class="card blk c-orange"><div class="cardhead"><div><h2>${title}</h2><p class="hint">10 sản phẩm doanh số cao nhất trong khoảng đang lọc.</p></div>${ALLOWED.includes('sanpham')?'<button class="btn ghost sm" type="button" id="pcGo">Lọc theo điều kiện</button>':''}</div>${rows==null?'<div class="skel" style="height:12px"></div>'.repeat(3):prodTable(rows,false,kp,{top:10})}</div>`;
+  return `<div class="card blk c-orange"><div class="cardhead"><div><h2>${title}</h2><p class="hint">10 sản phẩm doanh số cao nhất trong khoảng đang lọc.</p></div>${ALLOWED.includes('sanpham')?`<button class="btn ghost sm" type="button" id="pcGo">${Shell.icon('filter',' style="width:14px;height:14px"')} Lọc theo điều kiện</button>`:''}</div>${rows==null?'<div class="skel" style="height:12px"></div>'.repeat(3):prodTable(rows,false,kp,{top:10})}</div>`;
 }
 // ---------- kết quả kinh doanh (theo form báo cáo KQKD) ----------
 V.kqkd=()=>{
@@ -1584,13 +1599,21 @@ document.addEventListener('click',e=>{
   if(e.target.id==='adImpBtn'){adImpOpen=!adImpOpen;render();return}
   if(e.target.id==='adImpClose'){adImpOpen=false;adImp=null;render();return}
   if(e.target.id==='adImpGo'){e.target.disabled=true;runAdImport();return}
-  if(e.target.closest('#pcToggle')){pfOpen=!pfOpen;render();return}
-  if(e.target.closest('#pcGo')){pfOpen=true;go('sanpham');return}
-  if(e.target.closest('#pcClose')){pfOpen=false;render();return}
-  if(e.target.closest('#pcClear')){PCOND=[];pcSave();render();return}
-  if(e.target.closest('#pcAdd')){PCOND.push({m:'rev',op:'top',v:20});pcSave();render();const r=document.querySelectorAll('.pcrow');if(r.length)r[r.length-1].querySelector('select').focus();return}
-  const pre=e.target.closest('[data-pcpre]');if(pre){PCOND=pcPresets()[+pre.dataset.pcpre][1].map(c=>({...c}));pcSave();render();return}
-  const prm=e.target.closest('[data-pcrm]');if(prm){PCOND.splice(+prm.dataset.pcrm,1);pcSave();render();return}
+  // Menu lọc sản phẩm: bấm ra ngoài thì đóng.
+  if(pcMenu&&!e.target.closest('.pcwrap')&&!e.target.closest('.pcedit')){pcMenu=null;render()}
+  if(e.target.closest('#pcToggle')){pcMenu=pcMenu?null:{m:null};render();pcFocus();return}
+  if(e.target.closest('#pcGo')){pcMenu={m:null};go('sanpham');pcFocus();return}
+  if(e.target.closest('#pcClear')){PCOND=[];pcSave();pcMenu=null;render();return}
+  const pre=e.target.closest('[data-pcpre]');if(pre){PCOND=pcPresets()[+pre.dataset.pcpre][1].map(c=>({...c}));pcSave();pcMenu=null;render();return}
+  const pcm=e.target.closest('[data-pcm]');if(pcm){const i=PCOND.findIndex(c=>c.m===pcm.dataset.pcm),c=PCOND[i];pcMenu=c?{...c,i}:{m:pcm.dataset.pcm,op:null,v:'',i:-1};render();pcFocus();return}
+  if(e.target.closest('[data-pcback]')){pcMenu={m:null};render();pcFocus();return}
+  const pco=e.target.closest('[data-pcop]');if(pco){const was=pcMenu.op,op=pco.dataset.pcop;pcMenu.op=op;
+    if((op==='top'||op==='bot')!==(was==='top'||was==='bot'))pcMenu.v=op==='top'||op==='bot'?20:'';
+    if(!pcNeedV(op)){pcCommit();return}render();pcFocus();return}
+  if(e.target.closest('[data-pcapply]')){pcCommit();return}
+  if(e.target.closest('[data-pcdel]')){PCOND.splice(pcMenu.i,1);pcSave();pcMenu=null;render();return}
+  const ped=e.target.closest('[data-pcedit]');if(ped){const i=+ped.dataset.pcedit;pcMenu={...PCOND[i],i};render();pcFocus();return}
+  const prm=e.target.closest('[data-pcrm]');if(prm){PCOND.splice(+prm.dataset.pcrm,1);pcSave();pcMenu=null;render();return}
   const so=e.target.closest('[data-sort]');if(so){pSort=so.dataset.sort;store.set('psort2',pSort);pgState('prod').page=0;render();return}
   const st=e.target.closest('[data-st]');if(st){oSt=st.dataset.st;pgState('orders').page=0;render();return}
   const pgb=e.target.closest('[data-pgto]');if(pgb&&!pgb.disabled){pgState(pgb.dataset.pgk).page=Math.max(0,+pgb.dataset.pgto);render();const t=pgb.closest('.card');if(t&&t.getBoundingClientRect().top<0)t.scrollIntoView({block:'start'});return}
@@ -1598,6 +1621,11 @@ document.addEventListener('click',e=>{
   if(e.target.id==='ffCancel'){editFfm=null;formMsg.ffm='';keep={};render();return}
   const df=e.target.closest('[data-del-ffm]');if(df){const id=df.dataset.delFfm;if(delArm==='f:'+id){delArm=null;const nm=(FFMS.find(f=>f.id===id)||{}).name;db.collection('ffm').doc(id).delete().then(()=>{formMsg.ffm=`<span class="muted">Đã xoá ${esc(nm)}.</span>`;if(editFfm===id)editFfm=null;render()}).catch(err=>{formMsg.ffm=`<span class="neg">Chưa xoá được: ${esc(err.message||err.code)}.</span>`;render()})}else{delArm='f:'+id;render()}return}
 });
+document.addEventListener('input',e=>{if(e.target.id==='pcVin'&&pcMenu)pcMenu.v=e.target.value});
+// Menu lọc: Esc đóng (quay lại nút Lọc), Enter trong ô số = Áp dụng.
+document.addEventListener('keydown',e=>{if(!pcMenu||!e.target.closest||!e.target.closest('.pcwrap'))return;
+  if(e.key==='Escape'){e.preventDefault();pcMenu=null;render();$('#pcToggle')&&$('#pcToggle').focus();return}
+  if(e.key==='Enter'&&e.target.id==='pcVin'){e.preventDefault();pcCommit()}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&MP){closeM();return}if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-go]'))e.target.click();
   if(e.key==='Enter'&&e.target.matches&&e.target.matches('[data-pggo]')){e.preventDefault();pgGo(e.target)}});
 
@@ -1619,12 +1647,6 @@ document.addEventListener('change',e=>{
   if(e.target.id==='adDay'&&e.target.value){adDay=e.target.value;adEdit=null;render()}
   if(e.target.id==='adStaff'){if(adLeave()){adStaff=e.target.value;store.set('adstaff',adStaff);adEdit=null}render()}
   if(e.target.id==='adFile'&&e.target.files[0])readAdFile(e.target.files[0]);
-  // Đổi điều kiện lọc sản phẩm: áp dụng khi rời ô / chọn xong (không vẽ lại khi đang gõ để giữ con trỏ).
-  if(e.target.closest&&e.target.closest('.pcrow')){const row=e.target.closest('.pcrow'),i=+row.dataset.pci,c=PCOND[i];if(c){
-    if(e.target.classList.contains('pcM')){c.m=e.target.value;if(c.op==='gte'||c.op==='lt')c.v=''}
-    if(e.target.classList.contains('pcOp')){const was=c.op;c.op=e.target.value;if((c.op==='top'||c.op==='bot')&&!(was==='top'||was==='bot'))c.v=20;else if((c.op==='gte'||c.op==='lt')&&!(was==='gte'||was==='lt'))c.v=''}
-    if(e.target.classList.contains('pcV'))c.v=e.target.value;
-    pcSave();render();const nr=document.querySelector(`.pcrow[data-pci="${i}"]`);if(nr){const el=nr.querySelector('.'+[...e.target.classList].find(x=>/^pc/.test(x)));if(el)el.focus()}}return}
   if(e.target.matches&&e.target.matches('#adForm .adCh')){adEdit=readAdForm();const i=+e.target.closest('.adrow').dataset.i;if(adEdit[i])adEdit[i].cur=adChCur(adEdit[i].ch);render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adName`);if(n)n.focus();return}
   if(e.target.matches&&e.target.matches('#adForm .adName')){const r=readAdForm();adEdit=r;const i=+e.target.closest('.adrow').dataset.i;if(i===r.length-1&&r[i].name){render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adUsd`);if(n)n.focus()}}
 });
