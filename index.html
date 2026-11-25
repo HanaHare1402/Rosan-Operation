@@ -1311,7 +1311,7 @@ V.chiphi=()=>{
       ${r.name&&unknownName(r.name,r.ch)?`<span class="adwarn">${isMktCh(r.ch)?'Chưa thấy shop nào tên này trong đơn 60 ngày qua, chọn tên shop trong danh sách gợi ý.':'Chưa thấy đơn nào có tên này trong 60 ngày qua, kiểm tra lại chính tả.'}</span>`:''}</div>`).join('')}
     <datalist id="prodList">${(PRODLIST||[]).map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist>
     <datalist id="shopList">${(SHOPLIST||[]).map(p=>`<option value="${esc(p.shop)}">${esc(adChName(p.channel_id))}</option>`).join('')}</datalist>
-    <div class="tools" style="margin:12px 0 0"><button class="btn ghost sm" type="button" id="adAdd" title="Thêm một sản phẩm (Facebook, TikTok…) hoặc một shop (Shopee, TikTok Shop, Lazada) cho ngày này">${Shell.icon('plus',' style="width:14px;height:14px"')} Thêm sản phẩm / shop</button>
+    <div class="tools" style="margin:12px 0 0">
       ${prevDay&&!saved.length&&!(adEdit||[]).some(r=>r.name)?`<button class="btn ghost sm" type="button" data-adcopy="${prevDay}">Chép danh sách từ ngày ${fmtD(new Date(prevDay+'T00:00:00'))}</button>`:''}
       ${quick.length?`<span class="flabel">Thêm nhanh</span><div class="chips">${quick.map(([n,c])=>`<button type="button" class="chip" data-adadd="${esc(n)}" data-adch="${esc(c)}">+ ${esc(n)}${AD.noCh||!c?'':` · ${esc(adChName(c))}`}</button>`).join('')}</div>`:''}</div>
     <div class="adbar"><div><span class="muted">Tổng ngày</span> <b id="adTotUsd">${curTxt(adFormCurs(rows))}</b> <span class="muted">≈ <span id="adTotVnd">${M(adFormVnd(rows))}</span> · tỷ giá ${[...new Set(['USD',...(AD.noCur?[]:CAT.channels.map(c=>adChCur(c.id)))])].map(c=>`1 ${c} = ${N(adRate(c))} đ`).join(', ')}</span></div>
@@ -1591,10 +1591,6 @@ document.addEventListener('click',e=>{
     adDay=isoD(m.getFullYear()===t.getFullYear()&&m.getMonth()===t.getMonth()?(t.getDate()>1?addD(t,-1):t):m>t?t:new Date(m.getFullYear(),m.getMonth()+1,0));adEdit=null;render();return}
   const aw=e.target.closest('[data-adwho]');if(aw){if(aw.dataset.adwho!==adStaff&&adLeave()){adStaff=aw.dataset.adwho;store.set('adstaff',adStaff);adEdit=null;render()}return}
   const at=e.target.closest('[data-adtbl]');if(at){adTblAll=at.dataset.adtbl==='1';render();return}
-  // Đã có dòng trống (dòng cuối luôn để trống sẵn): chỉ đưa con trỏ vào dòng đó, không thêm dòng mới.
-  if(e.target.closest('#adAdd')){const blank=[...document.querySelectorAll('#adForm .adrow[data-i]')].find(x=>!x.querySelector('.adName').value.trim()&&!x.querySelector('.adUsd').value.trim());
-    if(blank){const n=blank.querySelector('.adName');n.scrollIntoView({block:'nearest'});n.focus();return}
-    const r=readAdForm().filter(x=>x.name||x.usd);{const ch=adDefCh();r.push({name:'',usd:'',ch,cur:adChCur(ch)})}adEdit=r;render();const ins=document.querySelectorAll('#adForm .adName');if(ins.length)ins[ins.length-1].focus();return}
   if(e.target.id==='adReset'){adEdit=null;render();return}
   const acp=e.target.closest('[data-adcopy]');if(acp){const names=[...new Map(AD.rows.filter(r=>r.staff_id===adStaff&&r.day===acp.dataset.adcopy).map(r=>[r.product_key+'|'+(r.channel_id||''),[r.product_name,r.channel_id||'']])).values()];adEdit=readAdForm().filter(x=>x.name||x.usd).concat(names.map(([n,c])=>({name:n,usd:'',ch:c,cur:adChCur(c)})));render();const u=document.querySelector('#adForm .adUsd');if(u)u.focus();return}
   const arm=e.target.closest('[data-adrm]');if(arm){const r=readAdForm();r.splice(+arm.dataset.adrm,1);adEdit=r;render();return}
