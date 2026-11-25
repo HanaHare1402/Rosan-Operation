@@ -1215,3 +1215,10 @@ dialog.fbdlg{width:min(620px,calc(100vw - 32px))}
 
 /* Ô xác minh chống bot (Cloudflare Turnstile) */
 .cfbox:not(:empty){display:flex;justify-content:center;min-height:65px;margin:2px 0}
+
+/* Lọc sản phẩm theo điều kiện */
+.pcpanel .pcrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.pcpanel .pcrow select{min-height:32px}
+.pcv{position:relative;display:inline-flex;align-items:center;gap:6px}.pcv input{width:150px;min-height:32px;text-align:right}.pcv span{color:var(--muted);font-size:12.5px}
+.pcsum{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin:0 0 14px}
+@media (max-width:640px){.pcpanel .pcrow select{flex:1 1 100%}.pcv input{width:120px}}

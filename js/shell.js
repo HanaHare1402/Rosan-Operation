@@ -41,6 +41,7 @@
     image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 18 5-5 4 4 2.5-2.5L20 18"/>',
     warehouse: '<path d="M3 9.5 12 4l9 5.5V20H3z"/><path d="M7 20v-7h10v7"/><path d="M7 16.5h10"/>',
     tag: '<path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9z"/><circle cx="8" cy="8" r="1.4"/>',
+    filter: '<path d="M3.5 5h17l-6.5 7.5V19l-4 1.5v-8z"/>',
   };
   const icon = (n, extra) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra || ""}>${P[n] || ""}</svg>`;
 

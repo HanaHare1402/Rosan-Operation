@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261112b">
+<link rel="stylesheet" href="css/app.css?v=20261125a">
 </head>
 <body>
 
@@ -31,11 +31,11 @@
 </div>
 
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=20261112b"></script>
+<script src="config.js?v=20261125a"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261112b"></script>
-<script src="js/settings-db.js?v=20261112b"></script>
-<script src="js/shell.js?v=20261112b"></script>
+<script src="js/auth.js?v=20261125a"></script>
+<script src="js/settings-db.js?v=20261125a"></script>
+<script src="js/shell.js?v=20261125a"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -507,8 +507,57 @@ function prodAgg(rows,kpRows){
   return g;
 }
 const adsCap=()=>{const c=[...new Set(CAT.teams.map(t=>+t.ads_pct_max||0).filter(Boolean))];return c.length===1?c[0]:0};
+// ---------- lọc sản phẩm theo điều kiện (màn Sản phẩm) ----------
+// Mỗi điều kiện: {m: chỉ số, op, v}. Các điều kiện cùng đúng (VÀ). Top / trung bình tính trên mọi sản phẩm đang có đơn trong bộ lọc.
+const PM={rev:['Doanh số','đ',a=>a.rev],ord:['Số đơn','đơn',a=>a.ord],qty:['Số lượng','sp',a=>a.qty],ok:['Đã giao','đơn',a=>a.ok],
+  rr:['% hoàn','%',a=>retRate(a)],ads:['% chi phí ads','%',a=>a.adsP],
+  ...(SEE_COST?{unit:['Giá vốn / SP','đ',a=>a.unit==null?NaN:a.unit],gp:['LNG','đ',a=>a.gp3],lng:['% LNG','%',a=>a.lngP],net:['% Net','%',a=>a.netP]}:{})};
+const POP=[['gte','từ (trở lên)'],['lt','dưới'],['top','thuộc top cao nhất'],['bot','thuộc top thấp nhất'],['hi','cao hơn trung bình'],['lo','thấp hơn trung bình']];
+let PCOND=(()=>{try{const x=JSON.parse(store.get('pcond','[]'));return Array.isArray(x)?x.filter(c=>c&&PM[c.m]&&POP.some(o=>o[0]===c.op)):[]}catch(e){return []}})(),pfOpen=false;
+const pcSave=()=>{store.set('pcond',JSON.stringify(PCOND));pgState('prod').page=0};
+const pcPct=m=>PM[m][1]==='%';
+// Mẫu dựng sẵn (bấm một lần). Trần % CP ads lấy theo team nếu có.
+function pcPresets(){const cap=adsCap(),l=[
+  ['Bán chạy nhưng hoàn cao',[{m:'rev',op:'top',v:20},{m:'rr',op:'hi'}]],
+  ['Hoàn từ 40%',[{m:'rr',op:'gte',v:40}]],
+  [cap?`% CP ads vượt trần ${PF(cap)}%`:'% CP ads cao hơn trung bình',cap?[{m:'ads',op:'gte',v:cap}]:[{m:'ads',op:'hi'}]]];
+  if(SEE_COST)l.push(['Đang lỗ',[{m:'gp',op:'lt',v:0}]],['Bán chạy, lãi tốt',[{m:'rev',op:'top',v:20},{m:'lng',op:'gte',v:10}]]);
+  return l}
+// Ngưỡng của từng điều kiện trên danh sách g (để lọc và để ghi "trung bình 31,2%").
+function pcPrep(g){return PCOND.map(c=>{const f=PM[c.m][2],vals=g.map(f).filter(isFinite),x={...c,f};
+  if(c.op==='hi'||c.op==='lo')x.t=vals.length?vals.reduce((t,v)=>t+v,0)/vals.length:NaN;
+  else if(c.op==='top'||c.op==='bot'){const n=Math.max(1,Math.floor(+c.v||0)),srt=vals.slice().sort((a,b)=>c.op==='top'?b-a:a-b);x.t=srt.length?srt[Math.min(n,srt.length)-1]:NaN}
+  else{const v=parseFloat(String(c.v??'').replace(',','.'));x.t=isFinite(v)?(pcPct(c.m)?v/100:v):NaN}
+  return x})}
+const pcOk=(a,x)=>{const v=x.f(a);if(!isFinite(v))return false;if(!isFinite(x.t))return true;
+  return x.op==='gte'||x.op==='top'?v>=x.t:x.op==='bot'?v<=x.t:x.op==='hi'?v>x.t:x.op==='lo'?v<x.t:v<x.t};
+const pcVal=(m,v)=>pcPct(m)?P(v):PM[m][1]==='đ'?M(v):N(v);
+// Mô tả một điều kiện bằng lời: "Doanh số nằm trong top 20 cao nhất", "% hoàn cao hơn trung bình (31,2%)".
+function pcText(x){const l=PM[x.m][0],u=PM[x.m][1];
+  if(x.op==='top'||x.op==='bot')return `${l} nằm trong top ${N(Math.max(1,Math.floor(+x.v||0)))} ${x.op==='top'?'cao':'thấp'} nhất`;
+  if(x.op==='hi'||x.op==='lo')return `${l} ${x.op==='hi'?'cao':'thấp'} hơn trung bình${isFinite(x.t)?` (${pcVal(x.m,x.t)})`:''}`;
+  const t=String(x.v??'').trim();return `${l} ${x.op==='gte'?'từ':'dưới'} ${t===''?'…':(pcPct(x.m)?t+'%':N(parseFloat(t.replace(',','.')))+' '+u)}${x.op==='gte'?' trở lên':''}`}
+function pcApply(g){if(!PCOND.length)return g;const xs=pcPrep(g);return g.filter(a=>xs.every(x=>pcOk(a,x)))}
+// Khung chọn điều kiện + dòng tóm tắt "đang lọc".
+function pcPanel(rows,kpRows){
+  const g=prodAgg(rows,kpRows),hit=pcApply(g).length,xs=pcPrep(g),needCost=PCOND.some(c=>['gp','lng','net','ads'].includes(c.m))&&KP.loading&&!KP.rows.length;
+  const btn=`<button class="btn ghost sm" type="button" id="pcToggle" aria-expanded="${pfOpen}">${Shell.icon('filter',' style="width:14px;height:14px"')} Lọc theo điều kiện${PCOND.length?` (${PCOND.length})`:''}</button>`;
+  const sum=PCOND.length?`<div class="msg muted pcsum" role="status"><span><b>Đang lọc:</b> ${xs.map(x=>esc(pcText(x))).join(' <b>và</b> ')} · còn <b>${N(hit)}</b>/${N(g.length)} sản phẩm${needCost?' (đang tính chi phí…)':''}</span><span class="pcact"><button class="lnk" type="button" id="pcClear">Xoá lọc</button></span></div>`:'';
+  if(!pfOpen)return {btn,panel:sum};
+  const ms=Object.entries(PM),row=(c,i)=>{const noV=c.op==='hi'||c.op==='lo',isN=c.op==='top'||c.op==='bot';
+    return `<div class="pcrow" data-pci="${i}">
+      <select class="pcM" aria-label="Chỉ số điều kiện ${i+1}">${ms.map(([k,[l]])=>`<option value="${k}" ${k===c.m?'selected':''}>${l}</option>`).join('')}</select>
+      <select class="pcOp" aria-label="Cách so sánh điều kiện ${i+1}">${POP.map(([k,l])=>`<option value="${k}" ${k===c.op?'selected':''}>${l}</option>`).join('')}</select>
+      ${noV?'':`<label class="pcv"><input class="pcV" type="number" step="any" ${isN?'min="1" step="1"':''} inputmode="decimal" value="${esc(c.v??'')}" placeholder="${isN?'VD 20':pcPct(c.m)?'VD 35':'VD 100000000'}" aria-label="Giá trị điều kiện ${i+1}"><span aria-hidden="true">${isN?'sản phẩm':esc(PM[c.m][1])}</span></label>`}
+      <button class="icon-btn" type="button" data-pcrm="${i}" aria-label="Bỏ điều kiện ${i+1}" title="Bỏ điều kiện">×</button></div>`};
+  return {btn,panel:`<div class="card pcpanel"><div class="cardhead"><div><h2>Lọc theo điều kiện</h2><p class="hint keep">Sản phẩm phải khớp <b>tất cả</b> điều kiện. “Top” và “trung bình” tính trên ${N(g.length)} sản phẩm có đơn trong khoảng đang lọc.</p></div><button class="lnk" type="button" id="pcClose">Đóng</button></div>
+    <div class="tools" style="margin-bottom:10px"><span class="flabel">Mẫu có sẵn</span><div class="chips">${pcPresets().map(([l],i)=>`<button type="button" class="chip" data-pcpre="${i}">${esc(l)}</button>`).join('')}</div></div>
+    ${PCOND.map(row).join('')||'<p class="hint">Chưa có điều kiện. Chọn một mẫu ở trên, hoặc bấm “Thêm điều kiện”.</p>'}
+    <div class="formrow"><button class="btn ghost sm" type="button" id="pcAdd">${Shell.icon('plus',' style="width:14px;height:14px"')} Thêm điều kiện</button>${PCOND.length?`<span class="fmsg">Khớp <b>${N(hit)}</b>/${N(g.length)} sản phẩm</span><button class="lnk" type="button" id="pcClear">Xoá hết điều kiện</button>`:''}</div></div>`};
+}
 function prodTable(rows,withSearch,kpRows,o={}){
   let g=prodAgg(rows,kpRows);
+  if(withSearch)g=pcApply(g);
   if(withSearch&&pQ){const q=pQ.toLowerCase();g=g.filter(a=>(a.code+' '+(a.name||'')).toLowerCase().includes(q))}
   const nz=v=>isFinite(v)?v:-Infinity;
   const sf={rev:a=>-a.rev,ord:a=>-a.ord,qty:a=>-a.qty,rr:a=>-(retRate(a)||0),ads:a=>-nz(a.adsP),lng:a=>-nz(a.lngP),net:a=>-nz(a.netP),gp:a=>-nz(a.gp3)};
@@ -530,7 +579,7 @@ function prodTable(rows,withSearch,kpRows,o={}){
   // Giá vốn, LNG, % LNG, % Net: chỉ người xem được chi phí (SEE_COST).
   const pk=o.pk||'prod',paged=g.length>25,rowsAll=g.length;if(paged)g=pgSlice(pk,g,50);
   return `<div class="tw"><table class="sthead ptab"><thead><tr><th class="l">Sản phẩm</th>${th('rev','Doanh số')}${th('ord','Số đơn')}${th('qty','Số lượng','','sec')}<th class="sec">Đã giao</th>${th('rr','% hoàn')}${th('ads','% CP ads','p_ads')}${SEE_COST?`<th class="sec">Giá vốn/SP</th>${th('gp','LNG')}${th('lng','% LNG','p_lng')}${th('net','% Net','p_net')}`:''}</tr></thead><tbody>
-  ${g.map(a=>`<tr class="${SEE_COST&&a.gp3<0?'loss':''}"><td class="l">${name(a)}</td><td>${rev(a)}</td><td>${N(a.ord)}</td><td class="sec">${N(a.qty)}</td><td class="sec">${N(a.ok)}</td><td>${retPill(retRate(a))}</td><td>${adsC(a.adsP)}</td>${SEE_COST?`<td class="sec">${a.unit!=null?N(a.unit):'<span class="pill p-bad">Chưa có</span>'}</td><td class="lng">${lng(a)}</td><td>${grade(a.lngP)}</td><td>${grade(a.netP)}</td>`:''}</tr>`).join('')||`<tr><td colspan="11">${Shell.empty('box','Không có sản phẩm khớp','Thử từ khoá khác hoặc khoảng ngày dài hơn.')}</td></tr>`}
+  ${g.map(a=>`<tr class="${SEE_COST&&a.gp3<0?'loss':''}"><td class="l">${name(a)}</td><td>${rev(a)}</td><td>${N(a.ord)}</td><td class="sec">${N(a.qty)}</td><td class="sec">${N(a.ok)}</td><td>${retPill(retRate(a))}</td><td>${adsC(a.adsP)}</td>${SEE_COST?`<td class="sec">${a.unit!=null?N(a.unit):'<span class="pill p-bad">Chưa có</span>'}</td><td class="lng">${lng(a)}</td><td>${grade(a.lngP)}</td><td>${grade(a.netP)}</td>`:''}</tr>`).join('')||`<tr><td colspan="11">${PCOND.length&&withSearch?Shell.empty('box','Không có sản phẩm khớp điều kiện','Nới lỏng điều kiện (VD tăng số top, hạ ngưỡng) hoặc chọn khoảng ngày dài hơn.','<button class="btn ghost sm" type="button" id="pcClear">Xoá lọc</button>'):Shell.empty('box','Không có sản phẩm khớp','Thử từ khoá khác hoặc khoảng ngày dài hơn.')}</td></tr>`}
   </tbody></table></div>${paged?pager(pk,rowsAll):''}`;
 }
 // Dải tóm tắt trên bảng sản phẩm: đọc lướt là biết bao nhiêu mã, mã nào chạy nhất, bao nhiêu mã lỗ, mã nào hoàn nhiều.
@@ -553,7 +602,8 @@ V.sanpham=()=>{
   if(!PRODS)return `<div class="card"><div class="skel" style="height:14px;width:30%"></div>${'<div class="skel" style="height:12px;margin-top:16px"></div>'.repeat(6)}</div>`;
   if(PRODS.err)return `<div class="card"><p class="neg">${esc(PRODS.err)}</p></div>`;
   ensureKP();
-  return `${prodStrip(PRODS.rows,KP.rows)}<div class="tools"><input type="search" id="pq" placeholder="Tìm mã hoặc tên sản phẩm" value="${esc(pQ)}"></div>
+  const pc=pcPanel(PRODS.rows,KP.rows);
+  return `${prodStrip(PRODS.rows,KP.rows)}<div class="tools"><input type="search" id="pq" placeholder="Tìm mã hoặc tên sản phẩm" value="${esc(pQ)}">${pc.btn}</div>${pc.panel}
   <div class="card blk c-orange"><h2>Hiệu quả sản phẩm</h2><p class="hint">Bấm tiêu đề cột để sắp xếp.${SEE_COST?' % LNG và % Net cho biết sản phẩm nào lời thật sau mọi chi phí, để cân nhắc nhập lại.':''}</p>${prodTable(PRODS.rows,true,KP.rows)}</div>`;
 };
 
@@ -1060,7 +1110,7 @@ const pctCell=(v,base,bad)=>{if(!base||!isFinite(v/base))return '<span class="mu
 
 function topCard(rows,kp,title){
   ensureKP();
-  return `<div class="card blk c-orange"><div class="cardhead"><div><h2>${title}</h2><p class="hint">10 sản phẩm doanh số cao nhất trong khoảng đang lọc.</p></div></div>${rows==null?'<div class="skel" style="height:12px"></div>'.repeat(3):prodTable(rows,false,kp,{top:10})}</div>`;
+  return `<div class="card blk c-orange"><div class="cardhead"><div><h2>${title}</h2><p class="hint">10 sản phẩm doanh số cao nhất trong khoảng đang lọc.</p></div>${ALLOWED.includes('sanpham')?'<button class="btn ghost sm" type="button" id="pcGo">Lọc theo điều kiện</button>':''}</div>${rows==null?'<div class="skel" style="height:12px"></div>'.repeat(3):prodTable(rows,false,kp,{top:10})}</div>`;
 }
 // ---------- kết quả kinh doanh (theo form báo cáo KQKD) ----------
 V.kqkd=()=>{
@@ -1534,6 +1584,13 @@ document.addEventListener('click',e=>{
   if(e.target.id==='adImpBtn'){adImpOpen=!adImpOpen;render();return}
   if(e.target.id==='adImpClose'){adImpOpen=false;adImp=null;render();return}
   if(e.target.id==='adImpGo'){e.target.disabled=true;runAdImport();return}
+  if(e.target.closest('#pcToggle')){pfOpen=!pfOpen;render();return}
+  if(e.target.closest('#pcGo')){pfOpen=true;go('sanpham');return}
+  if(e.target.closest('#pcClose')){pfOpen=false;render();return}
+  if(e.target.closest('#pcClear')){PCOND=[];pcSave();render();return}
+  if(e.target.closest('#pcAdd')){PCOND.push({m:'rev',op:'top',v:20});pcSave();render();const r=document.querySelectorAll('.pcrow');if(r.length)r[r.length-1].querySelector('select').focus();return}
+  const pre=e.target.closest('[data-pcpre]');if(pre){PCOND=pcPresets()[+pre.dataset.pcpre][1].map(c=>({...c}));pcSave();render();return}
+  const prm=e.target.closest('[data-pcrm]');if(prm){PCOND.splice(+prm.dataset.pcrm,1);pcSave();render();return}
   const so=e.target.closest('[data-sort]');if(so){pSort=so.dataset.sort;store.set('psort2',pSort);pgState('prod').page=0;render();return}
   const st=e.target.closest('[data-st]');if(st){oSt=st.dataset.st;pgState('orders').page=0;render();return}
   const pgb=e.target.closest('[data-pgto]');if(pgb&&!pgb.disabled){pgState(pgb.dataset.pgk).page=Math.max(0,+pgb.dataset.pgto);render();const t=pgb.closest('.card');if(t&&t.getBoundingClientRect().top<0)t.scrollIntoView({block:'start'});return}
@@ -1562,6 +1619,12 @@ document.addEventListener('change',e=>{
   if(e.target.id==='adDay'&&e.target.value){adDay=e.target.value;adEdit=null;render()}
   if(e.target.id==='adStaff'){if(adLeave()){adStaff=e.target.value;store.set('adstaff',adStaff);adEdit=null}render()}
   if(e.target.id==='adFile'&&e.target.files[0])readAdFile(e.target.files[0]);
+  // Đổi điều kiện lọc sản phẩm: áp dụng khi rời ô / chọn xong (không vẽ lại khi đang gõ để giữ con trỏ).
+  if(e.target.closest&&e.target.closest('.pcrow')){const row=e.target.closest('.pcrow'),i=+row.dataset.pci,c=PCOND[i];if(c){
+    if(e.target.classList.contains('pcM')){c.m=e.target.value;if(c.op==='gte'||c.op==='lt')c.v=''}
+    if(e.target.classList.contains('pcOp')){const was=c.op;c.op=e.target.value;if((c.op==='top'||c.op==='bot')&&!(was==='top'||was==='bot'))c.v=20;else if((c.op==='gte'||c.op==='lt')&&!(was==='gte'||was==='lt'))c.v=''}
+    if(e.target.classList.contains('pcV'))c.v=e.target.value;
+    pcSave();render();const nr=document.querySelector(`.pcrow[data-pci="${i}"]`);if(nr){const el=nr.querySelector('.'+[...e.target.classList].find(x=>/^pc/.test(x)));if(el)el.focus()}}return}
   if(e.target.matches&&e.target.matches('#adForm .adCh')){adEdit=readAdForm();const i=+e.target.closest('.adrow').dataset.i;if(adEdit[i])adEdit[i].cur=adChCur(adEdit[i].ch);render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adName`);if(n)n.focus();return}
   if(e.target.matches&&e.target.matches('#adForm .adName')){const r=readAdForm();adEdit=r;const i=+e.target.closest('.adrow').dataset.i;if(i===r.length-1&&r[i].name){render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adUsd`);if(n)n.focus()}}
 });
