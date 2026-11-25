@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/app.css?v=20261125b">
+<link rel="stylesheet" href="css/app.css?v=20261125c">
 </head>
 <body>
 
@@ -31,11 +31,11 @@
 </div>
 
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js?v=20261125b"></script>
+<script src="config.js?v=20261125c"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0/dist/umd/supabase.js"></script>
-<script src="js/auth.js?v=20261125b"></script>
-<script src="js/settings-db.js?v=20261125b"></script>
-<script src="js/shell.js?v=20261125b"></script>
+<script src="js/auth.js?v=20261125c"></script>
+<script src="js/settings-db.js?v=20261125c"></script>
+<script src="js/shell.js?v=20261125c"></script>
 <script>
 (async function(){
 // ---------- đăng nhập và quyền ----------
@@ -1307,14 +1307,12 @@ V.chiphi=()=>{
     ${AD.noCh?`<div class="warnrow"><span class="pill p-warn">Chưa tách được theo kênh ${tipT('Admin chạy file SQL 20261027020000_ad_channel.sql trên Supabase để có ô chọn kênh (Facebook, Shopee…) khi nhập chi phí.')}</span></div>`:''}
     <div class="adrow adhead${AD.noCh?'':' ch'}" aria-hidden="true"><span>${AD.noCh?'Sản phẩm':'Sản phẩm / Shop'}</span>${AD.noCh?'':'<span>Kênh</span>'}<span style="text-align:right">Chi phí</span><span class="vnd" style="text-align:right">≈ VNĐ</span><span></span></div>
     ${rows.map((r,i)=>`<div class="adrow${AD.noCh?'':' ch'}" data-i="${i}" data-cur="${esc(r.cur||'USD')}">
-      <input class="adName" type="text" list="${isMktCh(r.ch)?'shopList':'prodList'}" value="${esc(r.name)}" placeholder="${isMktCh(r.ch)?'Gõ tên shop…':'Gõ tên sản phẩm…'}" aria-label="${isMktCh(r.ch)?'Shop':'Sản phẩm'} dòng ${i+1}">
+      <input class="adName" type="text" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="acList" value="${esc(r.name)}" placeholder="${isMktCh(r.ch)?'Gõ tên shop…':'Gõ tên sản phẩm (tiếng Anh hoặc tiếng Việt)…'}" aria-label="${isMktCh(r.ch)?'Shop':'Sản phẩm'} dòng ${i+1}">
       ${AD.noCh?'':`<select class="adCh" aria-label="Kênh dòng ${i+1}">${r.ch?'':'<option value="" selected>Chọn kênh…</option>'}${CAT.channels.map(c=>`<option value="${esc(c.id)}" ${c.id===r.ch?'selected':''}>${esc(c.name)}</option>`).join('')}${r.ch&&!byId(CAT.channels,r.ch)?`<option value="${esc(r.ch)}" selected>${esc(r.ch)}</option>`:''}</select>`}
       <label class="adusd" title="${r.cur&&r.cur!=='USD'?'Nhập bằng '+esc(r.cur)+' (tiền nhập chi phí ads của kênh này)':'Nhập bằng USD'}"><span aria-hidden="true">${esc(curSym(r.cur||'USD'))}</span><input class="adUsd" type="number" step="0.01" min="0" inputmode="decimal" value="${esc(r.usd)}" placeholder="0,00" aria-label="Chi phí ${esc(r.cur||'USD')} dòng ${i+1}"></label>
       <span class="vnd muted">${r.usd!==''?M(usdOf(r.usd)*adRate(r.cur||'USD')):'–'}</span>
       ${r.name||r.usd?`<button class="icon-btn" type="button" data-adrm="${i}" aria-label="Xoá dòng ${i+1}" title="Xoá dòng">×</button>`:'<span></span>'}
       ${r.name&&unknownName(r.name,r.ch)?`<span class="adwarn">${isMktCh(r.ch)?'Chưa thấy shop nào tên này trong đơn 60 ngày qua, chọn tên shop trong danh sách gợi ý.':'Chưa thấy đơn nào có tên này trong 60 ngày qua, kiểm tra lại chính tả.'}</span>`:''}</div>`).join('')}
-    <datalist id="prodList">${(PRODLIST||[]).map(p=>{const vi=VINAME&&VINAME.get(p.product_key);return `<option value="${esc(p.name)}"${vi?` label="${esc(vi)}"`:''}>`}).join('')}</datalist>
-    <datalist id="shopList">${(SHOPLIST||[]).map(p=>`<option value="${esc(p.shop)}">${esc(adChName(p.channel_id))}</option>`).join('')}</datalist>
     <div class="tools" style="margin:12px 0 0">
       ${prevDay&&!saved.length&&!(adEdit||[]).some(r=>r.name)?`<button class="btn ghost sm" type="button" data-adcopy="${prevDay}">Chép danh sách từ ngày ${fmtD(new Date(prevDay+'T00:00:00'))}</button>`:''}
       ${quick.length?`<span class="flabel">Thêm nhanh</span><div class="chips">${quick.map(([n,c])=>`<button type="button" class="chip" data-adadd="${esc(n)}" data-adch="${esc(c)}">+ ${esc(n)}${AD.noCh||!c?'':` · ${esc(adChName(c))}`}</button>`).join('')}</div>`:''}</div>
@@ -1653,6 +1651,46 @@ document.addEventListener('change',e=>{
   if(e.target.matches&&e.target.matches('#adForm .adCh')){adEdit=readAdForm();const i=+e.target.closest('.adrow').dataset.i;if(adEdit[i])adEdit[i].cur=adChCur(adEdit[i].ch);render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adName`);if(n)n.focus();return}
   if(e.target.matches&&e.target.matches('#adForm .adName')){{const en=viToPos(e.target.value);if(en)e.target.value=en}const r=readAdForm();adEdit=r;const i=+e.target.closest('.adrow').dataset.i;if(i===r.length-1&&r[i].name){render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adUsd`);if(n)n.focus()}}
 });
+// ---------- gợi ý tên sản phẩm / shop ở màn Chi phí ads ----------
+// Dò cả tên POS (tiếng Anh) và tên tiếng Việt, không phân biệt dấu, khớp ở bất kỳ đâu trong tên. Chọn xong ghi tên POS.
+const fold=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/\s+/g,' ').trim();
+let AC={inp:null,items:[],at:-1};
+function acBox(){let b=document.getElementById('acList');if(!b){b=document.createElement('div');b.id='acList';b.className='aclist';b.setAttribute('role','listbox');b.hidden=true;document.body.appendChild(b)}return b}
+function acClose(){const b=document.getElementById('acList');if(b)b.hidden=true;if(AC.inp)AC.inp.setAttribute('aria-expanded','false');AC={inp:null,items:[],at:-1}}
+function acOpen(inp){
+  const row=inp.closest('.adrow'),c=row&&row.querySelector('.adCh'),mkt=isMktCh(c?c.value:''),q=fold(inp.value);
+  const src=mkt?(SHOPLIST||[]).map(p=>({v:p.shop,sub:adChName(p.channel_id),n:p.orders})):(PRODLIST||[]).map(p=>({v:p.name,sub:(VINAME&&VINAME.get(p.product_key))||'',n:p.orders}));
+  const sc=x=>{if(!q)return 1;const a=fold(x.v),b=fold(x.sub);if(a.startsWith(q)||b.startsWith(q))return 3;if(a.split(' ').some(w=>w.startsWith(q))||b.split(' ').some(w=>w.startsWith(q)))return 2;return a.includes(q)||b.includes(q)?1:0};
+  const items=src.map(x=>({...x,s:sc(x)})).filter(x=>x.s>0).sort((a,b)=>b.s-a.s||b.n-a.n).slice(0,40);
+  const b=acBox();AC={inp,items,at:-1};
+  if(!items.length){b.innerHTML=`<div class="acempty">${q?`Không thấy ${mkt?'shop':'sản phẩm'} nào khớp “${esc(inp.value)}”.`:'Chưa có danh sách gợi ý.'}</div>`}
+  else b.innerHTML=items.map((x,i)=>`<div class="acit" role="option" id="ac${i}" data-aci="${i}" aria-selected="false"><b>${esc(x.v)}</b>${x.sub?`<span>${esc(x.sub)}</span>`:''}</div>`).join('');
+  acPos();b.scrollTop=0;b.hidden=false;inp.setAttribute('aria-expanded','true');
+}
+// Đặt khung gợi ý ngay dưới ô đang gõ (lên trên nếu phía dưới hết chỗ); không rộng quá màn hình.
+function acPos(){const b=document.getElementById('acList'),inp=AC.inp;if(!b||!inp)return;if(!inp.isConnected){acClose();return}
+  const r=inp.getBoundingClientRect(),w=Math.min(Math.max(r.width,260),window.innerWidth-16);
+  Object.assign(b.style,{left:Math.max(8,Math.min(r.left,window.innerWidth-w-8))+'px',width:w+'px'});
+  const below=window.innerHeight-r.bottom-12,above=r.top-12;
+  if(below<160&&above>below){b.style.top='';b.style.bottom=(window.innerHeight-r.top+4)+'px';b.style.maxHeight=Math.min(360,above)+'px'}
+  else{b.style.bottom='';b.style.top=(r.bottom+4)+'px';b.style.maxHeight=Math.max(120,Math.min(360,below))+'px'}}
+function acMove(d){const b=acBox();if(!AC.items.length)return;AC.at=(AC.at+d+AC.items.length)%AC.items.length;
+  b.querySelectorAll('.acit').forEach((el,i)=>{el.classList.toggle('on',i===AC.at);el.setAttribute('aria-selected',String(i===AC.at))});
+  const el=b.querySelector(`[data-aci="${AC.at}"]`);if(el){el.scrollIntoView({block:'nearest'});AC.inp.setAttribute('aria-activedescendant',el.id)}}
+// Chọn xong: ghi tên POS, báo cho form như khi gõ, rồi đưa con trỏ sang ô tiền của dòng đó (sau khi màn vẽ lại xong).
+function acPick(i){const x=AC.items[i],inp=AC.inp;if(!x||!inp)return;const ri=inp.closest('.adrow').dataset.i;inp.value=x.v;acClose();
+  inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}));
+  setTimeout(()=>{const u=document.querySelector(`#adForm .adrow[data-i="${ri}"] .adUsd`);if(u&&document.activeElement!==u)u.focus()},60)}
+document.addEventListener('focusin',e=>{if(e.target.matches&&e.target.matches('#adForm .adName'))acOpen(e.target)});
+document.addEventListener('input',e=>{if(e.target.matches&&e.target.matches('#adForm .adName')&&e.isTrusted)acOpen(e.target)});
+document.addEventListener('focusout',e=>{if(e.target===AC.inp)setTimeout(()=>{if(document.activeElement!==AC.inp)acClose()},120)});
+document.addEventListener('mousedown',e=>{const it=e.target.closest&&e.target.closest('#acList .acit');if(it){e.preventDefault();acPick(+it.dataset.aci)}});
+document.addEventListener('keydown',e=>{if(!AC.inp||e.target!==AC.inp)return;
+  if(e.key==='ArrowDown'){e.preventDefault();acMove(1)}else if(e.key==='ArrowUp'){e.preventDefault();acMove(-1)}
+  else if(e.key==='Escape'){acClose()}
+  else if(e.key==='Enter'&&AC.at>=0){e.preventDefault();e.stopImmediatePropagation();acPick(AC.at)}},true);
+window.addEventListener('scroll',e=>{if(AC.inp&&e.target!==document.getElementById('acList'))acPos()},true);
+window.addEventListener('resize',()=>{if(AC.inp)acPos()});
 function liveSearch(id,set){document.addEventListener('input',e=>{if(e.target.id!==id)return;set(e.target.value);const pos=e.target.selectionStart;render();const el=$('#'+id);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(x){}}})}
 liveSearch('pq',v=>{pQ=v;pgState('prod').page=0});
 liveSearch('oq',v=>{oQ=v;pgState('orders').page=0});

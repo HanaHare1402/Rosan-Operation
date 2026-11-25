@@ -1232,3 +1232,11 @@ dialog.fbdlg{width:min(620px,calc(100vw - 32px))}
 .pcfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px;border-top:1px solid var(--line);margin-top:6px}
 .pcchip{padding:0;gap:0}.pcchip button{background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:5px 4px 5px 11px}.pcchip .pcx{padding:5px 10px 5px 6px;font-size:15px;line-height:1}
 @media (max-width:640px){.pcpop{position:fixed;left:16px;right:16px;top:auto;bottom:16px;width:auto;max-width:none;max-height:70vh}}
+
+/* Gợi ý tên sản phẩm / shop (Chi phí ads) */
+.aclist{position:fixed;z-index:60;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-2);padding:4px}
+.aclist .acit{padding:7px 10px;border-radius:7px;cursor:pointer;line-height:1.35}
+.aclist .acit b{display:block;font-weight:600;font-size:13.5px;color:var(--ink)}
+.aclist .acit span{display:block;font-size:12.5px;color:var(--ink-2)}
+.aclist .acit:hover,.aclist .acit.on{background:var(--accent-soft)}
+.aclist .acempty{padding:10px;font-size:13px;color:var(--muted)}
