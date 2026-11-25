@@ -348,12 +348,14 @@
       fields: [
         { k: "name", label: "Tên kênh", req: true },
         { k: "keywords", label: "Từ khoá trong nguồn đơn, cách nhau dấu phẩy", type: "tags" },
+        // Chỉ hiện khi đã chạy SQL 20261125010000_channel_utm.sql. Dùng cho Google: UTM Source chứa từ khoá thì thuộc kênh này, bất kể nguồn đơn.
+        { k: "utm_keywords", label: "Từ khoá UTM Source, ưu tiên hơn nguồn đơn (chỉ dùng cho Google, kênh khác để trống)", type: "tags", need: true },
         // Chỉ hiện khi đã chạy SQL 20261118010000_ad_currency.sql (bảng kênh có cột ad_currency).
         { k: "ad_currency", label: "Tiền nhập chi phí ads", type: "select", need: true, options: () => [["USD", "USD ($)"], ...[...new Set(C.markets.map((m) => String(m.currency || "").toUpperCase()).filter((x) => x && x !== "USD"))].map((x) => [x, x === "PHP" ? "Peso PHP (₱)" : x])] },
         { k: "color", label: "Màu", type: "color" },
         { k: "sort", label: "Thứ tự", type: "number" },
       ],
-      cell: { ad_currency: (r) => `<span class="pill p-mute">${esc(r.ad_currency === "PHP" ? "₱ peso" : r.ad_currency === "USD" ? "$ USD" : r.ad_currency || "USD")}</span>`, keywords: (r) => (r.keywords || []).map((x) => `<span class="pill p-mute">${esc(x)}</span>`).join(" "), color: (r) => `<span class="dot" style="background:${esc(r.color)}"></span>` },
+      cell: { utm_keywords: (r) => (r.utm_keywords || []).map((x) => `<span class="pill p-info">UTM: ${esc(x)}</span>`).join(" ") || '<span class="muted">–</span>', ad_currency: (r) => `<span class="pill p-mute">${esc(r.ad_currency === "PHP" ? "₱ peso" : r.ad_currency === "USD" ? "$ USD" : r.ad_currency || "USD")}</span>`, keywords: (r) => (r.keywords || []).map((x) => `<span class="pill p-mute">${esc(x)}</span>`).join(" "), color: (r) => `<span class="dot" style="background:${esc(r.color)}"></span>` },
     },
   };
   const catOrder = ["projects", "teams", "staff", "markets", "channels"];
