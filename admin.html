@@ -162,7 +162,9 @@
           <div class="page-actions"><label class="flabel" for="gpMonth">Tháng</label><input type="month" id="gpMonth"><button class="btn ghost sm" type="button" id="gpImpOpen">Tải file Excel</button></div></div>
         <div id="gpImp" class="editor" hidden>
           <div class="edtitle">Tải nhóm từ file <button class="lnk" type="button" id="gpImpClose">Đóng</button></div>
-          <p class="hint" style="margin:0 0 10px">File .xlsx hoặc .csv có cột <b>Tên sản phẩm</b> (tên tiếng Anh như trên POS), <b>Nhóm</b> (1, 2, 3 hoặc “Nhóm 1”), và nếu có, cột <b>R&amp;D</b> (tên nhân sự). Ghi vào tháng đang chọn.</p>
+          <div class="msg warn gpnote" role="note"><b>Ghi chú</b><br>File .xlsx hoặc .csv, dòng đầu là tiêu đề. Cần cột <b>Tên sản phẩm</b> (tên tiếng Anh, đúng như trên POS) và ít nhất một trong các cột:
+            <b>Tên tiếng Việt</b>, <b>Nhóm</b> (1, 2, 3 hoặc “Nhóm 1”), <b>R&amp;D</b> (tên nhân sự). Ô để trống thì giữ nguyên giá trị cũ.
+            Nhóm và R&amp;D ghi vào tháng đang chọn; tên tiếng Việt dùng cho mọi tháng. <button class="lnk" type="button" id="gpSample">Tải file mẫu</button></div>
           <div class="drop"><input type="file" id="gpFile" accept=".xlsx,.xls,.csv" style="max-width:100%"></div>
           <div class="msg" id="gpImpMsg" role="status"></div>
           <div class="formrow"><button class="btn" type="button" id="gpImpGo" hidden>Ghi vào tháng</button></div>
@@ -1160,7 +1162,7 @@
   const pk = (x) => String(x || "").trim().toLowerCase();
   const thisMonth = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
   $("#gpMonth").value = thisMonth();
-  let gpList = [], gpDirty = new Map(), gpFilter = "all", gpImpRows = [];
+  let gpList = [], gpDirty = new Map(), gpFilter = "all", gpImpRows = [], gpImpVi = [];
   // Tên tiếng Việt (bảng product_names, SQL 20261125000000_product_names_vi.sql). null = chưa chạy SQL: ẩn cột.
   let gpVi = null;
   const gpM = () => ($("#gpMonth").value || thisMonth()) + "-01";
@@ -1235,7 +1237,16 @@
     else $("#gpSave").disabled = false;
   };
   $("#gpImpOpen").onclick = () => { $("#gpImp").hidden = false; };
-  $("#gpImpClose").onclick = () => { $("#gpImp").hidden = true; gpImpRows = []; say($("#gpImpMsg"), "", ""); $("#gpImpGo").hidden = true; };
+  // File mẫu: 4 cột, điền sẵn 3 sản phẩm bán nhiều nhất (tên tiếng Việt / nhóm / R&D đang có).
+  $("#gpSample").onclick = () => {
+    const H = ["Tên sản phẩm (tiếng Anh, như trên POS)", ...(gpVi ? ["Tên tiếng Việt"] : []), "Nhóm (1, 2, 3)", "R&D (tên nhân sự)"];
+    const ex = gpList.slice(0, 3).map((x) => [x.name, ...(gpVi ? [gpVi.get(x.k) || ""] : []), x.grp || "", x.rd ? (byId(C.staff, x.rd) || {}).name || "" : ""]);
+    const rows = [H, ...(ex.length ? ex : [["Six Lucks Charm", ...(gpVi ? ["Bùa may mắn"] : []), 3, ""]])];
+    if (window.XLSX) { const ws = XLSX.utils.aoa_to_sheet(rows); ws["!cols"] = H.map((h, i) => ({ wch: i === 0 ? 38 : 22 })); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Nhom san pham"); XLSX.writeFile(wb, "mau-nhom-san-pham.xlsx"); return; }
+    const csv = "\ufeff" + rows.map((r) => r.map((v) => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v).join(",")).join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "mau-nhom-san-pham.csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  $("#gpImpClose").onclick = () => { $("#gpImp").hidden = true; gpImpRows = []; gpImpVi = []; say($("#gpImpMsg"), "", ""); $("#gpImpGo").hidden = true; };
   $("#gpFile").addEventListener("change", (e) => {
     const file = e.target.files[0]; if (!file) return;
     const fr = new FileReader();
@@ -1254,14 +1265,19 @@
         const head = start > 0 ? grid[start - 1].map((x) => norm(x)) : [];
         const byHead = (keys, skip) => { for (const k of keys) { const c = head.findIndex((h, j) => !skip.includes(j) && h && (h === k || h.includes(k))); if (c >= 0) return c; } return -1; };
         const rCol = byHead(["r&d", "nhan vien test", "nguoi phu trach", "rd"], [gCol]);
-        let nCol = byHead(["ten san pham tieng anh", "product", "ten san pham", "san pham"], [gCol, rCol]);
-        if (nCol < 0) { let most = -1; for (let c = 0; c < width; c++) { if (c === gCol || c === rCol) continue; const n = grid.slice(start).filter((r) => { const v = cell(r, c); return v && !/^[\d.,\s]+$/.test(v); }).length; if (n > most) { most = n; nCol = c; } } }
-        if (nCol < 0 || (gCol < 0 && rCol < 0)) { say($("#gpImpMsg"), `Không nhận ra cột tên sản phẩm và cột nhóm (1, 2, 3 hoặc “Nhóm 1”). Kiểm tra file có 2 cột: tên sản phẩm, nhóm.`, "neg"); $("#gpImpGo").hidden = true; return; }
+        // Cột tên tiếng Việt: tìm trước để không bị nhận nhầm là cột tên sản phẩm (tiêu đề đều có chữ "tên sản phẩm").
+        const vCol = gpVi ? byHead(["ten tieng viet", "tieng viet", "ten viet", "ten vn", "vietnamese"], [gCol, rCol]) : -1;
+        let nCol = byHead(["ten san pham tieng anh", "tieng anh", "product", "ten san pham", "san pham", "ten pos"], [gCol, rCol, vCol]);
+        if (nCol < 0) { let most = -1; for (let c = 0; c < width; c++) { if (c === gCol || c === rCol || c === vCol) continue; const n = grid.slice(start).filter((r) => { const v = cell(r, c); return v && !/^[\d.,\s]+$/.test(v); }).length; if (n > most) { most = n; nCol = c; } } }
+        if (nCol < 0 || (gCol < 0 && rCol < 0 && vCol < 0)) { say($("#gpImpMsg"), `Không nhận ra cột. File cần cột Tên sản phẩm (tiếng Anh) và ít nhất một cột: Tên tiếng Việt, Nhóm (1, 2, 3) hoặc R&D. Bấm “Tải file mẫu” để xem cách ghi.`, "neg"); $("#gpImpGo").hidden = true; return; }
         const colName = (c) => c < 0 ? "–" : `${String.fromCharCode(65 + c)}${head[c] ? " (" + esc(String(grid[start - 1][c]).trim()) + ")" : ""}`;
         const staff = C.staff.filter((s) => s.active !== false), who = (n) => { const q = pk(n); if (!q) return undefined; const ex = staff.filter((s) => pk(s.name) === q || (s.pos_names || []).some((p) => pk(p) === q)); if (ex.length === 1) return ex[0].id; const t = staff.filter((s) => pk(s.name).split(/\s+/).pop() === q); return t.length === 1 ? t[0].id : null; };
-        const byKey = new Map(gpList.map((x) => [x.k, x])), m = new Map(), skip = [], unknownRd = new Set();
+        const byKey = new Map(gpList.map((x) => [x.k, x])), m = new Map(), vi = new Map(), skip = [], unknownRd = new Set();
         grid.slice(start).forEach((r, i) => {
           const name = cell(r, nCol); if (!name) return;
+          if (vCol >= 0 && cell(r, vCol)) vi.set(pk(name), { product_key: pk(name), name_vi: cell(r, vCol) });
+          // File chỉ có tên tiếng Việt (không có cột nhóm / R&D): không ghi nhóm của tháng.
+          if (gCol < 0 && rCol < 0) return;
           const gv = gCol >= 0 ? cell(r, gCol) : "";
           const g = gv ? parseInt(gv.replace(/\D/g, ""), 10) : NaN;
           if (gv && !(g >= 1 && g <= 3)) { skip.push(`dòng ${start + i + 1}: nhóm “${gv}”`); return; }
@@ -1271,9 +1287,11 @@
           m.set(pk(name), { month: gpM(), product_key: pk(name), name, grp: g >= 1 ? g : (old.grp ?? null), rd_staff_id: rd });
         });
         const sold = new Set(gpList.filter((x) => x.orders > 0).map((x) => x.k)), matched = [...m.keys()].filter((k) => sold.has(k)).length;
-        gpImpRows = [...m.values()];
-        say($("#gpImpMsg"), `Đọc được <b>${nf.format(gpImpRows.length)}</b> sản phẩm cho tháng ${fmtMon(gpM())} (cột tên: ${colName(nCol)} · cột nhóm: ${colName(gCol)}${rCol >= 0 ? " · cột R&D: " + colName(rCol) : ""}). <b>${nf.format(matched)}</b> tên trùng sản phẩm đã bán 60 ngày qua; các tên còn lại vẫn được lưu, sẽ khớp khi có đơn đúng tên.${skip.length ? ` Bỏ qua ${skip.length} dòng (${esc(skip.slice(0, 4).join("; "))}${skip.length > 4 ? "…" : ""}).` : ""}${unknownRd.size ? ` Không nhận ra R&D: ${esc([...unknownRd].slice(0, 6).join(", "))} (giữ nguyên người cũ).` : ""}`, gpImpRows.length ? "muted" : "neg");
-        $("#gpImpGo").hidden = !gpImpRows.length; $("#gpImpGo").textContent = `Ghi ${nf.format(gpImpRows.length)} sản phẩm vào tháng ${fmtMon(gpM())}`;
+        gpImpRows = [...m.values()]; gpImpVi = [...vi.values()];
+        const allK = new Set([...m.keys(), ...vi.keys()]), matchedAll = [...allK].filter((k) => sold.has(k)).length;
+        say($("#gpImpMsg"), `Đọc được ${gpImpRows.length ? `<b>${nf.format(gpImpRows.length)}</b> sản phẩm có nhóm / R&D cho tháng ${fmtMon(gpM())}` : ""}${gpImpRows.length && gpImpVi.length ? " và " : ""}${gpImpVi.length ? `<b>${nf.format(gpImpVi.length)}</b> tên tiếng Việt` : ""} (cột tên: ${colName(nCol)}${vCol >= 0 ? " · cột tên tiếng Việt: " + colName(vCol) : ""}${gCol >= 0 ? " · cột nhóm: " + colName(gCol) : ""}${rCol >= 0 ? " · cột R&D: " + colName(rCol) : ""}). <b>${nf.format(gpImpRows.length ? matched : matchedAll)}</b> tên trùng sản phẩm đã bán 60 ngày qua; các tên còn lại vẫn được lưu, sẽ khớp khi có đơn đúng tên.${skip.length ? ` Bỏ qua ${skip.length} dòng (${esc(skip.slice(0, 4).join("; "))}${skip.length > 4 ? "…" : ""}).` : ""}${unknownRd.size ? ` Không nhận ra R&D: ${esc([...unknownRd].slice(0, 6).join(", "))} (giữ nguyên người cũ).` : ""}`, gpImpRows.length || gpImpVi.length ? "muted" : "neg");
+        $("#gpImpGo").hidden = !gpImpRows.length && !gpImpVi.length;
+        $("#gpImpGo").textContent = [gpImpRows.length ? `Ghi ${nf.format(gpImpRows.length)} nhóm / R&D vào tháng ${fmtMon(gpM())}` : "", gpImpVi.length ? `${gpImpRows.length ? "và " : "Ghi "}${nf.format(gpImpVi.length)} tên tiếng Việt` : ""].filter(Boolean).join(" ");
       } catch (err) { say($("#gpImpMsg"), "Không đọc được file: " + esc(err.message), "neg"); }
     };
     fr.readAsArrayBuffer(file);
@@ -1281,7 +1299,12 @@
   $("#gpImpGo").onclick = async () => {
     $("#gpImpGo").disabled = true;
     const now = new Date().toISOString();
-    if (await saveGroupRows(gpImpRows.map((r) => Object.assign({ updated_at: now }, r)), $("#gpImpMsg"))) { Shell.toast(`Đã ghi ${gpImpRows.length} sản phẩm.`); $("#gpImpClose").click(); loadGroups(); }
+    let ok = !gpImpRows.length || await saveGroupRows(gpImpRows.map((r) => Object.assign({ updated_at: now }, r)), $("#gpImpMsg"));
+    for (let i = 0; ok && i < gpImpVi.length; i += 500) {
+      const { error } = await sb.from("product_names").upsert(gpImpVi.slice(i, i + 500).map((r) => Object.assign({ updated_at: now }, r)), { onConflict: "product_key" });
+      if (error) { say($("#gpImpMsg"), "Chưa lưu được tên tiếng Việt: " + esc(error.message), "neg"); ok = false; }
+    }
+    if (ok) { Shell.toast(`Đã ghi ${[gpImpRows.length ? gpImpRows.length + " nhóm / R&D" : "", gpImpVi.length ? gpImpVi.length + " tên tiếng Việt" : ""].filter(Boolean).join(" và ")}.`); $("#gpImpClose").click(); loadGroups(); }
     $("#gpImpGo").disabled = false;
   };
 
