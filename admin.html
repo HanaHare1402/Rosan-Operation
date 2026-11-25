@@ -169,7 +169,7 @@
         </div>
         <div class="tools" style="margin-top:14px"><input type="search" id="gpQ" placeholder="Tìm sản phẩm"><div class="chips" id="gpFilter" role="group" aria-label="Lọc theo nhóm"></div></div>
         <div class="msg" id="gpMsg" role="status"></div>
-        <div class="tw"><table><thead><tr><th class="l">Sản phẩm</th><th>Đơn 60 ngày</th><th class="l">Nhóm</th><th class="l">R&amp;D phụ trách</th><th class="l">Đang áp dụng</th></tr></thead><tbody id="gpRows"><tr><td colspan="5"><div class="skel" style="height:12px"></div></td></tr></tbody></table></div>
+        <div class="tw"><table><thead><tr><th class="l">Sản phẩm</th><th class="l" id="gpViTh" hidden>Tên tiếng Việt</th><th>Đơn 60 ngày</th><th class="l">Nhóm</th><th class="l">R&amp;D phụ trách</th><th class="l">Đang áp dụng</th></tr></thead><tbody id="gpRows"><tr><td colspan="6"><div class="skel" style="height:12px"></div></td></tr></tbody></table></div>
         <div class="formrow"><button class="btn" type="button" id="gpSave" disabled>Lưu thay đổi</button><button class="btn ghost" type="button" id="gpUndo" hidden>Bỏ thay đổi</button><span class="fmsg" id="gpSaveMsg"></span></div>
       </div>
     </section>
@@ -1161,14 +1161,18 @@
   const thisMonth = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
   $("#gpMonth").value = thisMonth();
   let gpList = [], gpDirty = new Map(), gpFilter = "all", gpImpRows = [];
+  // Tên tiếng Việt (bảng product_names, SQL 20261125000000_product_names_vi.sql). null = chưa chạy SQL: ẩn cột.
+  let gpVi = null;
   const gpM = () => ($("#gpMonth").value || thisMonth()) + "-01";
   const fmtMon = (iso) => iso ? iso.slice(5, 7) + "/" + iso.slice(0, 4) : "";
   async function loadGroups() {
     // Supabase trả tối đa 1.000 dòng mỗi lần: đọc từng trang.
     const all = async (mk) => { let out = []; for (let i = 0; ; i += 1000) { const r = await mk().range(i, i + 999); if (r.error) return r; out = out.concat(r.data || []); if (!r.data || r.data.length < 1000) return { data: out }; } };
-    const [p, g] = await Promise.all([all(() => sb.rpc("kpi_products", { p_days: 60 }).order("product_key")), all(() => sb.from("product_groups").select("month,product_key,name,grp,rd_staff_id").lte("month", gpM()).order("month", { ascending: false }).order("product_key"))]);
+    const [p, g, v] = await Promise.all([all(() => sb.rpc("kpi_products", { p_days: 60 }).order("product_key")), all(() => sb.from("product_groups").select("month,product_key,name,grp,rd_staff_id").lte("month", gpM()).order("month", { ascending: false }).order("product_key")),
+      all(() => sb.from("product_names").select("product_key,name_vi").order("product_key"))]);
+    gpVi = v.error ? null : new Map((v.data || []).map((x) => [x.product_key, x.name_vi]));
     const err = p.error || g.error;
-    if (err) { $("#gpRows").innerHTML = `<tr><td colspan="5" class="l neg">${esc(err.message)}. Kiểm tra đã chạy SQL 20261026000000_kpi.sql chưa.</td></tr>`; return; }
+    if (err) { $("#gpRows").innerHTML = `<tr><td colspan="6" class="l neg">${esc(err.message)}. Kiểm tra đã chạy SQL 20261026000000_kpi.sql chưa.</td></tr>`; return; }
     const m = new Map();
     (p.data || []).forEach((r) => m.set(r.product_key, { k: r.product_key, name: r.name, orders: +r.orders, grp: null, rd: null, from: "" }));
     (g.data || []).forEach((r) => { let x = m.get(r.product_key); if (!x) { x = { k: r.product_key, name: r.name, orders: 0, grp: null, rd: null, from: "" }; m.set(r.product_key, x); } if (!x.from) Object.assign(x, { grp: r.grp, rd: r.rd_staff_id, from: r.month }); });
@@ -1180,16 +1184,18 @@
     const cur = (x) => gpDirty.get(x.k) || x;
     gpList.forEach((x) => { const g = cur(x).grp; cnt[g || "none"]++; });
     $("#gpFilter").innerHTML = [["all", "Tất cả"], ["none", "Chưa xếp nhóm"], ["1", "Nhóm 1"], ["2", "Nhóm 2"], ["3", "Nhóm 3"]].map(([k, l]) => `<button type="button" class="chip ${gpFilter === k ? "on" : ""}" data-gpf="${k}" aria-pressed="${gpFilter === k}">${l} · ${cnt[k]}</button>`).join("");
-    const rows = gpList.filter((x) => (!q || pk(x.name).includes(q)) && (gpFilter === "all" || String(cur(x).grp || "none") === gpFilter));
+    const vi = (x) => (gpVi && gpVi.get(x.k)) || "";
+    $("#gpViTh").hidden = !gpVi;
+    const rows = gpList.filter((x) => (!q || pk(x.name).includes(q) || pk(vi(x)).includes(q)) && (gpFilter === "all" || String(cur(x).grp || "none") === gpFilter));
     const staffOpts = C.staff.filter((s) => s.active !== false).map((s) => [s.id, s.name]);
     const m = gpM();
     $("#gpRows").innerHTML = rows.slice(0, 400).map((x) => { const c = cur(x), d = gpDirty.has(x.k);
-      return `<tr${d ? ' class="editing"' : ""}><td class="l" style="white-space:normal">${esc(x.name)}</td><td>${nf.format(x.orders)}</td>
+      return `<tr${d ? ' class="editing"' : ""}><td class="l" style="white-space:normal">${esc(x.name)}</td>${gpVi ? `<td class="l"><input type="text" data-gpv="${esc(x.k)}" value="${esc(vi(x))}" placeholder="VD Bùa may mắn" aria-label="Tên tiếng Việt của ${esc(x.name)}" style="min-width:170px" maxlength="120"></td>` : ""}<td>${nf.format(x.orders)}</td>
       <td class="l"><select data-gpg="${esc(x.k)}" aria-label="Nhóm của ${esc(x.name)}">${opts([[1, "Nhóm 1 · khó đẩy"], [2, "Nhóm 2 · chưa đẩy mạnh"], [3, "Nhóm 3 · dễ đẩy"]], c.grp, "Chưa xếp nhóm")}</select></td>
       <td class="l"><select style="min-width:150px" data-gpr="${esc(x.k)}" aria-label="R&D của ${esc(x.name)}">${opts(staffOpts, c.rd, "Chưa gán")}</select></td>
       <td class="l">${d ? '<span class="pill p-warn">Chưa lưu</span>' : x.from === m ? '<span class="pill p-good">Tháng này</span>' : x.from ? `<span class="pill p-mute">Theo tháng ${fmtMon(x.from)}</span>` : '<span class="muted">–</span>'}</td></tr>`; }).join("")
-      + (rows.length > 400 ? `<tr><td colspan="5" class="l muted">Còn ${nf.format(rows.length - 400)} sản phẩm, gõ tên vào ô tìm để lọc.</td></tr>` : "")
-      || `<tr><td colspan="5">${Shell.empty("inbox", "Không có sản phẩm", gpList.length ? "Thử đổi bộ lọc hoặc ô tìm." : "Chưa có đơn nào trong 60 ngày. Đồng bộ đơn từ POS trước.")}</td></tr>`;
+      + (rows.length > 400 ? `<tr><td colspan="6" class="l muted">Còn ${nf.format(rows.length - 400)} sản phẩm, gõ tên vào ô tìm để lọc.</td></tr>` : "")
+      || `<tr><td colspan="6">${Shell.empty("inbox", "Không có sản phẩm", gpList.length ? "Thử đổi bộ lọc hoặc ô tìm." : "Chưa có đơn nào trong 60 ngày. Đồng bộ đơn từ POS trước.")}</td></tr>`;
     $("#gpSave").disabled = !gpDirty.size; $("#gpUndo").hidden = !gpDirty.size;
     $("#gpSave").textContent = gpDirty.size ? `Lưu ${gpDirty.size} thay đổi vào tháng ${fmtMon(m)}` : "Lưu thay đổi";
   }
@@ -1200,6 +1206,15 @@
     if (s.dataset.gpg) c.grp = s.value ? +s.value : null; else c.rd = s.value || null;
     if (c.grp === x.grp && c.rd === x.rd && x.from === gpM()) gpDirty.delete(k); else gpDirty.set(k, c);
     renderGroups();
+  });
+  // Tên tiếng Việt: lưu ngay khi rời ô (không theo tháng). Để trống = xoá tên.
+  $("#gpRows").addEventListener("change", async (e) => {
+    const inp = e.target.closest("[data-gpv]"); if (!inp || !gpVi) return;
+    const k = inp.dataset.gpv, v = inp.value.trim(), old = gpVi.get(k) || "", x = gpList.find((y) => y.k === k); if (v === old) return;
+    const { error } = v ? await sb.from("product_names").upsert({ product_key: k, name_vi: v, updated_at: new Date().toISOString() }) : await sb.from("product_names").delete().eq("product_key", k);
+    if (error) { inp.value = old; say($("#gpSaveMsg"), "Chưa lưu được tên tiếng Việt: " + esc(error.message), "neg"); return; }
+    if (v) gpVi.set(k, v); else gpVi.delete(k);
+    Shell.toast(v ? `Đã lưu tên tiếng Việt “${v}” cho ${x ? x.name : k}.` : `Đã xoá tên tiếng Việt của ${x ? x.name : k}.`);
   });
   $("#gpFilter").addEventListener("click", (e) => { const b = e.target.closest("[data-gpf]"); if (b) { gpFilter = b.dataset.gpf; renderGroups(); } });
   $("#gpQ").addEventListener("input", renderGroups);

@@ -1221,7 +1221,9 @@ function adStaffList(){
 const pkey=s=>String(s||'').trim().toLowerCase();
 let adDay=isoD(addD(sod(new Date()),-1)),adStaff=store.get('adstaff',''),adEdit=null,adImp=null,adImpOpen=false;
 const AD={key:'',rows:[],loading:false,err:'',usd:KDEF.usd_vnd,usdFrom:'',noCh:false,noCur:false};
-let PRODLIST=null;
+let PRODLIST=null,VINAME=null;
+// Gõ đúng tên tiếng Việt thì đổi sang tên POS (chi phí phải ghi theo tên POS để khớp đơn).
+const viToPos=v=>{if(!VINAME||!PRODLIST)return null;const q=pkey(v);if(!q)return null;for(const [k,n] of VINAME)if(pkey(n)===q){const p=PRODLIST.find(x=>x.product_key===k);return p?p.name:null}return null};
 async function loadAds(key){
   const d=new Date(adDay+'T00:00:00'),m0=isoD(monthStart(d)),m1=isoD(new Date(d.getFullYear(),d.getMonth()+1,1));
   const q=cols=>fetchAll(()=>sbc.from('ad_spend').select(cols).gte('day',m0).lt('day',m1).order('day',{ascending:false}).order('staff_id').order('product_key'));
@@ -1272,6 +1274,8 @@ V.chiphi=()=>{
   const d=new Date(adDay+'T00:00:00'),key=isoD(monthStart(d)),todayIso=isoD(new Date()),multi=list.length>1;
   if(key!==AD.key){AD.key=key;AD.loading=true;adEdit=null;loadAds(key)}
   if(!PRODLIST){PRODLIST=[];fetchAll(()=>sbc.rpc('kpi_products',{p_days:60}).order('product_key')).then(({data})=>{PRODLIST=(data||[]).sort((a,b)=>b.orders-a.orders);if(view==='chiphi')render()})}
+  // Tên tiếng Việt (Quản trị → Nhóm sản phẩm). Chưa chạy SQL product_names thì bỏ qua.
+  if(!VINAME){VINAME=new Map();fetchAll(()=>sbc.from('product_names').select('product_key,name_vi').order('product_key')).then(({data,error})=>{if(error)return;VINAME=new Map((data||[]).map(x=>[x.product_key,x.name_vi]));if(view==='chiphi')render()})}
   if(!SHOPLIST){SHOPLIST=[];sbc.rpc('ad_shops',{p_days:60}).then(({data})=>{SHOPLIST=(data||[]).sort((a,b)=>b.orders-a.orders);if(view==='chiphi')render()})}
   const known=new Set(PRODLIST.map(p=>p.product_key)),knownShop=new Set(SHOPLIST.map(p=>pkey(p.shop))),mineRows=AD.rows.filter(r=>r.staff_id===adStaff);
   // Tên chưa thấy trong đơn 60 ngày qua: kênh sàn kiểm theo tên shop (dòng cũ nhập theo sản phẩm vẫn chấp nhận).
@@ -1309,7 +1313,7 @@ V.chiphi=()=>{
       <span class="vnd muted">${r.usd!==''?M(usdOf(r.usd)*adRate(r.cur||'USD')):'–'}</span>
       ${r.name||r.usd?`<button class="icon-btn" type="button" data-adrm="${i}" aria-label="Xoá dòng ${i+1}" title="Xoá dòng">×</button>`:'<span></span>'}
       ${r.name&&unknownName(r.name,r.ch)?`<span class="adwarn">${isMktCh(r.ch)?'Chưa thấy shop nào tên này trong đơn 60 ngày qua, chọn tên shop trong danh sách gợi ý.':'Chưa thấy đơn nào có tên này trong 60 ngày qua, kiểm tra lại chính tả.'}</span>`:''}</div>`).join('')}
-    <datalist id="prodList">${(PRODLIST||[]).map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist>
+    <datalist id="prodList">${(PRODLIST||[]).map(p=>{const vi=VINAME&&VINAME.get(p.product_key);return `<option value="${esc(p.name)}"${vi?` label="${esc(vi)}"`:''}>`}).join('')}</datalist>
     <datalist id="shopList">${(SHOPLIST||[]).map(p=>`<option value="${esc(p.shop)}">${esc(adChName(p.channel_id))}</option>`).join('')}</datalist>
     <div class="tools" style="margin:12px 0 0">
       ${prevDay&&!saved.length&&!(adEdit||[]).some(r=>r.name)?`<button class="btn ghost sm" type="button" data-adcopy="${prevDay}">Chép danh sách từ ngày ${fmtD(new Date(prevDay+'T00:00:00'))}</button>`:''}
@@ -1338,7 +1342,7 @@ V.chiphi=()=>{
   const tblRows=multi&&adTblAll?AD.rows.filter(r=>list.some(s=>s.id===r.staff_id)):mineRows;
   const cols=[{k:'day',label:'Ngày',l:1,fmt:r=>fmtDY(new Date(r.day+'T00:00:00')),val:r=>r.day},
     ...(multi&&adTblAll?[{k:'staff',label:'Nhân sự',l:1,fmt:r=>esc(staffName(r.staff_id)),val:r=>staffName(r.staff_id)}]:[]),
-    {k:'prod',label:'Sản phẩm / Shop',l:1,fmt:r=>esc(r.product_name)+(String(r.product_key).startsWith('shop:')?' <span class="pill p-info">Shop</span>':'')+(unknownName(r.product_name,String(r.product_key).startsWith('shop:')?r.channel_id:'')?' <span class="pill p-warn" title="Không thấy đơn nào 60 ngày qua có tên này, nên chi phí sẽ không khớp đơn.">Không khớp đơn</span>':''),val:r=>r.product_name},
+    {k:'prod',label:'Sản phẩm / Shop',l:1,fmt:r=>esc(r.product_name)+(VINAME&&VINAME.get(r.product_key)?` <span class="muted">· ${esc(VINAME.get(r.product_key))}</span>`:'')+(String(r.product_key).startsWith('shop:')?' <span class="pill p-info">Shop</span>':'')+(unknownName(r.product_name,String(r.product_key).startsWith('shop:')?r.channel_id:'')?' <span class="pill p-warn" title="Không thấy đơn nào 60 ngày qua có tên này, nên chi phí sẽ không khớp đơn.">Không khớp đơn</span>':''),val:r=>r.product_name},
     ...(AD.noCh?[]:[{k:'ch',label:'Kênh',l:1,fmt:r=>r.channel_id?esc(adChName(r.channel_id)):'<span class="pill p-warn">Chưa chọn kênh</span>',val:r=>adChName(r.channel_id)}]),
     {k:'usd',label:'Chi phí',fmt:r=>`${U(adAmt(r))} ${adCur(r)==='USD'?'$':esc(curSym(adCur(r)))}`,val:r=>adAmt(r)},
     {k:'vnd',label:'≈ VNĐ',fmt:r=>M(r.usd*AD.usd),val:r=>Math.round(r.usd*AD.usd)}];
@@ -1647,7 +1651,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='adStaff'){if(adLeave()){adStaff=e.target.value;store.set('adstaff',adStaff);adEdit=null}render()}
   if(e.target.id==='adFile'&&e.target.files[0])readAdFile(e.target.files[0]);
   if(e.target.matches&&e.target.matches('#adForm .adCh')){adEdit=readAdForm();const i=+e.target.closest('.adrow').dataset.i;if(adEdit[i])adEdit[i].cur=adChCur(adEdit[i].ch);render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adName`);if(n)n.focus();return}
-  if(e.target.matches&&e.target.matches('#adForm .adName')){const r=readAdForm();adEdit=r;const i=+e.target.closest('.adrow').dataset.i;if(i===r.length-1&&r[i].name){render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adUsd`);if(n)n.focus()}}
+  if(e.target.matches&&e.target.matches('#adForm .adName')){{const en=viToPos(e.target.value);if(en)e.target.value=en}const r=readAdForm();adEdit=r;const i=+e.target.closest('.adrow').dataset.i;if(i===r.length-1&&r[i].name){render();const n=document.querySelector(`#adForm .adrow[data-i="${i}"] .adUsd`);if(n)n.focus()}}
 });
 function liveSearch(id,set){document.addEventListener('input',e=>{if(e.target.id!==id)return;set(e.target.value);const pos=e.target.selectionStart;render();const el=$('#'+id);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(x){}}})}
 liveSearch('pq',v=>{pQ=v;pgState('prod').page=0});
